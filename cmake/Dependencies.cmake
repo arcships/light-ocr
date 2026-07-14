@@ -86,8 +86,21 @@ function(light_ocr_configure_dependencies)
 
   light_ocr_archive_url(_ort_url microsoft.ml.onnxruntime.1.22.0.nupkg
     https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.22.0/microsoft.ml.onnxruntime.1.22.0.nupkg)
+  if(EXISTS "${_ort_url}")
+    # CMake 3.31 chooses the extractor for local files from their suffix and
+    # does not recognize NuGet's .nupkg suffix. Use a hard-linked .zip alias
+    # in the build tree; COPY_ON_ERROR keeps this portable across volumes.
+    set(_ort_archive_dir "${CMAKE_BINARY_DIR}/_light_ocr_archives")
+    set(_ort_archive_zip "${_ort_archive_dir}/microsoft.ml.onnxruntime.1.22.0.zip")
+    file(MAKE_DIRECTORY "${_ort_archive_dir}")
+    file(CREATE_LINK "${_ort_url}" "${_ort_archive_zip}" COPY_ON_ERROR)
+    set(_ort_url "${_ort_archive_zip}")
+  endif()
   FetchContent_Declare(onnxruntime_package
     URL "${_ort_url}"
+    # NuGet packages are ZIP archives, but CMake 3.31 still selects the
+    # extractor from the download suffix and does not recognize .nupkg.
+    DOWNLOAD_NAME microsoft.ml.onnxruntime.1.22.0.zip
     URL_HASH SHA256=d571e63a2329baacb713f441e65ad75284de354db6e1ac435fe4bebbb417986a
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 

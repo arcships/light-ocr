@@ -93,6 +93,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Bootstrap unit tests
+        run: python3 -m unittest discover -s tests/python -p 'test_*.py'
       - name: Bootstrap
         run: |
           python3 tools/bootstrap_dependencies.py --cache-dir .cache/dependencies

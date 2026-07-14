@@ -40,6 +40,12 @@ Original official archives:
 
 The URLs are provenance, not immutable identity. SHA-256 is required.
 
+Bootstrap first uses the official Paddle model-ecology archives. If an archive
+request fails at the network layer, it falls back to the `inference.onnx` and
+`inference.yml` files in the official PaddlePaddle Hugging Face repository at
+the immutable revisions above. Both paths must match the same locked member
+byte counts and SHA-256 values; integrity failures never trigger fallback.
+
 ## 3. Observed official artifact inventory
 
 The 2026-07-13 bootstrap download produced:

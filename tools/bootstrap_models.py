@@ -5,12 +5,15 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import shutil
+import sys
 import tarfile
 import tempfile
+import urllib.error
 import urllib.request
 
 
@@ -57,31 +60,52 @@ def read_archive_members(archive: bytes, record: dict[str, object]) -> dict[str,
     expected = record["members"]
     prefix = f"PP-OCRv6_small_{'det' if record['name'] == 'detection' else 'rec'}_onnx_infer/"
     result: dict[str, bytes] = {}
-    with tempfile.NamedTemporaryFile() as archive_file:
-        archive_file.write(archive)
-        archive_file.flush()
-        with tarfile.open(archive_file.name, "r:") as source:
-            for member in source.getmembers():
-                if member.issym() or member.islnk() or member.isdev():
-                    raise RuntimeError(f"unsafe archive member: {member.name}")
-                if member.isdir():
-                    if member.name.rstrip("/") != prefix.rstrip("/"):
-                        raise RuntimeError(f"unexpected archive directory: {member.name}")
-                    continue
-                if not member.isfile() or not member.name.startswith(prefix):
+    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:") as source:
+        for member in source.getmembers():
+            if member.issym() or member.islnk() or member.isdev():
+                raise RuntimeError(f"unsafe archive member: {member.name}")
+            if member.isdir():
+                if member.name.rstrip("/") != prefix.rstrip("/"):
                     raise RuntimeError(f"unexpected archive member: {member.name}")
-                leaf = member.name[len(prefix) :]
-                if leaf not in expected or "/" in leaf or leaf in result:
-                    raise RuntimeError(f"unexpected or duplicate archive member: {member.name}")
-                extracted = source.extractfile(member)
-                if extracted is None:
-                    raise RuntimeError(f"cannot read archive member: {member.name}")
-                data = extracted.read()
-                verify(data, expected[leaf], member.name)
-                result[leaf] = data
+                continue
+            if not member.isfile() or not member.name.startswith(prefix):
+                raise RuntimeError(f"unexpected archive member: {member.name}")
+            leaf = member.name[len(prefix) :]
+            if leaf not in expected or "/" in leaf or leaf in result:
+                raise RuntimeError(f"unexpected or duplicate archive member: {member.name}")
+            extracted = source.extractfile(member)
+            if extracted is None:
+                raise RuntimeError(f"cannot read archive member: {member.name}")
+            data = extracted.read()
+            verify(data, expected[leaf], member.name)
+            result[leaf] = data
     if set(result) != set(expected):
         raise RuntimeError(f"archive members do not match lock for {record['name']}")
     return result
+
+
+def obtain_artifact_members(
+    artifact: dict[str, object], cache_dir: Path
+) -> dict[str, bytes]:
+    try:
+        return read_archive_members(obtain(artifact, cache_dir), artifact)
+    except (urllib.error.URLError, TimeoutError) as error:
+        members = artifact["members"]
+        if not all("url" in record for record in members.values()):
+            raise
+        print(
+            f"{artifact['name']}: official archive unavailable ({error}); "
+            "using pinned official model repository members",
+            file=sys.stderr,
+        )
+        result: dict[str, bytes] = {}
+        for name, member in members.items():
+            member_record = {
+                **member,
+                "filename": f"{artifact['name']}-{name}",
+            }
+            result[name] = obtain(member_record, cache_dir)
+        return result
 
 
 def parse_yaml_scalar(raw: str) -> str:
@@ -212,8 +236,7 @@ def write_bundle(output: Path, cache_dir: Path, force: bool) -> None:
     try:
         payloads: dict[str, bytes] = {}
         for artifact in bundle["artifacts"]:
-            archive = obtain(artifact, cache_dir)
-            members = read_archive_members(archive, artifact)
+            members = obtain_artifact_members(artifact, cache_dir)
             target = "det" if artifact["name"] == "detection" else "rec"
             payloads[f"{target}/inference.onnx"] = members["inference.onnx"]
             payloads[f"{target}/inference.yml"] = members["inference.yml"]
