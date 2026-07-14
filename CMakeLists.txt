@@ -19,6 +19,8 @@ option(LIGHT_OCR_BUILD_FUZZERS "Build Clang libFuzzer targets" OFF)
 option(LIGHT_OCR_BUILD_NODE "Build the Node-API adapter" OFF)
 option(LIGHT_OCR_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(LIGHT_OCR_ENABLE_THREAD_SANITIZER "Enable ThreadSanitizer" OFF)
+option(LIGHT_OCR_PARITY_LIVE_ORACLE
+  "Compare the native probe with the pinned oracle running on this machine" OFF)
 set(LIGHT_OCR_DEPENDENCY_CACHE_DIR "" CACHE PATH "Directory containing verified dependency archives")
 set(LIGHT_OCR_ORACLE_PYTHON "" CACHE FILEPATH "Pinned Python interpreter for parity tests")
 set(LIGHT_OCR_NODE_INCLUDE_DIR "" CACHE PATH "Directory containing node_api.h")
@@ -164,8 +166,18 @@ if(LIGHT_OCR_BUILD_TESTS)
   endif()
   if(LIGHT_OCR_BUILD_TOOLS AND LIGHT_OCR_ORACLE_PYTHON AND
      EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-onnx-20260713.1/manifest.json")
+    set(_light_ocr_parity_oracle_arguments)
+    if(LIGHT_OCR_PARITY_LIVE_ORACLE)
+      list(APPEND _light_ocr_parity_oracle_arguments --live-oracle)
+    endif()
     add_test(NAME light_ocr_oracle_compare_tests
       COMMAND "${LIGHT_OCR_ORACLE_PYTHON}" "${CMAKE_CURRENT_SOURCE_DIR}/oracle/test_compare.py")
+    add_test(NAME light_ocr_oracle_golden_lock_verify
+      COMMAND "${LIGHT_OCR_ORACLE_PYTHON}" "${CMAKE_CURRENT_SOURCE_DIR}/oracle/generate_goldens.py"
+        --bundle "${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-onnx-20260713.1"
+        --fixtures "${CMAKE_CURRENT_SOURCE_DIR}/corpus/fixtures"
+        --output "${CMAKE_CURRENT_SOURCE_DIR}/corpus/goldens"
+        --verify-lock-only)
     add_test(NAME light_ocr_oracle_golden_verify
       COMMAND "${LIGHT_OCR_ORACLE_PYTHON}" "${CMAKE_CURRENT_SOURCE_DIR}/oracle/generate_goldens.py"
         --bundle "${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-onnx-20260713.1"
@@ -184,13 +196,15 @@ if(LIGHT_OCR_BUILD_TESTS)
       COMMAND "${LIGHT_OCR_ORACLE_PYTHON}" "${CMAKE_CURRENT_SOURCE_DIR}/oracle/run_parity.py"
         --native-probe "$<TARGET_FILE:light_ocr_stage_probe>"
         --bundle "${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-onnx-20260713.1"
-        --fixture "${CMAKE_CURRENT_SOURCE_DIR}/corpus/fixtures/generated-hello-123/fixture.json")
+        --fixture "${CMAKE_CURRENT_SOURCE_DIR}/corpus/fixtures/generated-hello-123/fixture.json"
+        ${_light_ocr_parity_oracle_arguments})
     add_test(NAME light_ocr_parity_corpus
       COMMAND "${LIGHT_OCR_ORACLE_PYTHON}" "${CMAKE_CURRENT_SOURCE_DIR}/oracle/run_corpus.py"
         --native-probe "$<TARGET_FILE:light_ocr_stage_probe>"
         --bundle "${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-onnx-20260713.1"
         --fixtures "${CMAKE_CURRENT_SOURCE_DIR}/corpus/fixtures"
-        --report-dir "${CMAKE_BINARY_DIR}/reports/parity")
+        --report-dir "${CMAKE_BINARY_DIR}/reports/parity"
+        ${_light_ocr_parity_oracle_arguments})
     add_test(NAME light_ocr_quality_baseline
       COMMAND "${LIGHT_OCR_ORACLE_PYTHON}" "${CMAKE_CURRENT_SOURCE_DIR}/oracle/run_quality.py"
         --native-probe "$<TARGET_FILE:light_ocr_stage_probe>"
@@ -198,10 +212,11 @@ if(LIGHT_OCR_BUILD_TESTS)
         --fixtures "${CMAKE_CURRENT_SOURCE_DIR}/corpus/fixtures"
         --ground-truth-lock "${CMAKE_CURRENT_SOURCE_DIR}/corpus/ground-truth.lock.json"
         --report "${CMAKE_BINARY_DIR}/reports/quality/ppocrv6-small-onnx-20260713.1.json")
-    set_tests_properties(light_ocr_oracle_golden_verify light_ocr_ground_truth_verify
+    set_tests_properties(light_ocr_oracle_golden_lock_verify light_ocr_ground_truth_verify
       light_ocr_contract_manifest_verify light_ocr_parity_corpus
       light_ocr_quality_baseline
       PROPERTIES LABELS acceptance)
+    set_tests_properties(light_ocr_oracle_golden_verify PROPERTIES LABELS canonical-oracle)
   endif()
 endif()
 

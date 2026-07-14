@@ -89,7 +89,8 @@ python3.11 -m venv .cache/oracle-venv
 
 cmake --preset release \
   -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies" \
-  -DLIGHT_OCR_ORACLE_PYTHON="$PWD/.cache/oracle-venv/bin/python"
+  -DLIGHT_OCR_ORACLE_PYTHON="$PWD/.cache/oracle-venv/bin/python" \
+  -DLIGHT_OCR_PARITY_LIVE_ORACLE=ON
 cmake --build --preset release --parallel
 ctest --preset release
 ```
@@ -163,7 +164,7 @@ build/preset-release/bin/light_ocr_leak_check \
   --bundle models/generated/ppocrv6-small-onnx-20260713.1 \
   --pixels corpus/fixtures/generated-hello-123/pixels.bin \
   --width 800 --height 180 --stride 2400 --format bgr8 \
-  --warmup 2 --iterations 10 \
+  --warmup 5 --iterations 10 \
   --report reports/leak/macos-arm64.generated-hello-123.json
 ```
 
@@ -184,7 +185,7 @@ Linux CI 还把同一命令放入 `unshare --net` 网络命名空间并要求 `-
 
 - `tier1`：四个 Tier 1 原生 runner，锁定依赖/模型、离线缓存复核、Release 构建、真实模型测试、sterile/offline 检查、RSS gate、manifest/license/SBOM。
 - `safety`：Linux ASan+UBSan+LSan、TSan、四个 libFuzzer 入口。
-- `oracle`：hash-locked Python 环境、14 个语料的全阶段对齐、首 bundle 质量基线和相对性能门槛。
+- `oracle`：hash-locked Python 环境、committed corpus/golden 身份校验、同机 live oracle 的 14 个语料全阶段对齐、首 bundle 质量基线和相对性能门槛。
 
 Actions 均固定到 commit SHA。当前已有本地 Git 仓库和初始 commit，但尚未产生这套 GitHub Actions 的真实 run URL；工作流“已配置”不等于四平台“已通过”。发布候选必须保留每个 job 的不可变 run/artifact 证据。
 

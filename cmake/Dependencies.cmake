@@ -49,6 +49,10 @@ function(light_ocr_configure_dependencies)
     https://codeload.github.com/opencv/opencv/tar.gz/refs/tags/4.10.0)
   set(BUILD_LIST core,imgproc CACHE STRING "" FORCE)
   set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+  # Keep every static dependency on the same dynamic MSVC runtime as the
+  # project and the pinned ONNX Runtime DLL. OpenCV otherwise defaults to /MT
+  # for static builds, which cannot be linked into the project's /MD tools.
+  set(BUILD_WITH_STATIC_CRT OFF CACHE BOOL "" FORCE)
   set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
   set(BUILD_PERF_TESTS OFF CACHE BOOL "" FORCE)
   set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -56,6 +60,14 @@ function(light_ocr_configure_dependencies)
   set(BUILD_opencv_apps OFF CACHE BOOL "" FORCE)
   set(BUILD_JAVA OFF CACHE BOOL "" FORCE)
   set(BUILD_opencv_python_bindings_generator OFF CACHE BOOL "" FORCE)
+  # Core controls inference parallelism through EngineOptions. The built-in
+  # pthread parallel_for pool is unnecessary here and races under TSan in
+  # OpenCV 4.10. Disable runtime-discovered parallel plugins for the same
+  # deterministic, current-directory-independent behavior.
+  set(PARALLEL_ENABLE_PLUGINS OFF CACHE BOOL "" FORCE)
+  set(WITH_PTHREADS_PF OFF CACHE BOOL "" FORCE)
+  set(WITH_OPENMP OFF CACHE BOOL "" FORCE)
+  set(WITH_TBB OFF CACHE BOOL "" FORCE)
   set(WITH_1394 OFF CACHE BOOL "" FORCE)
   set(WITH_ADE OFF CACHE BOOL "" FORCE)
   set(WITH_AVFOUNDATION OFF CACHE BOOL "" FORCE)

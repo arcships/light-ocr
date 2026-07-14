@@ -15,19 +15,27 @@ def main() -> int:
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--fixtures", type=Path, required=True)
     parser.add_argument("--report-dir", type=Path, required=True)
+    parser.add_argument(
+        "--live-oracle",
+        action="store_true",
+        help="compare with the pinned oracle on this machine instead of locked stage goldens",
+    )
     arguments = parser.parse_args()
     runner = Path(__file__).with_name("run_parity.py")
     reports = []
     for fixture in sorted(arguments.fixtures.glob("*/fixture.json")):
         report_path = arguments.report_dir / f"{fixture.parent.name}.json"
+        command = [
+            str(Path(__import__("sys").executable)), str(runner),
+            "--native-probe", str(arguments.native_probe),
+            "--bundle", str(arguments.bundle),
+            "--fixture", str(fixture),
+            "--report", str(report_path),
+        ]
+        if arguments.live_oracle:
+            command.append("--live-oracle")
         process = subprocess.run(
-            [
-                str(Path(__import__("sys").executable)), str(runner),
-                "--native-probe", str(arguments.native_probe),
-                "--bundle", str(arguments.bundle),
-                "--fixture", str(fixture),
-                "--report", str(report_path),
-            ],
+            command,
             check=False,
             capture_output=True,
             text=True,

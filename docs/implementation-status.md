@@ -21,7 +21,7 @@
 | stage 与 final parity | Done（本机）/ Pending（Tier 1） | macOS arm64 14/14；候选级 trace 完整；仅 PX-0001 窄范围例外。其他平台待 CI。 |
 | 首 bundle ground-truth quality report | Done（本机） | 10 个锁定 fixtures、10 个独立框标注；9/10 exact，CER `0.0096153846`；IoU≥0.5 下 detection precision/recall/Hmean 均为 `1.0`。这是有限语料的首基线，不是一般化产品准确率声明。 |
 | 相对性能门槛 | Done（参考本机） | median `0.9869991× ≤ 1.10×`；p95 `0.9790358× ≤ 1.15×`；inference median `1.0006504× ≤ 1.05×`。受控 CI worker 报告仍应保留。 |
-| Sanitizer、fuzz、leak、lifecycle、malformed input | Done（本机可用部分）/ Configured | ASan+UBSan 2/2；TSan 2/2；Apple standalone fuzz image/bundle/geometry 各 100k、lifecycle 10；RSS 10 cycles 增长 65,536 bytes；损坏 ONNX/模型契约/ORT shape error 已测。Linux LSan 与真正 libFuzzer 待 CI。 |
+| Sanitizer、fuzz、leak、lifecycle、malformed input | Done（本机可用部分）/ Configured | ASan+UBSan 2/2；TSan 2/2；Apple standalone fuzz image/bundle/geometry 各 100k、lifecycle 10；RSS gate 使用 5 次预热后测量 10 个周期；损坏 ONNX/模型契约/ORT shape error 已测。Linux LSan 与真正 libFuzzer 待 CI。 |
 | 无 network/shell/cwd/locale 运行依赖 | Done（sterile）/ Configured（network namespace） | 本地 sterile cwd+minimal env 两次结果一致；Linux `unshare --net` job 已配置，待真实 run。 |
 | manifest、hash、licenses、SBOM、parity、benchmark | Done（本机）/ Pending（Tier 1） | 现有本地报告生成时尚无 Git revision，使用 source snapshot SHA-256；仓库现已建立，四平台 release metadata 需从干净 release commit 在 CI 重新生成。 |
 | N-API/npm 非本 Core milestone | 源码实现 Done / package 发布 Pending | `bindings/node` 已有 raw Node-API v8 addon、CJS/ESM facade、`.d.ts`、安全 bundle loader、专用 FIFO worker、双重背压、输入快照、AbortSignal、close/GC/environment teardown 和真实模型测试；公开名固定为 `@arcships/light-ocr`，六包拓扑与内置模型契约已写入 [npm-packaging.md](npm-packaging.md)。尚无默认模型解析实现、四平台 prebuild、npm registry 发布或 Node 24 平台证据。 |
@@ -38,7 +38,7 @@
 | ASan + UBSan | 2/2 passed；Apple 平台不启用 LSan |
 | TSan | 2/2 passed |
 | standalone fuzz | image 100k、bundle 100k、geometry 100k、lifecycle 10，全部完成 |
-| leak/RSS | 2 warmup + 10 cycles；growth 65,536 bytes（6,553 bytes/cycle）；gate 32 MiB / 8 MiB per cycle |
+| leak/RSS | 5 warmup + 10 cycles；当前复测 growth 9,076,736 bytes（907,673 bytes/cycle）；gate 32 MiB / 8 MiB per cycle |
 | offline contract | sterile cwd/minimal locale environment passed |
 | model archive | 31,334,400 bytes；SHA-256 `d320b799ed77511e3743c36d2f23bd8cbcd80d8070d5431f4fb0ec80daa800da` |
 | Node-API v1 | Node.js 22.13.0；macOS arm64 Debug/Werror 构建；真实 PP-OCRv6 API、snapshot/byteOffset、校验、symlink root、request/byte 双重背压、queued/running abort、event-loop heartbeat、close drain、worker teardown 测试通过 |

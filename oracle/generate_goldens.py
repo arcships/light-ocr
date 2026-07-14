@@ -11,9 +11,6 @@ from pathlib import Path
 import shutil
 import tempfile
 
-from oracle import run
-
-
 ROOT = Path(__file__).resolve().parents[1]
 ORACLE_LOCK = ROOT / "oracle" / "oracle.lock.json"
 ORACLE_SOURCE = ROOT / "oracle" / "oracle.py"
@@ -29,6 +26,10 @@ def canonical(value: object) -> bytes:
 
 
 def golden_bytes(bundle: Path, fixture_path: Path) -> bytes:
+    # Keep lock-only verification usable without importing the heavyweight
+    # oracle environment (OpenCV, NumPy, and ONNX Runtime).
+    from oracle import run
+
     fixture = json.loads(fixture_path.read_text("utf-8"))
     pixels = fixture_path.parent / "pixels.bin"
     if sha256(pixels) != fixture["pixelSha256"]:
@@ -49,8 +50,12 @@ def golden_bytes(bundle: Path, fixture_path: Path) -> bytes:
     })
 
 
-def verify(bundle: Path, fixtures: Path, output: Path) -> None:
+def verify_lock(
+    bundle: Path, fixtures: Path, output: Path
+) -> tuple[dict[str, object], dict[str, dict[str, object]], list[Path]]:
     lock = json.loads(GOLDEN_LOCK.read_text("utf-8"))
+    if lock.get("schemaVersion") != "1.0":
+        raise RuntimeError("unsupported golden lock schema")
     if lock["oracleLockSha256"] != sha256(ORACLE_LOCK):
         raise RuntimeError("golden oracle lock identity is stale")
     if lock["oracleSourceSha256"] != sha256(ORACLE_SOURCE):
@@ -58,18 +63,47 @@ def verify(bundle: Path, fixtures: Path, output: Path) -> None:
     if lock["bundleManifestSha256"] != sha256(bundle / "manifest.json"):
         raise RuntimeError("golden bundle manifest identity is stale")
     records = {record["fixtureId"]: record for record in lock["fixtures"]}
+    if len(records) != len(lock["fixtures"]):
+        raise RuntimeError("golden lock contains duplicate fixture IDs")
     fixture_paths = sorted(fixtures.glob("*/fixture.json"))
     if set(records) != {path.parent.name for path in fixture_paths}:
         raise RuntimeError("golden fixture inventory does not match the materialized corpus")
     for fixture_path in fixture_paths:
         fixture_id = fixture_path.parent.name
-        expected_bytes = golden_bytes(bundle, fixture_path)
+        fixture = json.loads(fixture_path.read_text("utf-8"))
+        if fixture.get("id") != fixture_id:
+            raise RuntimeError(f"fixture ID does not match its directory: {fixture_id}")
+        if sha256(fixture_path.parent / "pixels.bin") != fixture.get("pixelSha256"):
+            raise RuntimeError(f"fixture pixel hash mismatch: {fixture_id}")
         golden_path = output / records[fixture_id]["path"]
-        if not golden_path.is_file() or golden_path.read_bytes() != expected_bytes:
-            raise RuntimeError(f"golden cannot be reproduced byte-for-byte: {fixture_id}")
-        if (len(expected_bytes) != records[fixture_id]["bytes"] or
-                hashlib.sha256(expected_bytes).hexdigest() != records[fixture_id]["sha256"]):
+        if not golden_path.is_file():
+            raise RuntimeError(f"golden file is missing: {fixture_id}")
+        golden_bytes_value = golden_path.read_bytes()
+        if (len(golden_bytes_value) != records[fixture_id]["bytes"] or
+                hashlib.sha256(golden_bytes_value).hexdigest() != records[fixture_id]["sha256"]):
             raise RuntimeError(f"golden lock mismatch: {fixture_id}")
+        golden = json.loads(golden_bytes_value)
+        if (
+            golden.get("schemaVersion") != "1.0"
+            or golden.get("fixtureId") != fixture_id
+            or golden.get("corpusRevision") != fixture.get("corpusRevision")
+            or golden.get("pixelSha256") != fixture.get("pixelSha256")
+            or golden.get("modelBundleId") != lock["modelBundleId"]
+            or golden.get("oracleLockSha256") != lock["oracleLockSha256"]
+            or golden.get("oracleSourceSha256") != lock["oracleSourceSha256"]
+        ):
+            raise RuntimeError(f"golden identity mismatch: {fixture_id}")
+    return lock, records, fixture_paths
+
+
+def verify(bundle: Path, fixtures: Path, output: Path) -> None:
+    _, records, fixture_paths = verify_lock(bundle, fixtures, output)
+    for fixture_path in fixture_paths:
+        fixture_id = fixture_path.parent.name
+        expected_bytes = golden_bytes(bundle, fixture_path)
+        golden_path = output / str(records[fixture_id]["path"])
+        if golden_path.read_bytes() != expected_bytes:
+            raise RuntimeError(f"golden cannot be reproduced byte-for-byte: {fixture_id}")
 
 
 def generate(bundle: Path, fixtures: Path, output: Path, force: bool) -> None:
@@ -110,18 +144,25 @@ def main() -> int:
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--fixtures", type=Path, default=ROOT / "corpus" / "fixtures")
     parser.add_argument("--output", type=Path, default=ROOT / "corpus" / "goldens")
-    parser.add_argument("--verify", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--verify", action="store_true")
+    mode.add_argument("--verify-lock-only", action="store_true")
     parser.add_argument("--force", action="store_true")
     arguments = parser.parse_args()
     bundle = arguments.bundle.resolve()
     fixtures = arguments.fixtures.resolve()
     output = arguments.output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
-    if arguments.verify:
+    if arguments.verify_lock_only:
+        verify_lock(bundle, fixtures, output)
+    elif arguments.verify:
         verify(bundle, fixtures, output)
     else:
         generate(bundle, fixtures, output, arguments.force)
-    print(json.dumps({"schemaVersion": "1.0", "verified": arguments.verify,
+    print(json.dumps({"schemaVersion": "1.0",
+                      "verified": arguments.verify or arguments.verify_lock_only,
+                      "verificationMode": "lock-only" if arguments.verify_lock_only else
+                                          "byte-replay" if arguments.verify else "generated",
                       "goldenDirectory": str(output)}, sort_keys=True, separators=(",", ":")))
     return 0
 

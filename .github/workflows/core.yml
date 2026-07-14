@@ -73,7 +73,7 @@ jobs:
           --bundle models/generated/ppocrv6-small-onnx-20260713.1
           --pixels corpus/fixtures/generated-hello-123/pixels.bin
           --width 800 --height 180 --stride 2400 --format bgr8
-          --warmup 2 --iterations 10
+          --warmup 5 --iterations 10
           --report reports/release/${{ matrix.id }}/leak.json
       - name: Generate build manifest, licenses, and SPDX SBOM
         shell: bash
@@ -131,10 +131,9 @@ jobs:
         run: |
           python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies
           python tools/bootstrap_models.py --cache-dir .cache/models
-          python corpus/generate_corpus.py --cache-dir .cache/corpus --output-dir corpus/fixtures
       - name: Build the Release probe and benchmark
         run: |
-          cmake -S . -B build-oracle -G Ninja -DCMAKE_BUILD_TYPE=Release -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies" -DLIGHT_OCR_ORACLE_PYTHON="$(command -v python)"
+          cmake -S . -B build-oracle -G Ninja -DCMAKE_BUILD_TYPE=Release -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies" -DLIGHT_OCR_ORACLE_PYTHON="$(command -v python)" -DLIGHT_OCR_PARITY_LIVE_ORACLE=ON
           cmake --build build-oracle --parallel
       - name: Full stage parity and first-bundle quality baseline
         run: ctest --test-dir build-oracle --output-on-failure -L acceptance
