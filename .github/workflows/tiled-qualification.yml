@@ -148,7 +148,7 @@ jobs:
                 --pixels "$fixture_root/$fixture/pixels.bin" \
                 --width 2048 --height 2048 --stride 6144 --format bgr8 \
                 --target-width 2048 --target-height 2048 \
-                --profile tiled_v1 --diagnostics "$diagnostics" \
+                --profile tiled_v1 --diagnostics-mode "$diagnostics" \
                 --minimum-boxes 1 --maximum-peak-bytes 1073741824 \
                 --report "$root/core-memory/$fixture-$diagnostics.json"
             done
