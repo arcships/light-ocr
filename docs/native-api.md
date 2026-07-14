@@ -1,11 +1,11 @@
 # light-ocr Native C++ API
 
-Status: Core 0.1.0 published; additive Core 0.2.0 tiled candidate implemented but not released<br>
+Status: Core 0.2.0 tiled source contract published with `@arcships/light-ocr@0.2.0`<br>
 Authority: public C++ source contract, ownership, lifecycle, errors, and compatibility  
 Requirements: [requirements.md](requirements.md)  
 Architecture: [architecture.md](architecture.md)
 
-The declarations below track the current source tree, including the additive tiled candidate. The released 0.1.0 API contains only bounded/upstream detection; `DetectionStrategy::tiled` must not be treated as a published capability until the [Tiled Detection completion checklist](tiled-design-and-acceptance.md#14-完成定义) passes.
+The declarations below track the current source tree. Version 0.2.0 publishes the additive `DetectionStrategy::tiled` contract; bounded/960 remains the default and 0.1.0 retains only bounded/upstream detection.
 
 ## 1. Scope
 

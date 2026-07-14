@@ -16,7 +16,7 @@ English | [简体中文](README.zh-CN.md)
 
 It is made for products where OCR should feel like a local capability: quick to invoke, private by default, and straightforward to embed into an existing image pipeline.
 
-> **Available on npm:** `@arcships/light-ocr@0.1.0` includes the default PP-OCRv6 Small model and prebuilt native runtimes for all Tier 1 platforms. The `0.2.0` release candidate on `main` adds opt-in tiled detection and direct JPEG/PNG input for Node.js. See [Package support](#package-support).
+> **Available on npm:** `@arcships/light-ocr@0.2.0` includes the default PP-OCRv6 Small model, prebuilt native runtimes for all Tier 1 platforms, opt-in tiled detection, and direct in-memory JPEG/PNG input for Node.js. See [Package support](#package-support).
 
 ## Where light-ocr fits
 
@@ -40,7 +40,7 @@ Cloud OCR is convenient, but it introduces uploads, network availability, recurr
 
 - **Local by default.** Recognition performs no runtime network access and does not start a child process.
 - **Ready for real application pipelines.** It accepts `GRAY8`, `RGB8`, `BGR8`, and `RGBA8` pixel buffers; the Node.js adapter can also decode JPEG and PNG bytes already held in memory.
-- **Two deliberate large-image modes.** Bounded/960 remains the fast, memory-conscious default. The `0.2.0` candidate adds opt-in tiled detection for small text and dense 2048-pixel documents while processing one detection tile at a time.
+- **Two deliberate large-image modes.** Bounded/960 remains the fast, memory-conscious default. Opt-in tiled detection preserves more detail for small text and dense 2048-pixel documents while processing one detection tile at a time.
 - **A pinned, reproducible model.** The approximately 31 MB PP-OCRv6 Small bundle is integrity-checked and designed to ship with the application instead of downloading on first use.
 - **Consistent across supported platforms.** The same model and result contract are used on macOS, Linux, and Windows.
 - **Built for asynchronous hosts.** The Node-API adapter keeps inference away from the JavaScript thread, with bounded queues, cancellation, and explicit lifecycle control.
@@ -101,7 +101,7 @@ Node.js 22 and 24 are supported on macOS arm64/x64, Linux x64 glibc, and Windows
 npm install @arcships/light-ocr
 ```
 
-The package installs the matching native runtime and the pinned PP-OCRv6 Small model. It does not download a model at first run or compile native code during `postinstall`. `recognizeEncoded()` below is part of the `0.2.0` candidate; `0.1.0` callers should provide decoded pixels to `recognize()`.
+The package installs the matching native runtime and the pinned PP-OCRv6 Small model. It does not download a model at first run or compile native code during `postinstall`. Version 0.2.0 supports both `recognizeEncoded()` and raw-pixel `recognize()`.
 
 ```ts
 import { createEngine } from "@arcships/light-ocr";
@@ -150,15 +150,15 @@ See [Build and release](docs/build-and-release.md) for platform prerequisites an
 | --- | --- | --- |
 | C++ core source | Available | macOS arm64/x64, Linux x64 glibc, Windows x64 |
 | Node-API adapter source | Available | Node.js 22 and 24 |
-| [`@arcships/light-ocr`](https://www.npmjs.com/package/@arcships/light-ocr) | `0.1.0` published | Node.js 22/24 on all Tier 1 platforms |
-| [`@arcships/light-ocr-model-ppocrv6-small`](https://www.npmjs.com/package/@arcships/light-ocr-model-ppocrv6-small) | `0.1.0` published | Platform-independent required model dependency |
-| Platform native npm packages | `0.1.0` published | macOS arm64/x64, Linux x64 glibc, Windows x64 |
+| [`@arcships/light-ocr`](https://www.npmjs.com/package/@arcships/light-ocr) | `0.2.0` published | Node.js 22/24 on all Tier 1 platforms |
+| [`@arcships/light-ocr-model-ppocrv6-small`](https://www.npmjs.com/package/@arcships/light-ocr-model-ppocrv6-small) | `0.2.0` published | Platform-independent required model dependency |
+| Platform native npm packages | `0.2.0` published | macOS arm64/x64, Linux x64 glibc, Windows x64 |
 
-The npm distribution installs one facade, one required model package, and the native package matching the host platform. Package contents, versioning, and release gates are documented in [npm packaging](docs/npm-packaging.md); immutable `0.1.0` hashes and validation evidence are recorded in the [release record](docs/releases/npm-0.1.0.md).
+The npm distribution installs one facade, one required model package, and the native package matching the host platform. Package contents, versioning, and release gates are documented in [npm packaging](docs/npm-packaging.md); immutable `0.2.0` hashes and validation evidence are recorded in the [release record](docs/releases/npm-0.2.0.md).
 
 ## Project status
 
-`light-ocr` is under active development. Version `0.1.0` is the first public npm release. The `0.2.0` release candidate adds the deterministic `tiled-v1` high-resolution mode and bounded in-memory JPEG/PNG decoding in the Node.js adapter without changing the raw-pixel C++ Core boundary.
+`light-ocr` is under active development. Version `0.2.0` publishes the deterministic `tiled-v1` high-resolution mode and bounded in-memory JPEG/PNG decoding in the Node.js adapter without changing the raw-pixel C++ Core boundary.
 
 As a pre-1.0 project, public APIs and package layout may still evolve; the project does not currently promise a stable cross-release C++ ABI.
 

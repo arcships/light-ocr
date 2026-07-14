@@ -205,7 +205,7 @@ struct EngineOptions {
 };
 ```
 
-`DetectionStrategy::tiled` 已进入 0.2.0 candidate headers；tile side、overlap 和 merge threshold 不作为用户旋钮，而由 schema 1.2 bundle 的 `tiled-v1` contract 固定。它尚未随 npm 版本发布。
+`DetectionStrategy::tiled` 已随 0.2.0 发布；tile side、overlap 和 merge threshold 不作为用户旋钮，而由 schema 1.2 bundle 的 `tiled-v1` contract 固定。
 
 约束：
 

@@ -1,6 +1,6 @@
 # light-ocr Core 构建与发布
 
-状态：已实现；Core Tier 1 与 npm `0.1.0` 发布证据已产生
+状态：已实现；Core Tier 1 与 npm `0.2.0` 发布证据已产生
 范围：C++ Core 的依赖锁、构建、测试、验证报告和发布候选制品  
 需求：[requirements.md](requirements.md)  
 当前状态：[implementation-status.md](implementation-status.md)
@@ -9,7 +9,7 @@
 
 当前交付物是 C++17 静态库 `light_ocr_core`、三个标准库公共头文件、验证工具、真实 PP-OCRv6 模型 bundle 和验收报告。Core 运行时不包含 Python；Python 仅用于测试 oracle、语料生成和发布元数据。
 
-Core 交付仍不是稳定 ABI、公共 C ABI 或 C++ 包管理器 SDK。Node.js 用户可以使用已发布的 `@arcships/light-ocr@0.1.0` 与四平台 prebuild，但这不改变 Core 的源码集成边界。外部 C++ 安装布局属于 D102；因此仓库当前不提供容易被误认为完整 SDK 的 `cmake --install` 规则。仓库内 C++ 消费者应通过 `add_subdirectory` 使用 `light_ocr::core`，发布验证包主要服务验收，不构成长期二进制兼容承诺。
+Core 交付仍不是稳定 ABI、公共 C ABI 或 C++ 包管理器 SDK。Node.js 用户可以使用已发布的 `@arcships/light-ocr@0.2.0` 与四平台 prebuild，但这不改变 Core 的源码集成边界。外部 C++ 安装布局属于 D102；因此仓库当前不提供容易被误认为完整 SDK 的 `cmake --install` 规则。仓库内 C++ 消费者应通过 `add_subdirectory` 使用 `light_ocr::core`，发布验证包主要服务验收，不构成长期二进制兼容承诺。
 
 ```cmake
 add_subdirectory(path/to/light-ocr)
@@ -217,6 +217,8 @@ gh workflow run tiled-qualification.yml --ref main -f run_benchmark=true
 ```
 
 benchmark 结果是独立资格审查证据，不是每次发布的重复步骤。需要建立或更新 accepted baseline 时，仍须人工 review 并作为源码提交；脚本不会自动接受当前值。`promote_latest` 默认为 `false`，需要在 registry evidence 人工核对后显式选择。
+
+`.github/workflows/npm-promote.yml` 只负责给已经发布且完整性已验证的 release set 更新 dist-tag。它必须引用原 `npm release` run 保存的 `light-ocr-npm-<version>` artifact，逐包复核 registry integrity，并按 model/native 依赖优先、facade 最后的顺序更新；不会重新构建、测试或发布 tarball。该 workflow 用于人工分阶段 promotion，以及 npm metadata 最终一致性导致主发布 job 在 tag 校验阶段中断后的安全恢复。
 
 Actions 均固定到 commit SHA。D013 之前的四平台 workflow 已通过；bounded/streaming 变更后的发布候选必须重新保留每个 job 的不可变 run/artifact 证据，旧 run 不能替代当前代码。
 
