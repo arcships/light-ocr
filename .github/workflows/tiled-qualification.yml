@@ -54,6 +54,7 @@ jobs:
           python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies
           python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies --offline
           python tools/bootstrap_models.py --cache-dir .cache/models
+          python tools/package_model_bundle.py
       - name: Install verified Node development files (Unix)
         if: runner.os != 'Windows'
         shell: bash
