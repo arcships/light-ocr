@@ -45,6 +45,13 @@ function(light_ocr_configure_dependencies)
     URL_HASH SHA256=2be14496a1609fa8602d9d3672c83ee95d5ef44a08b765a60e65b93a68882ff6
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 
+  light_ocr_archive_url(_stb_url stb-31c1ad374564.tar.gz
+    https://codeload.github.com/nothings/stb/tar.gz/31c1ad37456438565541f4919958214b6e762fb4)
+  FetchContent_Declare(stb
+    URL "${_stb_url}"
+    URL_HASH SHA256=e4e3bba9c572a4a4148373a914d88ea0f0d11de8cc2c66739926e7eca0223319
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+
   light_ocr_archive_url(_opencv_url opencv-4.10.0.tar.gz
     https://codeload.github.com/opencv/opencv/tar.gz/refs/tags/4.10.0)
   set(BUILD_LIST core,imgproc CACHE STRING "" FORCE)
@@ -116,7 +123,11 @@ function(light_ocr_configure_dependencies)
     URL_HASH SHA256=d571e63a2329baacb713f441e65ad75284de354db6e1ac435fe4bebbb417986a
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 
-  FetchContent_MakeAvailable(nlohmann_json clipper opencv onnxruntime_package)
+  FetchContent_MakeAvailable(nlohmann_json clipper stb opencv onnxruntime_package)
+
+  add_library(light_ocr_stb INTERFACE)
+  add_library(light_ocr::stb ALIAS light_ocr_stb)
+  target_include_directories(light_ocr_stb SYSTEM INTERFACE "${stb_SOURCE_DIR}")
 
   add_library(light_ocr_clipper STATIC "${clipper_SOURCE_DIR}/src/clipper.cpp")
   add_library(light_ocr::clipper ALIAS light_ocr_clipper)

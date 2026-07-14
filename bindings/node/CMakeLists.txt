@@ -7,13 +7,17 @@ endif()
 add_library(light_ocr_node MODULE
   src/addon.cpp
   src/bundle_loader.cpp
+  src/encoded_image.cpp
 )
 
 target_include_directories(light_ocr_node PRIVATE
   "${LIGHT_OCR_NODE_INCLUDE_DIR}"
   "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
-target_link_libraries(light_ocr_node PRIVATE light_ocr::core Threads::Threads)
+target_link_libraries(light_ocr_node PRIVATE
+  light_ocr::core
+  light_ocr::stb
+  Threads::Threads)
 target_compile_definitions(light_ocr_node PRIVATE NAPI_VERSION=8)
 set_target_properties(light_ocr_node PROPERTIES
   PREFIX ""

@@ -15,6 +15,15 @@ const bundlePath = path.resolve(
     path.join(repositoryRoot, 'models/generated/ppocrv6-small-onnx-20260714.2'),
 );
 
+const encodedBlankPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAIAAAA2iEnWAAAAFUlEQVR4nGP8//8/AwMDEwMDA4ICADkbAwP+wj6MAAAAAElFTkSuQmCC',
+  'base64',
+);
+const encodedBlankJpeg = Buffer.from(
+  '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAADAAIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3+iiigD//2Q==',
+  'base64',
+);
+
 function loadFixture(id) {
   const directory = path.join(repositoryRoot, 'corpus/fixtures', id);
   const metadata = JSON.parse(fs.readFileSync(path.join(directory, 'fixture.json'), 'utf8'));
@@ -72,6 +81,7 @@ test('loads PP-OCRv6, snapshots pixels, maps results, and closes idempotently', 
   assert.equal(result.diagnostics.detectionPasses.length, 1);
   assert.equal(result.timingUs.detectionMerge, 0);
   assert.deepEqual(result.diagnostics.recognitionBatchShapes.map((shape) => shape.batchSize), [1]);
+  assert.equal(result.timingUs.decode, 0);
 
   const closeA = engine.close();
   const closeB = engine.close();
@@ -81,6 +91,73 @@ test('loads PP-OCRv6, snapshots pixels, maps results, and closes idempotently', 
     engine.recognize(loadFixture('generated-blank')),
     (error) => error instanceof OcrError && error.code === 'invalid_engine',
   );
+});
+
+test('decodes JPEG and PNG snapshots on the engine worker', async () => {
+  const engine = await createEngine({ bundlePath });
+  const png = Buffer.from(encodedBlankPng);
+  const pngRecognition = engine.recognizeEncoded(png);
+  png.fill(0);
+  const pngResult = await pngRecognition;
+  assert.equal(pngResult.imageWidth, 2);
+  assert.equal(pngResult.imageHeight, 3);
+  assert.deepEqual(pngResult.lines, []);
+  assert.ok(Number.isSafeInteger(pngResult.timingUs.decode));
+
+  const jpegResult = await engine.recognizeEncoded(encodedBlankJpeg);
+  assert.equal(jpegResult.imageWidth, 2);
+  assert.equal(jpegResult.imageHeight, 3);
+  assert.deepEqual(jpegResult.lines, []);
+  await engine.close();
+});
+
+test('rejects malformed and unsupported encoded images safely', async () => {
+  const engine = await createEngine({ bundlePath });
+  await assert.rejects(
+    engine.recognizeEncoded(Buffer.from('not an image')),
+    (error) => error instanceof OcrError && error.code === 'invalid_image',
+  );
+  await assert.rejects(
+    engine.recognizeEncoded(new Uint8Array()),
+    (error) => error instanceof OcrError && error.code === 'invalid_image',
+  );
+  await assert.rejects(
+    engine.recognizeEncoded(new Uint16Array([1, 2, 3])),
+    (error) => error instanceof OcrError && error.code === 'invalid_image',
+  );
+  const oversizedPng = Buffer.from(encodedBlankPng);
+  oversizedPng.writeUInt32BE(engine.info.limits.maxWidth + 1, 16);
+  await assert.rejects(
+    engine.recognizeEncoded(oversizedPng),
+    (error) => error instanceof OcrError && error.code === 'resource_limit_exceeded',
+  );
+  if (typeof SharedArrayBuffer === 'function') {
+    await assert.rejects(
+      engine.recognizeEncoded(new Uint8Array(new SharedArrayBuffer(16))),
+      (error) => error instanceof OcrError && error.code === 'invalid_image',
+    );
+  }
+  await engine.close();
+
+  const limits = engine.info.limits;
+  const memoryLimited = await createEngine({
+    bundlePath,
+    reducedLimits: {
+      maxWidth: limits.maxWidth,
+      maxHeight: limits.maxHeight,
+      maxPixels: limits.maxPixels,
+      maxDetectionSide: limits.maxDetectionSide,
+      maxDetectionCandidates: limits.maxDetectionCandidates,
+      maxRecognitionBatchSize: limits.maxRecognitionBatchSize,
+      maxRecognitionWidth: limits.maxRecognitionWidth,
+      maxTemporaryBytes: 17,
+    },
+  });
+  await assert.rejects(
+    memoryLimited.recognizeEncoded(encodedBlankPng),
+    (error) => error instanceof OcrError && error.code === 'resource_limit_exceeded',
+  );
+  await memoryLimited.close();
 });
 
 test('validates input and reports adapter errors as OcrError', async () => {

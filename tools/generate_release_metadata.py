@@ -135,6 +135,7 @@ def copy_licenses(build: Path, output: Path) -> list[dict[str, str]]:
         (source_dir(build, "opencv") / "COPYRIGHT", "opencv-COPYRIGHT.txt", "opencv"),
         (source_dir(build, "opencv") / "3rdparty" / "zlib" / "LICENSE", "opencv-zlib.txt", "zlib"),
         (source_dir(build, "clipper") / "LICENSE", "clipper-BSL-1.0.txt", "clipper"),
+        (source_dir(build, "stb") / "LICENSE", "stb-MIT-or-Unlicense.txt", "stb"),
         (source_dir(build, "nlohmann_json") / "LICENSE.MIT", "nlohmann-json-MIT.txt", "nlohmann-json"),
     ]
     bundle = ROOT / "models" / "generated" / "ppocrv6-small-onnx-20260714.2"

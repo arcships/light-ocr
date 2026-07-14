@@ -28,13 +28,13 @@
 | **本地部署与边缘软件** | 在自助终端、设备、边缘节点或受控网络中运行一致的 OCR 模型，摆脱云服务依赖。 |
 | **原生与 Node.js 服务** | 把 OCR 直接嵌入应用，不再单独部署和维护 Python 进程或 OCR daemon。 |
 
-当前模型主要面向常规文字检测和 CJK/拉丁字符混排识别。PDF 渲染、编码图片解码、文档版面分析、表格、公式和翻译仍由宿主应用负责。
+当前模型主要面向常规文字检测和 CJK/拉丁字符混排识别。Node.js 适配器可以解码内存中的 JPEG/PNG；原生 Core 仍只接受解码后的像素。PDF 渲染、其他图片格式、文档版面分析、表格、公式和翻译仍由宿主应用负责。
 
 ## 为什么要做 light-ocr
 
 云 OCR 使用方便，但也带来了图片上传、网络可用性、持续成本和新的隐私边界。操作系统 OCR API 不依赖网络，但各个平台的能力与行为并不一致。PaddleOCR 提供了优秀的模型，不过常见的 Python 部署方式并不总适合桌面软件、原生产品和 Node.js 应用。
 
-`light-ocr` 希望补上这块空白：围绕官方 PP-OCRv6 Small 模型，提供一套可复用的原生核心。应用继续掌控图片解码、任务调度、数据存储和用户体验；light-ocr 专注于把像素稳定地转换为结构化 OCR 结果。
+`light-ocr` 希望补上这块空白：围绕官方 PP-OCRv6 Small 模型，提供一套可复用的原生核心。应用继续掌控任务调度、数据存储和用户体验；light-ocr 在保留原生 raw-pixel 边界的同时，把图片稳定地转换为结构化 OCR 结果。
 
 ## light-ocr 的优势
 
@@ -105,6 +105,7 @@ npm install @arcships/light-ocr
 
 ```ts
 import { createEngine } from "@arcships/light-ocr";
+import { readFile } from "node:fs/promises";
 
 const engine = await createEngine();
 const result = await engine.recognize({
@@ -114,8 +115,12 @@ const result = await engine.recognize({
   stride,
   pixelFormat: "rgba8",
 });
+const encodedResult = await engine.recognizeEncoded(
+  await readFile("image.jpg"),
+);
 
 console.log(result.lines);
+console.log(encodedResult.lines);
 await engine.close();
 ```
 
