@@ -1,6 +1,6 @@
 # light-ocr Node-API adapter
 
-状态：v1 adapter 与 `@arcships/light-ocr@0.1.0` 已发布；macOS arm64/x64、Linux x64 glibc、Windows x64 的 Node.js 22/24 package matrix、真实 PP-OCRv6 和禁网运行均已通过。
+状态：v1 adapter 与 `@arcships/light-ocr@0.1.0` 已发布；`main` 上的 0.2.0 candidate 新增 tiled detection 和内存 JPEG/PNG 输入，尚未发布。0.1.0 的 macOS arm64/x64、Linux x64 glibc、Windows x64 Node.js 22/24 package matrix、真实 PP-OCRv6 和禁网运行均已通过。
 
 推荐直接安装公开 package：
 
@@ -20,7 +20,7 @@ npm install @arcships/light-ocr
 - `recognize()` 返回前同步复制本次调用实际需要的像素范围；调用返回后可以立即修改或复用原 Buffer。
 - 支持 `AbortSignal` 协作式取消：queued 请求会从队列移除；running 请求立即拒绝 public Promise，但 Core 会安全运行到返回并丢弃结果。
 - native addon 只接收现有绝对 bundle 目录。当前源码开发调用显式传 `bundlePath`；发布后的 facade 默认使用随 npm 安装的 model package 路径。
-- 产品 engine 默认报告 `detectionStrategy: 'bounded'`、`detectionMaxSide: 960` 和 `defaultRecognitionBatchSize: 1`。`detection: {strategy: 'upstreamExact'}` 只用于显式上游对照；单次 `recognize({detectionMaxSide})` 只能继续降低 bounded engine 的 side。
+- 产品 engine 默认报告 `detectionStrategy: 'bounded'`、`detectionMaxSide: 960` 和 `defaultRecognitionBatchSize: 1`。0.2.0 candidate 可通过 `detection: {strategy: 'tiled'}` 显式选择 `tiled-v1`；`upstreamExact` 只用于上游对照，单次 `recognize({detectionMaxSide})` 只能继续降低 bounded engine 的 side。
 
 不支持 WebP、GIF、PDF、EXIF orientation 自动旋转、zero-copy/transfer、运行中 inference 硬中断、Electron 或 Bun。详细契约见 [Node-API 设计](../../docs/napi-design.md)。
 

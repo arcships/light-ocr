@@ -7,7 +7,7 @@ Node API：[napi-design.md](napi-design.md)<br>
 Model contract：[model-bundle.md](model-bundle.md)<br>
 Decision：[decisions.md](decisions.md) D105
 
-当前 0.2.0 candidate 继续使用本文六包 lockstep 规则，并强校验 schema 1.2、`tiled-v1`、新 bundle ID 与 minimum package version。额外的类型、四平台基线和发布门槛见 [Tiled Detection 技术设计与验收规格](tiled-design-and-acceptance.md)。这些增量不改变已发布 `0.1.0` 的包内容；完整 checklist 通过前不触发 0.2.0 publish。
+当前 0.2.0 candidate 继续使用本文六包 lockstep 规则，并强校验 schema 1.2、`tiled-v1`、新 bundle ID、minimum package version，以及 native package 中新增 JPEG/PNG decoder 的 license/SBOM identity。额外的类型、四平台基线和发布门槛见 [Tiled Detection 技术设计与验收规格](tiled-design-and-acceptance.md)。这些增量不改变已发布 `0.1.0` 的包内容；完整 checklist 通过前不触发 0.2.0 publish。
 
 ## 1. 用户契约
 

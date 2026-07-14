@@ -59,4 +59,4 @@ sha512-pC9UcqoCbS7q8tMR4Zfn3omonWksPLNgwMTQrXMQdNb4leAMaZ6IXapShR7LeocPQbOkWD8C4
 sha512-vJghMn0FlBJdXvHd5q9RdpXdrYhAhA2p3Dto5rds8oCkqQGyt6mdC/4DNeMtvY/BDGIPB39GEScei+hEf/pkxw==
 ```
 
-模型 package 中 bundle payload 的身份仍由 `ppocrv6-small-onnx-20260714.2`、manifest、`SHA256SUMS` 与 Core directory loader 共同验证；npm tarball integrity 不能替代安装后模型内容校验。
+模型 package 中 bundle payload 的身份仍由 `ppocrv6-small-onnx-20260714.1`、manifest、`SHA256SUMS` 与 Core directory loader 共同验证；npm tarball integrity 不能替代安装后模型内容校验。

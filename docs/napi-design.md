@@ -1,12 +1,12 @@
 # light-ocr Node-API 适配器设计
 
-状态：v1 adapter 与 `@arcships/light-ocr@0.1.0` 已发布；0.2.0 tiled additive mapping 已在源码实现，尚未发布<br>
+状态：v1 adapter 与 `@arcships/light-ocr@0.1.0` 已发布；0.2.0 tiled mapping 与内存 JPEG/PNG 输入已在源码实现，尚未发布<br>
 更新时间：2026-07-14  
 Authority：JavaScript/TypeScript API、异步调度、内存所有权、Node.js 生命周期与 npm 布局  
 Core contract：[native-api.md](native-api.md)  
 Decision：[decisions.md](decisions.md) D101、D105
 
-`DetectionStrategy: "tiled"` 的 additive Node types、diagnostics 和 runtime identity 已进入 0.2.0 candidate 源码；算法与 lockstep 发布条件见 [Tiled Detection 技术设计与验收规格](tiled-design-and-acceptance.md)。它不属于已发布的 `0.1.0` API，完整门槛通过前也不会进入 npm `latest`。
+`DetectionStrategy: "tiled"` 的 additive Node types、diagnostics 和 runtime identity，以及 `recognizeEncoded()` JPEG/PNG 内存输入均已进入 0.2.0 candidate 源码。tiled 算法与 lockstep 发布条件见 [Tiled Detection 技术设计与验收规格](tiled-design-and-acceptance.md)。这些能力不属于已发布的 `0.1.0` API，完整门槛通过前也不会进入 npm `latest`。
 
 ## 1. 结论
 

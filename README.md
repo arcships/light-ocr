@@ -12,11 +12,11 @@ English | [简体中文](README.zh-CN.md)
 
 **Offline OCR for native and Node.js applications, powered by PP-OCRv6 Small.**
 
-`light-ocr` turns decoded image pixels into ordered text lines, confidence scores, and quadrilateral boxes—inside your own process, without sending an image to a cloud service or running a Python sidecar.
+`light-ocr` turns images into ordered text lines, confidence scores, and quadrilateral boxes—inside your own process, without sending an image to a cloud service or running a Python sidecar. The native Core accepts decoded pixels; the Node.js adapter on `main` also accepts in-memory JPEG and PNG bytes.
 
 It is made for products where OCR should feel like a local capability: quick to invoke, private by default, and straightforward to embed into an existing image pipeline.
 
-> **Available on npm:** `@arcships/light-ocr@0.1.0` includes the default PP-OCRv6 Small model and prebuilt native runtimes for all Tier 1 platforms. See [Package support](#package-support).
+> **Available on npm:** `@arcships/light-ocr@0.1.0` includes the default PP-OCRv6 Small model and prebuilt native runtimes for all Tier 1 platforms. The `0.2.0` release candidate on `main` adds opt-in tiled detection and direct JPEG/PNG input for Node.js. See [Package support](#package-support).
 
 ## Where light-ocr fits
 
@@ -39,8 +39,8 @@ Cloud OCR is convenient, but it introduces uploads, network availability, recurr
 ## Why use light-ocr
 
 - **Local by default.** Recognition performs no runtime network access and does not start a child process.
-- **Ready for real application pipelines.** It accepts `GRAY8`, `RGB8`, `BGR8`, and `RGBA8` pixel buffers and returns text, confidence, and four-point geometry.
-- **Memory-conscious on large images.** Detection is bounded by default and recognition is streamed one batch at a time, avoiding memory growth proportional to every detected line.
+- **Ready for real application pipelines.** It accepts `GRAY8`, `RGB8`, `BGR8`, and `RGBA8` pixel buffers; the Node.js adapter can also decode JPEG and PNG bytes already held in memory.
+- **Two deliberate large-image modes.** Bounded/960 remains the fast, memory-conscious default. The `0.2.0` candidate adds opt-in tiled detection for small text and dense 2048-pixel documents while processing one detection tile at a time.
 - **A pinned, reproducible model.** The approximately 31 MB PP-OCRv6 Small bundle is integrity-checked and designed to ship with the application instead of downloading on first use.
 - **Consistent across supported platforms.** The same model and result contract are used on macOS, Linux, and Windows.
 - **Built for asynchronous hosts.** The Node-API adapter keeps inference away from the JavaScript thread, with bounded queues, cancellation, and explicit lifecycle control.
@@ -101,26 +101,28 @@ Node.js 22 and 24 are supported on macOS arm64/x64, Linux x64 glibc, and Windows
 npm install @arcships/light-ocr
 ```
 
-The package installs the matching native runtime and the pinned PP-OCRv6 Small model. It does not download a model at first run or compile native code during `postinstall`.
+The package installs the matching native runtime and the pinned PP-OCRv6 Small model. It does not download a model at first run or compile native code during `postinstall`. `recognizeEncoded()` below is part of the `0.2.0` candidate; `0.1.0` callers should provide decoded pixels to `recognize()`.
 
 ```ts
 import { createEngine } from "@arcships/light-ocr";
 import { readFile } from "node:fs/promises";
 
 const engine = await createEngine();
-const result = await engine.recognize({
+const result = await engine.recognizeEncoded(
+  await readFile("image.jpg"),
+);
+
+// Raw pixels remain available when the host already owns a decode pipeline.
+const rawResult = await engine.recognize({
   data: pixels,
   width,
   height,
   stride,
   pixelFormat: "rgba8",
 });
-const encodedResult = await engine.recognizeEncoded(
-  await readFile("image.jpg"),
-);
 
 console.log(result.lines);
-console.log(encodedResult.lines);
+console.log(rawResult.lines);
 await engine.close();
 ```
 
@@ -156,7 +158,7 @@ The npm distribution installs one facade, one required model package, and the na
 
 ## Project status
 
-`light-ocr` is under active development. Version `0.1.0` is the first public npm release, with the native core, PP-OCRv6 bundle, high-resolution memory strategy, real-model corpus, Node-API adapter, and four-platform prebuilt packages in place.
+`light-ocr` is under active development. Version `0.1.0` is the first public npm release. The `0.2.0` release candidate adds the deterministic `tiled-v1` high-resolution mode and bounded in-memory JPEG/PNG decoding in the Node.js adapter without changing the raw-pixel C++ Core boundary.
 
 As a pre-1.0 project, public APIs and package layout may still evolve; the project does not currently promise a stable cross-release C++ ABI.
 
@@ -167,7 +169,7 @@ The Core CI builds and tests the project on:
 - Linux x64 with glibc
 - Windows x64
 
-It also runs sanitizers, fuzz smoke tests, offline-runtime checks, output parity, quality, performance, and memory gates. See the [current implementation status](docs/implementation-status.md) for verified results and known gaps.
+It also runs sanitizers, fuzz smoke tests, offline-runtime checks, output parity, quality, and memory gates. Performance qualification is a separate, explicitly triggered workflow and is not part of ordinary CI or release preflight. See the [current implementation status](docs/implementation-status.md) for verified results and known gaps.
 
 ## Documentation
 

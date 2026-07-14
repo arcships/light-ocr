@@ -213,7 +213,7 @@ gh workflow run "npm release" --ref main \
 普通 push/PR 和 npm release preflight 都不运行 benchmark。只有首次建立性能基线、Core/model/ORT/compiler/thread policy/runner class 变化、准备公开新的性能数字或调查疑似性能回归时，才显式触发：
 
 ```bash
-gh workflow run core.yml --ref main -f run_benchmark=true
+gh workflow run tiled-qualification.yml --ref main -f run_benchmark=true
 ```
 
 benchmark 结果是独立资格审查证据，不是每次发布的重复步骤。需要建立或更新 accepted baseline 时，仍须人工 review 并作为源码提交；脚本不会自动接受当前值。`promote_latest` 默认为 `false`，需要在 registry evidence 人工核对后显式选择。

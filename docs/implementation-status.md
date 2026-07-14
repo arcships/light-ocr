@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
 更新时间：2026-07-14  
-结论：已发布的 `@arcships/light-ocr@0.1.0` 及其 bounded/960 行为不变。当前源码正在准备下一次 minor release 的 `tiled-v1`：schema 1.2 bundle、C++/Node pipeline、八张独立 ground truth、Python tiled oracle、确定性/质量门禁和无 token 发布预检均已完成本机实现与测试；四平台受审 peak/latency baseline 和 0.2.0 registry release evidence 仍未产生，因此 README 与 npm `latest` 不能宣称 tiled 已支持。
+结论：已发布的 `@arcships/light-ocr@0.1.0` 及其 bounded/960 行为不变。当前源码正在准备 `0.2.0`：`tiled-v1`、schema 1.2 bundle、八张独立 ground truth、Python oracle、确定性/质量门禁，以及 Node.js 内存 JPEG/PNG 输入均已实现；无 benchmark 的四平台发布预检曾在 tiled commit 上通过，新合并的 encoded-input 改动已通过本机真实 Node 测试。首次四平台受审 peak/latency baseline、合并后 release preflight 和 registry release evidence 仍待产生。
 
 状态含义：
 
@@ -25,6 +25,7 @@
 | 无 network/shell/cwd/locale 运行依赖 | Done | sterile cwd/minimal env 与 Linux network namespace disabled 测试通过；npm release 另完成已安装 package 的禁网运行。 |
 | manifest、hash、licenses、SBOM、parity、benchmark | Done | Release commit 已重新生成并保存四平台 metadata、六个 npm tarballs 的 hashes/integrity、parity、quality 与 benchmark 证据。 |
 | N-API/npm 非本 Core milestone | Done / `0.1.0` published | raw Node-API v8、CJS/ESM、`.d.ts`、内置模型解析、四平台 prebuild、双重背压、AbortSignal 与生命周期均已完成；[npm release run 29312486301](https://github.com/arcships/light-ocr/actions/runs/29312486301) 的 Node 22/24 八组测试、registry 分阶段发布和禁网复验全绿。 |
+| Node.js JPEG/PNG 内存输入 | Done（源码）/ `0.2.0` candidate | `recognizeEncoded(Uint8Array)` 在 engine worker 上使用固定 stb revision 解码，保持 Core raw-pixel 边界；格式、尺寸、pixels、临时内存、queue/snapshot budget、AbortSignal 与 `timingUs.decode` 均有测试。合并后本机 Release Node integration test 已通过。 |
 | 高分辨率峰值内存 | Done | Release 原生独立进程本机参考：2048² 空白 `318.8 MiB ≤ 384 MiB`；xfund 密集表单 116 框 `400.5 MiB ≤ 640 MiB`。四平台 release jobs 的真实模型与 RSS gates 均通过。 |
 | Tiled 高分辨率准确模式 | Release candidate / not published | 1280 tile、2048→4-pass row-major、全局 candidate ceiling、IoU/IOS greedy merge、原图 recognition、C++/Node contract、8-fixture/196-line corpus、独立 oracle、Core/Node memory/latency 与 package smoke 已实现；四平台 accepted baseline 和 0.2.0 发布仍是硬缺口。 |
 
@@ -61,4 +62,4 @@
 
 `0.1.0` 的四平台 Core、Node.js 22/24 prebuild、六包确定性制品、public registry、provenance、默认 `createEngine()` 与禁网运行证据已经完成，详见 [npm 0.1.0 发布记录](releases/npm-0.1.0.md)。
 
-当前下一优先级是运行不含 benchmark 的 `publish_to_registry=false` release preflight，确认四平台 Node 22/24、六包、本地 registry 与禁网 OCR。benchmark 仅在首次基线、性能相关变化、新公开数字或疑似回归时显式运行，不再由 push/PR/release 自动触发。完成定义全绿前不发布 0.2.0，也不改变 0.1.0 的公开结论。
+当前下一步是显式运行一次独立 `tiled-qualification`，产生并 review 首次四平台 baseline；这是首次公开 tiled contract 所需的一次性资格审查。随后在合并后的源码上重新运行不含 benchmark 的 `publish_to_registry=false` release preflight，确认 encoded input、Node 22/24、六包、本地 registry 与禁网 OCR。普通 push、PR 和 release workflow 均不运行 benchmark。完成定义全绿前不发布 0.2.0，也不改变 0.1.0 的公开结论。
