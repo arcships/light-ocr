@@ -17,13 +17,13 @@ def entry(identity: str, median: int = 100, p95: int = 120, peak: int = 200) -> 
 
 class TiledReleaseGateTests(unittest.TestCase):
     @staticmethod
-    def core_report(inference_ratio: float, enforced: bool = False) -> dict:
+    def core_report(ratio: float, enforced: bool = False) -> dict:
         runtime = {
             "normalizedConfigSchemaVersion": "1.2",
             "coreVersion": "0.2.0",
         }
         return {
-            "schema": "light-ocr-tiled-core-report/1.1",
+            "schema": "light-ocr-tiled-core-report/1.2",
             "passed": True,
             "platformId": "macos-arm64",
             "fixtureId": "fixture",
@@ -45,19 +45,23 @@ class TiledReleaseGateTests(unittest.TestCase):
                 "iterations": 10,
                 "latencyUs": {"maximum": 1_000_000},
             },
-            "gates": {
-                "warmMedian": {"observedRatio": 1.10, "maximumRatio": 1.10},
-                "warmP95": {"observedRatio": 1.15, "maximumRatio": 1.15},
-            },
             "observations": {
+                "coreToPythonWarmMedian": {
+                    "observedRatio": ratio,
+                    "enforced": enforced,
+                },
+                "coreToPythonWarmP95": {
+                    "observedRatio": ratio,
+                    "enforced": enforced,
+                },
                 "inferenceOnlyMedian": {
-                    "observedRatio": inference_ratio,
+                    "observedRatio": ratio,
                     "enforced": enforced,
                 }
             },
         }
 
-    def test_core_inference_ratio_is_a_non_blocking_observation(self) -> None:
+    def test_core_python_ratios_are_non_blocking_observations(self) -> None:
         report = self.core_report(1.50)
         tiled_release_gate.validate_core(
             report,
@@ -66,9 +70,9 @@ class TiledReleaseGateTests(unittest.TestCase):
             {"fixtureSha256": "fixture-sha", "pixelSha256": "pixel-sha"},
         )
 
-    def test_core_inference_observation_cannot_silently_become_a_gate(self) -> None:
+    def test_core_python_observations_cannot_silently_become_gates(self) -> None:
         report = self.core_report(1.0, enforced=True)
-        with self.assertRaisesRegex(RuntimeError, "inference-only observation"):
+        with self.assertRaisesRegex(RuntimeError, "cross-runtime observation"):
             tiled_release_gate.validate_core(
                 report,
                 "macos-arm64",

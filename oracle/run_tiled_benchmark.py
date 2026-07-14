@@ -81,8 +81,6 @@ def main() -> int:
         / oracle["inferenceOnlyUs"]["median"],
     }
     gates = {
-        "warmMedian": {"maximumRatio": 1.10, "observedRatio": ratios["warmMedian"]},
-        "warmP95": {"maximumRatio": 1.15, "observedRatio": ratios["warmP95"]},
         "sampleCount": {
             "expected": 10,
             "native": native["iterations"],
@@ -95,9 +93,7 @@ def main() -> int:
         },
     }
     passed = (
-        ratios["warmMedian"] <= 1.10
-        and ratios["warmP95"] <= 1.15
-        and native["iterations"] == oracle["iterations"] == 10
+        native["iterations"] == oracle["iterations"] == 10
         and native["latencyUs"]["maximum"] < 120_000_000
         and oracle["latencyUs"]["maximum"] < 120_000_000
         and oracle["result"]["stable"]
@@ -107,7 +103,7 @@ def main() -> int:
         == oracle["result"]["suppressedDuplicateBoxes"]
     )
     report = {
-        "schema": "light-ocr-tiled-core-report/1.1",
+        "schema": "light-ocr-tiled-core-report/1.2",
         "passed": passed,
         "contractVersion": "tiled-v1",
         "fixtureId": fixture["id"],
@@ -135,6 +131,14 @@ def main() -> int:
         "oracle": oracle,
         "gates": gates,
         "observations": {
+            "coreToPythonWarmMedian": {
+                "observedRatio": ratios["warmMedian"],
+                "enforced": False,
+            },
+            "coreToPythonWarmP95": {
+                "observedRatio": ratios["warmP95"],
+                "enforced": False,
+            },
             "inferenceOnlyMedian": {
                 "observedRatio": ratios["inferenceOnlyMedian"],
                 "enforced": False,

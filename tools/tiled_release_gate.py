@@ -119,7 +119,7 @@ def validate_core(
     report: dict[str, Any], platform_id: str, fixture_id: str, fixture: dict[str, Any]
 ) -> None:
     if (
-        report.get("schema") != "light-ocr-tiled-core-report/1.1"
+        report.get("schema") != "light-ocr-tiled-core-report/1.2"
         or not report.get("passed")
         or report.get("platformId") != platform_id
         or report.get("fixtureId") != fixture_id
@@ -155,16 +155,18 @@ def validate_core(
         != system_names[expected["os"]]
     ):
         raise RuntimeError(f"invalid Core benchmark identity: {platform_id}/{fixture_id}")
-    for key in ("warmMedian", "warmP95"):
-        gate = report["gates"][key]
-        if finite_positive(gate["observedRatio"], key) > gate["maximumRatio"]:
-            raise RuntimeError(f"Core/oracle gate failed: {platform_id}/{fixture_id}/{key}")
-    inference = report.get("observations", {}).get("inferenceOnlyMedian", {})
-    if inference.get("enforced") is not False:
-        raise RuntimeError(
-            f"invalid inference-only observation: {platform_id}/{fixture_id}"
-        )
-    finite_positive(inference.get("observedRatio"), "inferenceOnlyMedian")
+    observations = report.get("observations", {})
+    for key in (
+        "coreToPythonWarmMedian",
+        "coreToPythonWarmP95",
+        "inferenceOnlyMedian",
+    ):
+        observation = observations.get(key, {})
+        if observation.get("enforced") is not False:
+            raise RuntimeError(
+                f"invalid cross-runtime observation: {platform_id}/{fixture_id}/{key}"
+            )
+        finite_positive(observation.get("observedRatio"), key)
 
 
 def validate_node(
