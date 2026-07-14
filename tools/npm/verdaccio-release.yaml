@@ -1,5 +1,9 @@
 storage: ./storage
 
+# npm publish sends package metadata and the base64 tarball in one JSON body.
+# The bundled model is larger than Verdaccio's 10 MB default request limit.
+max_body_size: 100mb
+
 auth:
   htpasswd:
     file: ./htpasswd
