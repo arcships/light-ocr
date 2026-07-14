@@ -4,12 +4,6 @@ on:
   push:
   pull_request:
   workflow_dispatch:
-    inputs:
-      run_benchmark:
-        description: Run the opt-in tiled performance characterization
-        required: true
-        default: false
-        type: boolean
 
 permissions:
   contents: read
@@ -81,22 +75,6 @@ jobs:
           --width 800 --height 180 --stride 2400 --format bgr8
           --warmup 5 --iterations 10
           --report reports/release/${{ matrix.id }}/leak.json
-      - name: Tiled lifecycle and latency characterization
-        if: github.event_name == 'workflow_dispatch' && inputs.run_benchmark
-        shell: bash
-        run: |
-          ./build-ci/bin/light_ocr_leak_check${{ matrix.executable_suffix }} \
-            --bundle models/generated/ppocrv6-small-onnx-20260714.2 \
-            --pixels corpus/fixtures/paddleocr-xfund-form/pixels.bin \
-            --width 1488 --height 2105 --stride 4464 --format bgr8 \
-            --profile tiled_v1 --warmup 2 --iterations 10 \
-            --report reports/release/${{ matrix.id }}/tiled-leak.json
-          ./build-ci/bin/light_ocr_benchmark${{ matrix.executable_suffix }} \
-            --bundle models/generated/ppocrv6-small-onnx-20260714.2 \
-            --pixels corpus/fixtures/paddleocr-xfund-form/pixels.bin \
-            --width 1488 --height 2105 --stride 4464 --format bgr8 \
-            --profile tiled_v1 --warmup 5 --iterations 10 \
-            --report reports/release/${{ matrix.id }}/tiled-latency.json
       - name: Generate build manifest, licenses, and SPDX SBOM
         shell: bash
         run: python tools/generate_release_metadata.py --build-dir build-ci --output-dir reports/release/${{ matrix.id }} --platform-id ${{ matrix.id }} --configuration Release

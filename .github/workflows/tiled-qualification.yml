@@ -1,0 +1,233 @@
+name: tiled qualification
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_benchmark:
+        description: Confirm the explicit four-platform tiled benchmark run
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tiled-qualification-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    if: inputs.run_benchmark
+    name: qualify ${{ matrix.id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: macos-arm64
+            runner: macos-15
+            executable_suffix: ""
+          - id: macos-x64
+            runner: macos-15-intel
+            executable_suffix: ""
+          - id: linux-x64
+            runner: ubuntu-24.04
+            executable_suffix: ""
+          - id: windows-x64
+            runner: windows-2022
+            executable_suffix: ".exe"
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - name: Install the hash-locked oracle
+        run: python -m pip install --require-hashes -r oracle/requirements.lock
+      - name: Bootstrap pinned dependencies and models
+        shell: bash
+        run: |
+          python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies
+          python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies --offline
+          python tools/bootstrap_models.py --cache-dir .cache/models
+      - name: Install verified Node development files (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          node_version="$(node -p process.versions.node)"
+          node_dev="$PWD/.cache/node-gyp/$node_version"
+          npx --yes node-gyp@11.4.2 install "$node_version" --devdir "$PWD/.cache/node-gyp"
+          test -f "$node_dev/include/node/node_api.h"
+          echo "NODE_INCLUDE_DIR=$node_dev/include/node" >> "$GITHUB_ENV"
+      - name: Install verified Node development files (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $nodeVersion = node -p process.versions.node
+          $devDir = Join-Path $env:GITHUB_WORKSPACE ".cache/node-gyp"
+          npx --yes node-gyp@11.4.2 install $nodeVersion --devdir $devDir
+          $nodeRoot = Join-Path $devDir $nodeVersion
+          $nodeHeaders = Join-Path $nodeRoot "include/node"
+          $nodeLibrary = Get-ChildItem $nodeRoot -Recurse -Filter node.lib | Select-Object -First 1
+          if (-not (Test-Path (Join-Path $nodeHeaders "node_api.h"))) {
+            throw "node_api.h is missing"
+          }
+          if ($null -eq $nodeLibrary) {
+            throw "node.lib is missing"
+          }
+          "NODE_INCLUDE_DIR=$nodeHeaders" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "NODE_LIBRARY=$($nodeLibrary.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Configure qualification build (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: >-
+          cmake -S . -B build-qualification -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
+          -DLIGHT_OCR_BUILD_NODE=ON
+          -DLIGHT_OCR_BUILD_TESTS=OFF
+          -DLIGHT_OCR_BUILD_TOOLS=ON
+          -DLIGHT_OCR_NODE_INCLUDE_DIR="$NODE_INCLUDE_DIR"
+          -DLIGHT_OCR_NODE_EXECUTABLE="$(command -v node)"
+      - name: Configure qualification build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >-
+          cmake -S . -B build-qualification -G "Visual Studio 17 2022" -A x64
+          "-DLIGHT_OCR_DEPENDENCY_CACHE_DIR=$env:GITHUB_WORKSPACE/.cache/dependencies"
+          -DLIGHT_OCR_BUILD_NODE=ON
+          -DLIGHT_OCR_BUILD_TESTS=OFF
+          -DLIGHT_OCR_BUILD_TOOLS=ON
+          "-DLIGHT_OCR_NODE_INCLUDE_DIR=$env:NODE_INCLUDE_DIR"
+          "-DLIGHT_OCR_NODE_LIBRARY=$env:NODE_LIBRARY"
+          "-DLIGHT_OCR_NODE_EXECUTABLE=$((Get-Command node).Source)"
+      - name: Build qualification tools and Node addon
+        run: cmake --build build-qualification --config Release --parallel
+      - name: Generate build identity
+        shell: bash
+        run: >-
+          python tools/generate_release_metadata.py
+          --build-dir build-qualification
+          --output-dir "reports/qualification/${{ matrix.id }}"
+          --platform-id "${{ matrix.id }}"
+          --configuration Release
+      - name: Capture Core lifecycle, latency, and peak reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="$PWD/models/generated/ppocrv6-small-onnx-20260714.2"
+          root="$PWD/reports/qualification/${{ matrix.id }}"
+          executable="${{ matrix.executable_suffix }}"
+          fixture_root="$PWD/corpus/tiled-v1/fixtures"
+          ./build-qualification/bin/light_ocr_leak_check${executable} \
+            --bundle "$bundle" \
+            --pixels "$fixture_root/tiled-four-way-intersection-2048/pixels.bin" \
+            --width 2048 --height 2048 --stride 6144 --format bgr8 \
+            --profile tiled_v1 --warmup 5 --iterations 10 \
+            --report "$root/core-lifecycle.json"
+          for fixture in \
+            tiled-small-text-2048 \
+            tiled-dense-2048 \
+            tiled-four-way-intersection-2048
+          do
+            python oracle/run_tiled_benchmark.py \
+              --native-benchmark "build-qualification/bin/light_ocr_benchmark${executable}" \
+              --bundle "$bundle" \
+              --fixture "$fixture_root/$fixture/fixture.json" \
+              --platform-id "${{ matrix.id }}" \
+              --build-metadata "$root/build-manifest.json" \
+              --report "$root/core/$fixture.json"
+            for diagnostics in on off; do
+              ./build-qualification/bin/light_ocr_memory_gate${executable} \
+                --bundle "$bundle" \
+                --pixels "$fixture_root/$fixture/pixels.bin" \
+                --width 2048 --height 2048 --stride 6144 --format bgr8 \
+                --target-width 2048 --target-height 2048 \
+                --profile tiled_v1 --diagnostics "$diagnostics" \
+                --minimum-boxes 1 --maximum-peak-bytes 1073741824 \
+                --report "$root/core-memory/$fixture-$diagnostics.json"
+            done
+          done
+      - name: Capture Node 22 latency and peak reports
+        shell: bash
+        env:
+          LIGHT_OCR_NODE_BINARY: ${{ github.workspace }}/build-qualification/bin/light_ocr_node.node
+          LIGHT_OCR_MODEL_BUNDLE: ${{ github.workspace }}/models/generated/ppocrv6-small-onnx-20260714.2
+        run: |
+          set -euo pipefail
+          for fixture in \
+            tiled-small-text-2048 \
+            tiled-dense-2048 \
+            tiled-four-way-intersection-2048
+          do
+            for diagnostics in on off; do
+              node tools/npm/tiled-benchmark.cjs \
+                --package bindings/node \
+                --bundle "$LIGHT_OCR_MODEL_BUNDLE" \
+                --fixture "corpus/tiled-v1/fixtures/$fixture" \
+                --platform-id "${{ matrix.id }}" \
+                --diagnostics "$diagnostics" \
+                --warmup 5 --iterations 10 \
+                --report "reports/qualification/${{ matrix.id }}/node22/$fixture-$diagnostics.json"
+            done
+          done
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
+      - name: Capture Node 24 latency and peak reports
+        shell: bash
+        env:
+          LIGHT_OCR_NODE_BINARY: ${{ github.workspace }}/build-qualification/bin/light_ocr_node.node
+          LIGHT_OCR_MODEL_BUNDLE: ${{ github.workspace }}/models/generated/ppocrv6-small-onnx-20260714.2
+        run: |
+          set -euo pipefail
+          for fixture in \
+            tiled-small-text-2048 \
+            tiled-dense-2048 \
+            tiled-four-way-intersection-2048
+          do
+            for diagnostics in on off; do
+              node tools/npm/tiled-benchmark.cjs \
+                --package bindings/node \
+                --bundle "$LIGHT_OCR_MODEL_BUNDLE" \
+                --fixture "corpus/tiled-v1/fixtures/$fixture" \
+                --platform-id "${{ matrix.id }}" \
+                --diagnostics "$diagnostics" \
+                --warmup 5 --iterations 10 \
+                --report "reports/qualification/${{ matrix.id }}/node24/$fixture-$diagnostics.json"
+            done
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tiled-qualification-${{ matrix.id }}
+          path: reports/qualification
+          if-no-files-found: error
+          retention-days: 90
+
+  collect:
+    if: inputs.run_benchmark
+    needs: qualify
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: tiled-qualification-*
+          path: reports/qualification
+          merge-multiple: true
+      - name: Validate and collect the four-platform candidate
+        run: >-
+          python tools/tiled_release_gate.py collect
+          --reports-root reports/qualification
+          --git-commit "$GITHUB_SHA"
+          --output reports/tiled-platform-baselines.candidate.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tiled-platform-baselines-candidate
+          path: reports/tiled-platform-baselines.candidate.json
+          if-no-files-found: error
+          retention-days: 90
