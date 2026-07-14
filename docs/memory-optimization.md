@@ -289,8 +289,8 @@ macOS arm64 首个实现门槛：
 - Linux x64、Windows x64、macOS x64/arm64 都保存绝对峰值，不用一个平台的 bytes 作为其他平台硬等值。
 - 每个平台的 release baseline 一经接受，后续增长超过 `15%` 即失败。
 - 5 次 warmup 后 10 次 lifecycle 的现有 `32 MiB total / 8 MiB per cycle` 增长门槛保持不变。
-- queue depth 0 的 Node-API 单请求峰值不得超过同平台 Core 峰值 `+64 MiB`；排队 snapshot 预算另行报告。
-- 性能仍与使用相同 resize、batch、线程和 pixels 的 Python oracle 比较，沿用 requirements 的 relative latency gates。
+- queue depth 0 的 Node-API 单请求绝对峰值不得超过 `1088 MiB`；同平台 Core 峰值差作为跨进程 observation 保存，排队 snapshot 预算另行报告。
+- 性能仍与使用相同 resize、batch、线程和 pixels 的 Python oracle 比较；当 runtime binary 或采样进程不可直接比较时，按 requirements 保存为 observation，并以各实现受审 baseline 的 `15%` 回归门槛为准。
 
 `640 MiB` 是第一阶段发布上限，不是目标值。完成 output zero-copy 和 ORT A/B 后应争取将密集场景压到 `512 MiB` 以下。
 

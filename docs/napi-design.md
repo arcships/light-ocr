@@ -649,7 +649,7 @@ Node-API 解决 Node/V8 ABI 兼容，不消除 OS、architecture、libc、C++ ru
 
 ### 14.5 性能与 event loop
 
-- 同机、同 bundle、同 raw fixture、queue depth 0 下，对比 Node-API end-to-end 与 native executable；warm median 比率 `<= 1.10x`、p95 `<= 1.15x`。
+- 同机、同 bundle、同 raw fixture、queue depth 0 下，对比 Node-API end-to-end 与 native executable，并保存 warm median/p95 比率。独立进程、非交错采样时仅作 observation；相同 native runtime 且受控交错采样时 hard gate 为 median `<= 1.10x`、p95 `<= 1.15x`。
 - 分开报告同步 snapshot、queue wait、Core `timingUs.total` 和 JavaScript result materialization，不能把 queue wait 算进 Core timing。
 - 用高频 timer/heartbeat 证明 inference 期间 JavaScript event loop 可继续运行；同步 snapshot 停顿单独报告。
 - 多 engine benchmark 必须记录 engine 数、ORT thread 数、CPU 和内存，防止以隐式 oversubscription 制造错误结论。

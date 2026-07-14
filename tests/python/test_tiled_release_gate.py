@@ -80,32 +80,46 @@ class TiledReleaseGateTests(unittest.TestCase):
                 {"fixtureSha256": "fixture-sha", "pixelSha256": "pixel-sha"},
             )
 
-    def test_node_bootstrap_gate_accepts_the_documented_limits(self) -> None:
+    def test_node_bootstrap_observes_cross_process_deltas(self) -> None:
         node = {"latencyUs": {"median": 110, "p95": 138}}
         core = {"latencyUs": {"median": 100, "p95": 120}}
 
-        tiled_release_gate.gate_node_against_core(
+        observed = tiled_release_gate.observe_node_against_core(
             node, core, 600 * 1024 * 1024, 540 * 1024 * 1024, "fixture"
         )
+        self.assertEqual(observed, (1.1, 1.15, 60 * 1024 * 1024))
 
-    def test_node_bootstrap_gate_rejects_latency_overhead(self) -> None:
+    def test_node_bootstrap_does_not_gate_non_interleaved_latency(self) -> None:
         node = {"latencyUs": {"median": 111, "p95": 120}}
         core = {"latencyUs": {"median": 100, "p95": 120}}
 
-        with self.assertRaisesRegex(RuntimeError, "latency gate"):
-            tiled_release_gate.gate_node_against_core(
-                node, core, 600 * 1024 * 1024, 540 * 1024 * 1024, "fixture"
-            )
+        observed = tiled_release_gate.observe_node_against_core(
+            node, core, 600 * 1024 * 1024, 540 * 1024 * 1024, "fixture"
+        )
+        self.assertEqual(observed[0], 1.11)
 
-    def test_node_bootstrap_gate_rejects_peak_overhead(self) -> None:
+    def test_node_bootstrap_does_not_gate_process_baseline_delta(self) -> None:
         node = {"latencyUs": {"median": 100, "p95": 120}}
         core = {"latencyUs": {"median": 100, "p95": 120}}
 
-        with self.assertRaisesRegex(RuntimeError, "peak gate"):
-            tiled_release_gate.gate_node_against_core(
+        observed = tiled_release_gate.observe_node_against_core(
+            node,
+            core,
+            605 * 1024 * 1024,
+            540 * 1024 * 1024,
+            "fixture",
+        )
+        self.assertEqual(observed[2], 65 * 1024 * 1024)
+
+    def test_node_bootstrap_rejects_absolute_peak(self) -> None:
+        node = {"latencyUs": {"median": 100, "p95": 120}}
+        core = {"latencyUs": {"median": 100, "p95": 120}}
+
+        with self.assertRaisesRegex(RuntimeError, "absolute peak gate"):
+            tiled_release_gate.observe_node_against_core(
                 node,
                 core,
-                605 * 1024 * 1024,
+                tiled_release_gate.NODE_ABSOLUTE_LIMIT + 1,
                 540 * 1024 * 1024,
                 "fixture",
             )

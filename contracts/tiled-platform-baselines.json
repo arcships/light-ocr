@@ -1,0 +1,2118 @@
+{
+  "approvedByCommit": "21d812dcb60e642036c285647571d900b57cc3a6",
+  "contractVersion": "tiled-v1",
+  "entries": [
+    {
+      "absolutePeakBytes": 670748672,
+      "comparator": {
+        "identity": "python-tiled-v1-oracle",
+        "inferenceOnlyMedianUs": 2452927,
+        "medianUs": 2597559,
+        "p95Us": 2658437
+      },
+      "diagnosticsPeakBytes": {
+        "off": 663093248,
+        "on": 670748672
+      },
+      "inferenceOnlyMedianUs": 2422306,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "79aa3c093fe85fabc7bcd1beca07da189588fc7ba8d1b08a2d20ea109284a7a5",
+        "fixtureId": "tiled-small-text-2048",
+        "implementation": "core",
+        "nodeVersion": null,
+        "pixelHash": "576d9c14ec019f0c219021101a21a52b3f22887ad9d30105341b1af8b51a02ff",
+        "platformId": "linux-x64",
+        "runnerClass": {
+          "logicalCpus": 4,
+          "machine": "x86_64",
+          "processor": "x86_64",
+          "python": "3.11.15",
+          "release": "6.17.0-1018-azure",
+          "system": "Linux",
+          "toolchain": {
+            "buildType": "Release",
+            "cmake": "cmake version 3.31.6",
+            "compiler": "c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+            "compilerPath": "/usr/bin/c++",
+            "compilerTarget": "x86_64-linux-gnu",
+            "cxxFlags": {
+              "common": "",
+              "configuration": "-O3 -DNDEBUG"
+            },
+            "deploymentTarget": "",
+            "generator": "Ninja",
+            "linker": "GNU ld (GNU Binutils for Ubuntu) 2.42",
+            "linkerFlags": {
+              "common": "",
+              "configuration": ""
+            },
+            "linkerPath": "/usr/bin/ld",
+            "sdkVersion": "",
+            "sysroot": "",
+            "systemName": "Linux",
+            "systemProcessor": "x86_64"
+          },
+          "totalMemoryBytes": 16765386752
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 2487696,
+      "p95Us": 2632035,
+      "reportDigests": [
+        "83986b68c57295009572e6ebfa80477601b340d4e2f903b92af45508e2727c2f",
+        "9a963b527a2f9eec822f090c2654b021dff3bac0ee7a31e9947afec0a9b89e01",
+        "b4c17b219ca12c6cfd723a185ba4051c46e8b42763c3a51ddacc1a112866b136",
+        "03b6c79674a381e2608df8c30e0824df519f0c0d3a5e259be8cd1faa716d8caf",
+        "103f1dabda516403951f3c7ac0eac62f407a4fb960420db04fdccbfd05e59e71"
+      ],
+      "resultHashes": [
+        "cb4cce8979f6a610ed463316205a6d2633991cd3a9d9f6dfe58ad3bad0ab2ee3",
+        "50b0359062b4a7fc4eea32b1b7f64b21da3cc23162b45141d4a6dfd25e85ad53"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 747454464,
+      "comparator": {
+        "absolutePeakBytes": 670748672,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 2487696,
+        "observedMedianRatio": 0.9927961455097407,
+        "observedP95Ratio": 1.013171557369108,
+        "observedPeakOverheadBytes": 76705792,
+        "p95Us": 2632035,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 744976384,
+        "on": 747454464
+      },
+      "inferenceOnlyMedianUs": 2395565,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "79aa3c093fe85fabc7bcd1beca07da189588fc7ba8d1b08a2d20ea109284a7a5",
+        "fixtureId": "tiled-small-text-2048",
+        "implementation": "node",
+        "nodeVersion": "v22.23.1",
+        "packageVersion": "0.2.0",
+        "pixelHash": "576d9c14ec019f0c219021101a21a52b3f22887ad9d30105341b1af8b51a02ff",
+        "platformId": "linux-x64",
+        "runnerClass": {
+          "cpu": "Intel(R) Xeon(R) 6973P-C",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "6.17.0-1018-azure",
+          "system": "linux",
+          "totalMemoryBytes": 16765386752
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 2469775,
+      "p95Us": 2666703,
+      "reportDigests": [
+        "a1c7eec68855f292162cb410371b144682df1ab5ce1fafddb604668339411374",
+        "9e1f261f9beeb8abd7173814dcd3dd4ec577ed22ce44c15e3650af4e8705727c"
+      ],
+      "resultHashes": [
+        "2a464c15e0bfb5eb1787b5c480141c1f359108832f6550f8bb4d3bb98c727db3"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 745660416,
+      "comparator": {
+        "absolutePeakBytes": 670748672,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 2487696,
+        "observedMedianRatio": 0.9728423408648001,
+        "observedP95Ratio": 0.9794322643885814,
+        "observedPeakOverheadBytes": 74911744,
+        "p95Us": 2632035,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 745660416,
+        "on": 740864000
+      },
+      "inferenceOnlyMedianUs": 2346879,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "79aa3c093fe85fabc7bcd1beca07da189588fc7ba8d1b08a2d20ea109284a7a5",
+        "fixtureId": "tiled-small-text-2048",
+        "implementation": "node",
+        "nodeVersion": "v24.18.0",
+        "packageVersion": "0.2.0",
+        "pixelHash": "576d9c14ec019f0c219021101a21a52b3f22887ad9d30105341b1af8b51a02ff",
+        "platformId": "linux-x64",
+        "runnerClass": {
+          "cpu": "Intel(R) Xeon(R) 6973P-C",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "6.17.0-1018-azure",
+          "system": "linux",
+          "totalMemoryBytes": 16765386752
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 2420136,
+      "p95Us": 2577900,
+      "reportDigests": [
+        "0648683b0aeca46bfddf595c6d445acd79dc146661bafb5929552c3a5452b69d",
+        "86d15aa06bd14cfa7ef94f08a2b2e01356acaf747e43e8b4438e2b5488badb44"
+      ],
+      "resultHashes": [
+        "2a464c15e0bfb5eb1787b5c480141c1f359108832f6550f8bb4d3bb98c727db3"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 663363584,
+      "comparator": {
+        "identity": "python-tiled-v1-oracle",
+        "inferenceOnlyMedianUs": 3490401,
+        "medianUs": 3691084,
+        "p95Us": 3963818
+      },
+      "diagnosticsPeakBytes": {
+        "off": 663363584,
+        "on": 661254144
+      },
+      "inferenceOnlyMedianUs": 3381737,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "d5497796ca117c104d504d720d93b3cd8821f4700d7b384f7210334fe313236f",
+        "fixtureId": "tiled-dense-2048",
+        "implementation": "core",
+        "nodeVersion": null,
+        "pixelHash": "695d947c97b67687ee66e79c1d3433836422fce89a974e0a1d72fae62af38e8f",
+        "platformId": "linux-x64",
+        "runnerClass": {
+          "logicalCpus": 4,
+          "machine": "x86_64",
+          "processor": "x86_64",
+          "python": "3.11.15",
+          "release": "6.17.0-1018-azure",
+          "system": "Linux",
+          "toolchain": {
+            "buildType": "Release",
+            "cmake": "cmake version 3.31.6",
+            "compiler": "c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+            "compilerPath": "/usr/bin/c++",
+            "compilerTarget": "x86_64-linux-gnu",
+            "cxxFlags": {
+              "common": "",
+              "configuration": "-O3 -DNDEBUG"
+            },
+            "deploymentTarget": "",
+            "generator": "Ninja",
+            "linker": "GNU ld (GNU Binutils for Ubuntu) 2.42",
+            "linkerFlags": {
+              "common": "",
+              "configuration": ""
+            },
+            "linkerPath": "/usr/bin/ld",
+            "sdkVersion": "",
+            "sysroot": "",
+            "systemName": "Linux",
+            "systemProcessor": "x86_64"
+          },
+          "totalMemoryBytes": 16765386752
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 3487938,
+      "p95Us": 3706673,
+      "reportDigests": [
+        "5642ae126d24742bd140b076412fd6c49a80967154bb1d6beabbba2ce53ed342",
+        "9a963b527a2f9eec822f090c2654b021dff3bac0ee7a31e9947afec0a9b89e01",
+        "b4c17b219ca12c6cfd723a185ba4051c46e8b42763c3a51ddacc1a112866b136",
+        "93a1be5c8e45e3cf401d36490608aa3207331219ad8eb81684fe91b8cd552ebd",
+        "d7399db6e551757be7799e2b18ff771b81a88cd745e9d48a1be7aee25d997924"
+      ],
+      "resultHashes": [
+        "d2900badabbac80ceb47a098b8b78f321df6ee6925d15cbee803592c31c21397",
+        "1c21489a8cfee80349b48f04824d975c8859ae772364b5be2efd12e78d7768e8"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 745975808,
+      "comparator": {
+        "absolutePeakBytes": 663363584,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 3487938,
+        "observedMedianRatio": 0.9860674128955274,
+        "observedP95Ratio": 0.9925375127506527,
+        "observedPeakOverheadBytes": 82612224,
+        "p95Us": 3706673,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 745975808,
+        "on": 744431616
+      },
+      "inferenceOnlyMedianUs": 3325558,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "d5497796ca117c104d504d720d93b3cd8821f4700d7b384f7210334fe313236f",
+        "fixtureId": "tiled-dense-2048",
+        "implementation": "node",
+        "nodeVersion": "v22.23.1",
+        "packageVersion": "0.2.0",
+        "pixelHash": "695d947c97b67687ee66e79c1d3433836422fce89a974e0a1d72fae62af38e8f",
+        "platformId": "linux-x64",
+        "runnerClass": {
+          "cpu": "Intel(R) Xeon(R) 6973P-C",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "6.17.0-1018-azure",
+          "system": "linux",
+          "totalMemoryBytes": 16765386752
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 3439342,
+      "p95Us": 3679012,
+      "reportDigests": [
+        "0fbddfd257c40afde5b9fcc2a5dfe22e1de2ea7a925abb3bb0d0d5a940a3d2fa",
+        "39059dd9ef68dd1709aafd6a9b9399fa19b2365aa157008bd6b9e4bba18644a5"
+      ],
+      "resultHashes": [
+        "bb4380517791ad91637c491f2e45e2ed1b7ac8dcef028b0360e553aa139f0e05"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 750329856,
+      "comparator": {
+        "absolutePeakBytes": 663363584,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 3487938,
+        "observedMedianRatio": 1.0013724441202796,
+        "observedP95Ratio": 0.9675320698642691,
+        "observedPeakOverheadBytes": 86966272,
+        "p95Us": 3706673,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 742789120,
+        "on": 750329856
+      },
+      "inferenceOnlyMedianUs": 3377427,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "d5497796ca117c104d504d720d93b3cd8821f4700d7b384f7210334fe313236f",
+        "fixtureId": "tiled-dense-2048",
+        "implementation": "node",
+        "nodeVersion": "v24.18.0",
+        "packageVersion": "0.2.0",
+        "pixelHash": "695d947c97b67687ee66e79c1d3433836422fce89a974e0a1d72fae62af38e8f",
+        "platformId": "linux-x64",
+        "runnerClass": {
+          "cpu": "Intel(R) Xeon(R) 6973P-C",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "6.17.0-1018-azure",
+          "system": "linux",
+          "totalMemoryBytes": 16765386752
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 3492725,
+      "p95Us": 3586325,
+      "reportDigests": [
+        "94fd7c4ee358a22527c1a1625f8701b78bb26015e20bd5715926d6e3d29dc293",
+        "9b6d00c42ffaef94d2ee44cb98a25f6b8b32a1ad2fede7bdb74a547f0e5cb143"
+      ],
+      "resultHashes": [
+        "bb4380517791ad91637c491f2e45e2ed1b7ac8dcef028b0360e553aa139f0e05"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 669016064,
+      "comparator": {
+        "identity": "python-tiled-v1-oracle",
+        "inferenceOnlyMedianUs": 2055232,
+        "medianUs": 2181236,
+        "p95Us": 2343021
+      },
+      "diagnosticsPeakBytes": {
+        "off": 669016064,
+        "on": 661073920
+      },
+      "inferenceOnlyMedianUs": 2034212,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "c9918d339ddcfba7176e7d279a1c40d1481fd45c985c7b45dcd9b4f954369468",
+        "fixtureId": "tiled-four-way-intersection-2048",
+        "implementation": "core",
+        "nodeVersion": null,
+        "pixelHash": "d10527c50bc5dcd4004257a12b34dfa99274bea18f530bb223ea005bae024299",
+        "platformId": "linux-x64",
+        "runnerClass": {
+          "logicalCpus": 4,
+          "machine": "x86_64",
+          "processor": "x86_64",
+          "python": "3.11.15",
+          "release": "6.17.0-1018-azure",
+          "system": "Linux",
+          "toolchain": {
+            "buildType": "Release",
+            "cmake": "cmake version 3.31.6",
+            "compiler": "c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+            "compilerPath": "/usr/bin/c++",
+            "compilerTarget": "x86_64-linux-gnu",
+            "cxxFlags": {
+              "common": "",
+              "configuration": "-O3 -DNDEBUG"
+            },
+            "deploymentTarget": "",
+            "generator": "Ninja",
+            "linker": "GNU ld (GNU Binutils for Ubuntu) 2.42",
+            "linkerFlags": {
+              "common": "",
+              "configuration": ""
+            },
+            "linkerPath": "/usr/bin/ld",
+            "sdkVersion": "",
+            "sysroot": "",
+            "systemName": "Linux",
+            "systemProcessor": "x86_64"
+          },
+          "totalMemoryBytes": 16765386752
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 2085082,
+      "p95Us": 2211403,
+      "reportDigests": [
+        "b97c028b4d9dc9fe81bac247c33a5a20baa9cdb6e7eb14ffe5dbab9a0ffdbf34",
+        "9a963b527a2f9eec822f090c2654b021dff3bac0ee7a31e9947afec0a9b89e01",
+        "b4c17b219ca12c6cfd723a185ba4051c46e8b42763c3a51ddacc1a112866b136",
+        "b58a7ae307196c0e496db9ab52a6d26b497e1335465a3993ccf14d0377e26162",
+        "bd0585a769b4bb0e8da4631a22d338b27d67b19f6e93b24c6dca55a63e1fc235"
+      ],
+      "resultHashes": [
+        "af0cff45b53d2018c4303071615218106759015026c63dcca0c15940bcd55395",
+        "628aca5ef31577145a3446f5c52ca8c91d15a501b932a5b427e666dcd8eafccc"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 735129600,
+      "comparator": {
+        "absolutePeakBytes": 669016064,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 2085082,
+        "observedMedianRatio": 0.9897764212630487,
+        "observedP95Ratio": 1.0127317363682693,
+        "observedPeakOverheadBytes": 66113536,
+        "p95Us": 2211403,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 733720576,
+        "on": 735129600
+      },
+      "inferenceOnlyMedianUs": 2005430,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "c9918d339ddcfba7176e7d279a1c40d1481fd45c985c7b45dcd9b4f954369468",
+        "fixtureId": "tiled-four-way-intersection-2048",
+        "implementation": "node",
+        "nodeVersion": "v22.23.1",
+        "packageVersion": "0.2.0",
+        "pixelHash": "d10527c50bc5dcd4004257a12b34dfa99274bea18f530bb223ea005bae024299",
+        "platformId": "linux-x64",
+        "runnerClass": {
+          "cpu": "Intel(R) Xeon(R) 6973P-C",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "6.17.0-1018-azure",
+          "system": "linux",
+          "totalMemoryBytes": 16765386752
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 2063765,
+      "p95Us": 2239558,
+      "reportDigests": [
+        "6e528b2581560ca614d43f03fcba8befbebc5fb5fc442c9fbe1f0c09b2d7e14e",
+        "6dab76646bc36d99051541af1d24c29679dfa0f2d50a188ac4f2944a27689319"
+      ],
+      "resultHashes": [
+        "7d96181e6c9c1037f8e22916a7ec426faf0f5230c130757aa201a789fc3baa6b"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 748048384,
+      "comparator": {
+        "absolutePeakBytes": 669016064,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 2085082,
+        "observedMedianRatio": 1.003420009380926,
+        "observedP95Ratio": 0.9980442280308022,
+        "observedPeakOverheadBytes": 79032320,
+        "p95Us": 2211403,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 731455488,
+        "on": 748048384
+      },
+      "inferenceOnlyMedianUs": 2033085,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "c9918d339ddcfba7176e7d279a1c40d1481fd45c985c7b45dcd9b4f954369468",
+        "fixtureId": "tiled-four-way-intersection-2048",
+        "implementation": "node",
+        "nodeVersion": "v24.18.0",
+        "packageVersion": "0.2.0",
+        "pixelHash": "d10527c50bc5dcd4004257a12b34dfa99274bea18f530bb223ea005bae024299",
+        "platformId": "linux-x64",
+        "runnerClass": {
+          "cpu": "Intel(R) Xeon(R) 6973P-C",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "6.17.0-1018-azure",
+          "system": "linux",
+          "totalMemoryBytes": 16765386752
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 2092213,
+      "p95Us": 2207078,
+      "reportDigests": [
+        "69bef799d6d515ebdd64e7f5ec84dca7476987132d5de75da44182ee614fdc7c",
+        "bd471cfa8c95df993faa8d6a6efd31e46c0785c44e5824159afa38b7f0f24de6"
+      ],
+      "resultHashes": [
+        "7d96181e6c9c1037f8e22916a7ec426faf0f5230c130757aa201a789fc3baa6b"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 646066176,
+      "comparator": {
+        "identity": "python-tiled-v1-oracle",
+        "inferenceOnlyMedianUs": 3468570,
+        "medianUs": 3694428,
+        "p95Us": 3751518
+      },
+      "diagnosticsPeakBytes": {
+        "off": 646066176,
+        "on": 645902336
+      },
+      "inferenceOnlyMedianUs": 3453270,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "79aa3c093fe85fabc7bcd1beca07da189588fc7ba8d1b08a2d20ea109284a7a5",
+        "fixtureId": "tiled-small-text-2048",
+        "implementation": "core",
+        "nodeVersion": null,
+        "pixelHash": "576d9c14ec019f0c219021101a21a52b3f22887ad9d30105341b1af8b51a02ff",
+        "platformId": "windows-x64",
+        "runnerClass": {
+          "logicalCpus": 4,
+          "machine": "AMD64",
+          "processor": "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD",
+          "python": "3.11.9",
+          "release": "10",
+          "system": "Windows",
+          "toolchain": {
+            "buildType": "Release",
+            "cmake": "cmake version 3.31.6",
+            "compiler": "unavailable",
+            "compilerPath": "unavailable",
+            "compilerTarget": "unavailable",
+            "cxxFlags": {
+              "common": "/DWIN32 /D_WINDOWS /EHsc",
+              "configuration": "/O2 /Ob2 /DNDEBUG"
+            },
+            "deploymentTarget": "",
+            "generator": "Visual Studio 17 2022",
+            "linker": "Microsoft (R) Incremental Linker Version 14.44.35228.0",
+            "linkerFlags": {
+              "common": "/machine:x64",
+              "configuration": "/INCREMENTAL:NO"
+            },
+            "linkerPath": "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/link.exe",
+            "sdkVersion": "",
+            "sysroot": "",
+            "systemName": "Windows",
+            "systemProcessor": "AMD64"
+          },
+          "totalMemoryBytes": 17174360064
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 3664628,
+      "p95Us": 3686129,
+      "reportDigests": [
+        "f20f0178f50cca56ada92d4d12920ad4a6c01f77d19dbfc9321f149dd2010901",
+        "d1721553726cc1ae3ec6c0496b252a79788847482cfd4992c6cdb4444f3b4ae2",
+        "0188a0cc7aba83f0fb4c5334880b2ec2b6ac840acf091da4b2d58c6299a75565",
+        "4e301fb3d1dc2d5c2e89ff148178c0feae73b58ad0451a7e726320e61765d2dc",
+        "4d69ea93bbe192813ef6cc7b0b819e8404508826e3225fa706e86a971c1b38df"
+      ],
+      "resultHashes": [
+        "5d028f8ccc3e26546f2cae7cf8ad3f9514dfe7779af13a657ed96b3122a75a1a",
+        "dadd90ef3809dad3f1da71873da76e096d4d436e3247d6894725756207907827"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 692248576,
+      "comparator": {
+        "absolutePeakBytes": 646066176,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 3664628,
+        "observedMedianRatio": 0.9958500562676484,
+        "observedP95Ratio": 0.9972654239718686,
+        "observedPeakOverheadBytes": 46182400,
+        "p95Us": 3686129,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 692248576,
+        "on": 668921856
+      },
+      "inferenceOnlyMedianUs": 3435891,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "79aa3c093fe85fabc7bcd1beca07da189588fc7ba8d1b08a2d20ea109284a7a5",
+        "fixtureId": "tiled-small-text-2048",
+        "implementation": "node",
+        "nodeVersion": "v22.23.1",
+        "packageVersion": "0.2.0",
+        "pixelHash": "576d9c14ec019f0c219021101a21a52b3f22887ad9d30105341b1af8b51a02ff",
+        "platformId": "windows-x64",
+        "runnerClass": {
+          "cpu": "AMD EPYC 7763 64-Core Processor                ",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "10.0.20348",
+          "system": "win32",
+          "totalMemoryBytes": 17174360064
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 3649420,
+      "p95Us": 3676049,
+      "reportDigests": [
+        "8dc0d97097e6e1ef3a1ee383be710dabe86ff28057aacd69372a5b647d9f8228",
+        "1b98cf44a478cbf99daeefa82bd95e34dd3f61ce7bcd4e7b89d5fec80fb0a18d"
+      ],
+      "resultHashes": [
+        "4a92fcf7f3291b691f5acc7fe73b6dfd00085bc1e5f9767e0cef63e1cdc3154c"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 695431168,
+      "comparator": {
+        "absolutePeakBytes": 646066176,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 3664628,
+        "observedMedianRatio": 1.003934369327528,
+        "observedP95Ratio": 1.0514927719567058,
+        "observedPeakOverheadBytes": 49364992,
+        "p95Us": 3686129,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 695431168,
+        "on": 693788672
+      },
+      "inferenceOnlyMedianUs": 3463691,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "79aa3c093fe85fabc7bcd1beca07da189588fc7ba8d1b08a2d20ea109284a7a5",
+        "fixtureId": "tiled-small-text-2048",
+        "implementation": "node",
+        "nodeVersion": "v24.18.0",
+        "packageVersion": "0.2.0",
+        "pixelHash": "576d9c14ec019f0c219021101a21a52b3f22887ad9d30105341b1af8b51a02ff",
+        "platformId": "windows-x64",
+        "runnerClass": {
+          "cpu": "AMD EPYC 7763 64-Core Processor                ",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "10.0.20348",
+          "system": "win32",
+          "totalMemoryBytes": 17174360064
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 3679046,
+      "p95Us": 3875938,
+      "reportDigests": [
+        "d7c0f21e43f708a2896852dbd22c975612e7178c31f0300bdf3e3a1953b98ac0",
+        "22d1e463683a3084475901c7ac48625300f205fec63c34c39022334ca543af25"
+      ],
+      "resultHashes": [
+        "4a92fcf7f3291b691f5acc7fe73b6dfd00085bc1e5f9767e0cef63e1cdc3154c"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 645238784,
+      "comparator": {
+        "identity": "python-tiled-v1-oracle",
+        "inferenceOnlyMedianUs": 5454209,
+        "medianUs": 5756064,
+        "p95Us": 6422139
+      },
+      "diagnosticsPeakBytes": {
+        "off": 645017600,
+        "on": 645238784
+      },
+      "inferenceOnlyMedianUs": 5435073,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "d5497796ca117c104d504d720d93b3cd8821f4700d7b384f7210334fe313236f",
+        "fixtureId": "tiled-dense-2048",
+        "implementation": "core",
+        "nodeVersion": null,
+        "pixelHash": "695d947c97b67687ee66e79c1d3433836422fce89a974e0a1d72fae62af38e8f",
+        "platformId": "windows-x64",
+        "runnerClass": {
+          "logicalCpus": 4,
+          "machine": "AMD64",
+          "processor": "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD",
+          "python": "3.11.9",
+          "release": "10",
+          "system": "Windows",
+          "toolchain": {
+            "buildType": "Release",
+            "cmake": "cmake version 3.31.6",
+            "compiler": "unavailable",
+            "compilerPath": "unavailable",
+            "compilerTarget": "unavailable",
+            "cxxFlags": {
+              "common": "/DWIN32 /D_WINDOWS /EHsc",
+              "configuration": "/O2 /Ob2 /DNDEBUG"
+            },
+            "deploymentTarget": "",
+            "generator": "Visual Studio 17 2022",
+            "linker": "Microsoft (R) Incremental Linker Version 14.44.35228.0",
+            "linkerFlags": {
+              "common": "/machine:x64",
+              "configuration": "/INCREMENTAL:NO"
+            },
+            "linkerPath": "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/link.exe",
+            "sdkVersion": "",
+            "sysroot": "",
+            "systemName": "Windows",
+            "systemProcessor": "AMD64"
+          },
+          "totalMemoryBytes": 17174360064
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 5915087,
+      "p95Us": 5968777,
+      "reportDigests": [
+        "143dce2abdffbcd83581ed4f95e60c5d8176dd949a6af35bba0adfe65e8d9bb4",
+        "d1721553726cc1ae3ec6c0496b252a79788847482cfd4992c6cdb4444f3b4ae2",
+        "0188a0cc7aba83f0fb4c5334880b2ec2b6ac840acf091da4b2d58c6299a75565",
+        "66cda64e1a457cf154ef544173ef18dee89ac5ea90f5cd77d1e91679e262c484",
+        "2311e31709f5077a8092a9136503d4d8350de2e705c315ebb5bb97b2d80bbdc4"
+      ],
+      "resultHashes": [
+        "24a0f99eb11da4c0583ff03a078744d2bddb55978ddbfb61e25dedeb323e0897",
+        "2f1f5f6fcf1e6eed417e11861ccb09c64a1c08a1b01cc6ff42661e8d4be3b8a7"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 696172544,
+      "comparator": {
+        "absolutePeakBytes": 645238784,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 5915087,
+        "observedMedianRatio": 0.9887785251510248,
+        "observedP95Ratio": 0.9861993503861847,
+        "observedPeakOverheadBytes": 50933760,
+        "p95Us": 5968777,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 696172544,
+        "on": 669323264
+      },
+      "inferenceOnlyMedianUs": 5366462,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "d5497796ca117c104d504d720d93b3cd8821f4700d7b384f7210334fe313236f",
+        "fixtureId": "tiled-dense-2048",
+        "implementation": "node",
+        "nodeVersion": "v22.23.1",
+        "packageVersion": "0.2.0",
+        "pixelHash": "695d947c97b67687ee66e79c1d3433836422fce89a974e0a1d72fae62af38e8f",
+        "platformId": "windows-x64",
+        "runnerClass": {
+          "cpu": "AMD EPYC 7763 64-Core Processor                ",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "10.0.20348",
+          "system": "win32",
+          "totalMemoryBytes": 17174360064
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 5848711,
+      "p95Us": 5886404,
+      "reportDigests": [
+        "a1fe287b97d3046ebe9e4eb7138c002324db5ce858ca9eff401a470c119c4d98",
+        "76635eb900c36170f64b1751b8a2d50f7e2ab58e95742382675c671791515810"
+      ],
+      "resultHashes": [
+        "4cd5d33eae38dfbda7e7e9c5d741a1bb58062647306a890dbcbfa693cd8c0257"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 699961344,
+      "comparator": {
+        "absolutePeakBytes": 645238784,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 5915087,
+        "observedMedianRatio": 0.9937963718876831,
+        "observedP95Ratio": 0.9887390666463163,
+        "observedPeakOverheadBytes": 54722560,
+        "p95Us": 5968777,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 672759808,
+        "on": 699961344
+      },
+      "inferenceOnlyMedianUs": 5392592,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "d5497796ca117c104d504d720d93b3cd8821f4700d7b384f7210334fe313236f",
+        "fixtureId": "tiled-dense-2048",
+        "implementation": "node",
+        "nodeVersion": "v24.18.0",
+        "packageVersion": "0.2.0",
+        "pixelHash": "695d947c97b67687ee66e79c1d3433836422fce89a974e0a1d72fae62af38e8f",
+        "platformId": "windows-x64",
+        "runnerClass": {
+          "cpu": "AMD EPYC 7763 64-Core Processor                ",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "10.0.20348",
+          "system": "win32",
+          "totalMemoryBytes": 17174360064
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 5878392,
+      "p95Us": 5901563,
+      "reportDigests": [
+        "2ee4a40124eab9af25d2bc07495ef300174c9c3c1d01aac62527c57b1b59b85d",
+        "3a344b137de41d8ecbd8e95ebbb51ac5ebcf83dc021516b8f1794887c2bb7a7d"
+      ],
+      "resultHashes": [
+        "4cd5d33eae38dfbda7e7e9c5d741a1bb58062647306a890dbcbfa693cd8c0257"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 645468160,
+      "comparator": {
+        "identity": "python-tiled-v1-oracle",
+        "inferenceOnlyMedianUs": 2733941,
+        "medianUs": 2936485,
+        "p95Us": 2959943
+      },
+      "diagnosticsPeakBytes": {
+        "off": 645468160,
+        "on": 645427200
+      },
+      "inferenceOnlyMedianUs": 2728560,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "c9918d339ddcfba7176e7d279a1c40d1481fd45c985c7b45dcd9b4f954369468",
+        "fixtureId": "tiled-four-way-intersection-2048",
+        "implementation": "core",
+        "nodeVersion": null,
+        "pixelHash": "d10527c50bc5dcd4004257a12b34dfa99274bea18f530bb223ea005bae024299",
+        "platformId": "windows-x64",
+        "runnerClass": {
+          "logicalCpus": 4,
+          "machine": "AMD64",
+          "processor": "AMD64 Family 25 Model 1 Stepping 1, AuthenticAMD",
+          "python": "3.11.9",
+          "release": "10",
+          "system": "Windows",
+          "toolchain": {
+            "buildType": "Release",
+            "cmake": "cmake version 3.31.6",
+            "compiler": "unavailable",
+            "compilerPath": "unavailable",
+            "compilerTarget": "unavailable",
+            "cxxFlags": {
+              "common": "/DWIN32 /D_WINDOWS /EHsc",
+              "configuration": "/O2 /Ob2 /DNDEBUG"
+            },
+            "deploymentTarget": "",
+            "generator": "Visual Studio 17 2022",
+            "linker": "Microsoft (R) Incremental Linker Version 14.44.35228.0",
+            "linkerFlags": {
+              "common": "/machine:x64",
+              "configuration": "/INCREMENTAL:NO"
+            },
+            "linkerPath": "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Tools/MSVC/14.44.35207/bin/Hostx64/x64/link.exe",
+            "sdkVersion": "",
+            "sysroot": "",
+            "systemName": "Windows",
+            "systemProcessor": "AMD64"
+          },
+          "totalMemoryBytes": 17174360064
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 2844315,
+      "p95Us": 2866029,
+      "reportDigests": [
+        "3014d0b52e2eab575daa4d0aa5220d9ccbea00c5b9fa944042f986ea9e34c7bb",
+        "d1721553726cc1ae3ec6c0496b252a79788847482cfd4992c6cdb4444f3b4ae2",
+        "0188a0cc7aba83f0fb4c5334880b2ec2b6ac840acf091da4b2d58c6299a75565",
+        "b5de94a13ca04abeff3e0dfc3ddf9b761e22556cf1157199ac6043ad11dab345",
+        "fa79275618597467ee528600dced915470cbab8942d234a16310108d45830461"
+      ],
+      "resultHashes": [
+        "1d05365aa4a4c663da43ad3f1ee91741c43badaace661647d9f71183a8e09bb8",
+        "1b1996a7dd596905f205dfec1062a3743228d145fa93eaf96de54045b63bbc94"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 690864128,
+      "comparator": {
+        "absolutePeakBytes": 645468160,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 2844315,
+        "observedMedianRatio": 1.0113053582321228,
+        "observedP95Ratio": 1.0210755020273696,
+        "observedPeakOverheadBytes": 45395968,
+        "p95Us": 2866029,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 659234816,
+        "on": 690864128
+      },
+      "inferenceOnlyMedianUs": 2757630,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "c9918d339ddcfba7176e7d279a1c40d1481fd45c985c7b45dcd9b4f954369468",
+        "fixtureId": "tiled-four-way-intersection-2048",
+        "implementation": "node",
+        "nodeVersion": "v22.23.1",
+        "packageVersion": "0.2.0",
+        "pixelHash": "d10527c50bc5dcd4004257a12b34dfa99274bea18f530bb223ea005bae024299",
+        "platformId": "windows-x64",
+        "runnerClass": {
+          "cpu": "AMD EPYC 7763 64-Core Processor                ",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "10.0.20348",
+          "system": "win32",
+          "totalMemoryBytes": 17174360064
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 2876471,
+      "p95Us": 2926432,
+      "reportDigests": [
+        "d83fa4e4dee38d87665fec406c840a1f87332eac02a80a1a3ac56c7e4c55a19d",
+        "19a42927da03f69c9f85b569f317db40e6676e6fa75bebab094a0766b590e3bb"
+      ],
+      "resultHashes": [
+        "c3ac0b23bfff2368a7d12f9a18272fe99a48469c3f11ffd02c8b61f93d2db9d7"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 667181056,
+      "comparator": {
+        "absolutePeakBytes": 645468160,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 2844315,
+        "observedMedianRatio": 1.0051945723311237,
+        "observedP95Ratio": 1.0082302028346537,
+        "observedPeakOverheadBytes": 21712896,
+        "p95Us": 2866029,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 667045888,
+        "on": 667181056
+      },
+      "inferenceOnlyMedianUs": 2740406,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "c9918d339ddcfba7176e7d279a1c40d1481fd45c985c7b45dcd9b4f954369468",
+        "fixtureId": "tiled-four-way-intersection-2048",
+        "implementation": "node",
+        "nodeVersion": "v24.18.0",
+        "packageVersion": "0.2.0",
+        "pixelHash": "d10527c50bc5dcd4004257a12b34dfa99274bea18f530bb223ea005bae024299",
+        "platformId": "windows-x64",
+        "runnerClass": {
+          "cpu": "AMD EPYC 7763 64-Core Processor                ",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "10.0.20348",
+          "system": "win32",
+          "totalMemoryBytes": 17174360064
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 2859090,
+      "p95Us": 2889617,
+      "reportDigests": [
+        "cf6e6c75a670ac53f4cc91588342322115d9a1e4254bf4418a1b8720e6bd9e4d",
+        "ca5020d33df23e5c0387b1ed73cb722d4a0386b17a0ff73860c05790a90ba36c"
+      ],
+      "resultHashes": [
+        "c3ac0b23bfff2368a7d12f9a18272fe99a48469c3f11ffd02c8b61f93d2db9d7"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 691011584,
+      "comparator": {
+        "identity": "python-tiled-v1-oracle",
+        "inferenceOnlyMedianUs": 4609887,
+        "medianUs": 4799185,
+        "p95Us": 5963843
+      },
+      "diagnosticsPeakBytes": {
+        "off": 691011584,
+        "on": 677855232
+      },
+      "inferenceOnlyMedianUs": 4404107,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "79aa3c093fe85fabc7bcd1beca07da189588fc7ba8d1b08a2d20ea109284a7a5",
+        "fixtureId": "tiled-small-text-2048",
+        "implementation": "core",
+        "nodeVersion": null,
+        "pixelHash": "576d9c14ec019f0c219021101a21a52b3f22887ad9d30105341b1af8b51a02ff",
+        "platformId": "macos-arm64",
+        "runnerClass": {
+          "logicalCpus": 3,
+          "machine": "arm64",
+          "processor": "arm",
+          "python": "3.11.9",
+          "release": "24.6.0",
+          "system": "Darwin",
+          "toolchain": {
+            "buildType": "Release",
+            "cmake": "cmake version 4.3.4",
+            "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)",
+            "compilerPath": "/usr/bin/c++",
+            "compilerTarget": "arm64-apple-darwin24.6.0",
+            "cxxFlags": {
+              "common": "",
+              "configuration": "-O3 -DNDEBUG"
+            },
+            "deploymentTarget": "13.3",
+            "generator": "Ninja",
+            "linker": "@(#)PROGRAM:ld PROJECT:ld-1167.5",
+            "linkerFlags": {
+              "common": "",
+              "configuration": ""
+            },
+            "linkerPath": "/usr/bin/ld",
+            "sdkVersion": "15.5",
+            "sysroot": "/Applications/Xcode_16.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+            "systemName": "Darwin",
+            "systemProcessor": "arm64"
+          },
+          "totalMemoryBytes": 7516192768
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 4465125,
+      "p95Us": 5468310,
+      "reportDigests": [
+        "c06cb393315aa3bd5110d8a18bb1b566c84657c46deaf6a3b108be0f703d7f75",
+        "995f2527cddba585b7fcafb2c942b6d5bdadc22de7f648162c5074be4cbbf04a",
+        "d94f408b112dd5581770bd52fddd8be4dbf4b4323e8bd673906a45d99febc5eb",
+        "f1dc15feb485ec4011595693ef23866800b20886dd37347e9fb3e0d2867387cc",
+        "5200cda3f5addc638486acc53310180627b059eaf8da8cb7075c40fa4f54288c"
+      ],
+      "resultHashes": [
+        "be195a9d63a7e4fc9d24da9a345348513c44e306274932829e25d7874c049721",
+        "666186ec4fdebc11d9f2e2c2706fb3ff8f96992ccc1e0ebaf5bd3dd3dcadec37"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 763199488,
+      "comparator": {
+        "absolutePeakBytes": 691011584,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 4465125,
+        "observedMedianRatio": 0.8963908065283727,
+        "observedP95Ratio": 0.7656193595461852,
+        "observedPeakOverheadBytes": 72187904,
+        "p95Us": 5468310,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 762019840,
+        "on": 763199488
+      },
+      "inferenceOnlyMedianUs": 3941946,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "79aa3c093fe85fabc7bcd1beca07da189588fc7ba8d1b08a2d20ea109284a7a5",
+        "fixtureId": "tiled-small-text-2048",
+        "implementation": "node",
+        "nodeVersion": "v22.23.1",
+        "packageVersion": "0.2.0",
+        "pixelHash": "576d9c14ec019f0c219021101a21a52b3f22887ad9d30105341b1af8b51a02ff",
+        "platformId": "macos-arm64",
+        "runnerClass": {
+          "cpu": "Apple M1 (Virtual)",
+          "logicalCpus": 3,
+          "machine": "arm64",
+          "napi": "10",
+          "release": "24.6.0",
+          "system": "darwin",
+          "totalMemoryBytes": 7516192768
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 4002497,
+      "p95Us": 4186644,
+      "reportDigests": [
+        "fa094d790b144e46f82988a06ab9579cdd56fce468a1c80dd1db6fdb4349bee9",
+        "7674e415ccd48e69f4a42db2d3967f461960ad129c3ffa2e109a85fadba93f0b"
+      ],
+      "resultHashes": [
+        "e7ca625d99c23ebb630b9f108b68309ccb08b9ddcafeb9df7e7b5ccb7aa9fa03"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 756891648,
+      "comparator": {
+        "absolutePeakBytes": 691011584,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 4465125,
+        "observedMedianRatio": 0.8852643543013914,
+        "observedP95Ratio": 0.8151741580122561,
+        "observedPeakOverheadBytes": 65880064,
+        "p95Us": 5468310,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 749879296,
+        "on": 756891648
+      },
+      "inferenceOnlyMedianUs": 3890557,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "79aa3c093fe85fabc7bcd1beca07da189588fc7ba8d1b08a2d20ea109284a7a5",
+        "fixtureId": "tiled-small-text-2048",
+        "implementation": "node",
+        "nodeVersion": "v24.18.0",
+        "packageVersion": "0.2.0",
+        "pixelHash": "576d9c14ec019f0c219021101a21a52b3f22887ad9d30105341b1af8b51a02ff",
+        "platformId": "macos-arm64",
+        "runnerClass": {
+          "cpu": "Apple M1 (Virtual)",
+          "logicalCpus": 3,
+          "machine": "arm64",
+          "napi": "10",
+          "release": "24.6.0",
+          "system": "darwin",
+          "totalMemoryBytes": 7516192768
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 3952816,
+      "p95Us": 4457625,
+      "reportDigests": [
+        "eb1bb2db647b5e05e5a1b45ea832b8480b4798a2c9b71e0b04ea64884f97b814",
+        "0cafb41aa1ed77648f7df0c04a422006373e0e7c99b7efdab7e7dd547ee07726"
+      ],
+      "resultHashes": [
+        "e7ca625d99c23ebb630b9f108b68309ccb08b9ddcafeb9df7e7b5ccb7aa9fa03"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 691568640,
+      "comparator": {
+        "identity": "python-tiled-v1-oracle",
+        "inferenceOnlyMedianUs": 6241807,
+        "medianUs": 6497918,
+        "p95Us": 7360154
+      },
+      "diagnosticsPeakBytes": {
+        "off": 691568640,
+        "on": 676364288
+      },
+      "inferenceOnlyMedianUs": 7162497,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "d5497796ca117c104d504d720d93b3cd8821f4700d7b384f7210334fe313236f",
+        "fixtureId": "tiled-dense-2048",
+        "implementation": "core",
+        "nodeVersion": null,
+        "pixelHash": "695d947c97b67687ee66e79c1d3433836422fce89a974e0a1d72fae62af38e8f",
+        "platformId": "macos-arm64",
+        "runnerClass": {
+          "logicalCpus": 3,
+          "machine": "arm64",
+          "processor": "arm",
+          "python": "3.11.9",
+          "release": "24.6.0",
+          "system": "Darwin",
+          "toolchain": {
+            "buildType": "Release",
+            "cmake": "cmake version 4.3.4",
+            "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)",
+            "compilerPath": "/usr/bin/c++",
+            "compilerTarget": "arm64-apple-darwin24.6.0",
+            "cxxFlags": {
+              "common": "",
+              "configuration": "-O3 -DNDEBUG"
+            },
+            "deploymentTarget": "13.3",
+            "generator": "Ninja",
+            "linker": "@(#)PROGRAM:ld PROJECT:ld-1167.5",
+            "linkerFlags": {
+              "common": "",
+              "configuration": ""
+            },
+            "linkerPath": "/usr/bin/ld",
+            "sdkVersion": "15.5",
+            "sysroot": "/Applications/Xcode_16.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+            "systemName": "Darwin",
+            "systemProcessor": "arm64"
+          },
+          "totalMemoryBytes": 7516192768
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 7322652,
+      "p95Us": 8505000,
+      "reportDigests": [
+        "efff6cf92023012152570f4d9d3d9c258a7c66b0d1f90a6fd9712cd6f355f388",
+        "995f2527cddba585b7fcafb2c942b6d5bdadc22de7f648162c5074be4cbbf04a",
+        "d94f408b112dd5581770bd52fddd8be4dbf4b4323e8bd673906a45d99febc5eb",
+        "1db94a7cf4bd95b6460bc7a323dc7084c6e8f0c168cdccb6f9ed7ae83537599c",
+        "ccb5c0b5692f653e1003d9f88da732bb9224ec361df813071ddba3038bfea7fd"
+      ],
+      "resultHashes": [
+        "d997fd3c4f3fe939d6b46a960221240d7a9e844cb66505444d35e9ee9adf4772",
+        "b081bb012526c42ccfe0566f8f910509c84d161428922106ec0af6b733b7ef74"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 764854272,
+      "comparator": {
+        "absolutePeakBytes": 691568640,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 7322652,
+        "observedMedianRatio": 1.0336516060028524,
+        "observedP95Ratio": 1.0233502645502646,
+        "observedPeakOverheadBytes": 73285632,
+        "p95Us": 8505000,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 764035072,
+        "on": 764854272
+      },
+      "inferenceOnlyMedianUs": 7404175,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "d5497796ca117c104d504d720d93b3cd8821f4700d7b384f7210334fe313236f",
+        "fixtureId": "tiled-dense-2048",
+        "implementation": "node",
+        "nodeVersion": "v22.23.1",
+        "packageVersion": "0.2.0",
+        "pixelHash": "695d947c97b67687ee66e79c1d3433836422fce89a974e0a1d72fae62af38e8f",
+        "platformId": "macos-arm64",
+        "runnerClass": {
+          "cpu": "Apple M1 (Virtual)",
+          "logicalCpus": 3,
+          "machine": "arm64",
+          "napi": "10",
+          "release": "24.6.0",
+          "system": "darwin",
+          "totalMemoryBytes": 7516192768
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 7569071,
+      "p95Us": 8703594,
+      "reportDigests": [
+        "c8d462b66323e7b1d21c94aa6ed3bd238db178d4ca82bb33ccf2c0cc834397b5",
+        "e2ce3b5c64f4cb823aa418204ff9ea1428be5a5452ccb476187db776897fae61"
+      ],
+      "resultHashes": [
+        "f6ca176cd8474873a46ff87ea16498e423ff5e32fb6b3d7a5fea1ad61064675c"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 769245184,
+      "comparator": {
+        "absolutePeakBytes": 691568640,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 7322652,
+        "observedMedianRatio": 0.9312866431451338,
+        "observedP95Ratio": 0.8430951205173427,
+        "observedPeakOverheadBytes": 77676544,
+        "p95Us": 8505000,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 769245184,
+        "on": 759906304
+      },
+      "inferenceOnlyMedianUs": 6679978,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "d5497796ca117c104d504d720d93b3cd8821f4700d7b384f7210334fe313236f",
+        "fixtureId": "tiled-dense-2048",
+        "implementation": "node",
+        "nodeVersion": "v24.18.0",
+        "packageVersion": "0.2.0",
+        "pixelHash": "695d947c97b67687ee66e79c1d3433836422fce89a974e0a1d72fae62af38e8f",
+        "platformId": "macos-arm64",
+        "runnerClass": {
+          "cpu": "Apple M1 (Virtual)",
+          "logicalCpus": 3,
+          "machine": "arm64",
+          "napi": "10",
+          "release": "24.6.0",
+          "system": "darwin",
+          "totalMemoryBytes": 7516192768
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 6819488,
+      "p95Us": 7170524,
+      "reportDigests": [
+        "36e5344d12cf9c382fa9e3796c447a5cb3bfd52ce374e8e7305ee00ece726a08",
+        "29cb65e9546105471d234c12c94ffc9416870476b91dda24462f2e9ddc8315d4"
+      ],
+      "resultHashes": [
+        "f6ca176cd8474873a46ff87ea16498e423ff5e32fb6b3d7a5fea1ad61064675c"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 699858944,
+      "comparator": {
+        "identity": "python-tiled-v1-oracle",
+        "inferenceOnlyMedianUs": 3086197,
+        "medianUs": 3239255,
+        "p95Us": 3309960
+      },
+      "diagnosticsPeakBytes": {
+        "off": 699858944,
+        "on": 693354496
+      },
+      "inferenceOnlyMedianUs": 3154720,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "c9918d339ddcfba7176e7d279a1c40d1481fd45c985c7b45dcd9b4f954369468",
+        "fixtureId": "tiled-four-way-intersection-2048",
+        "implementation": "core",
+        "nodeVersion": null,
+        "pixelHash": "d10527c50bc5dcd4004257a12b34dfa99274bea18f530bb223ea005bae024299",
+        "platformId": "macos-arm64",
+        "runnerClass": {
+          "logicalCpus": 3,
+          "machine": "arm64",
+          "processor": "arm",
+          "python": "3.11.9",
+          "release": "24.6.0",
+          "system": "Darwin",
+          "toolchain": {
+            "buildType": "Release",
+            "cmake": "cmake version 4.3.4",
+            "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)",
+            "compilerPath": "/usr/bin/c++",
+            "compilerTarget": "arm64-apple-darwin24.6.0",
+            "cxxFlags": {
+              "common": "",
+              "configuration": "-O3 -DNDEBUG"
+            },
+            "deploymentTarget": "13.3",
+            "generator": "Ninja",
+            "linker": "@(#)PROGRAM:ld PROJECT:ld-1167.5",
+            "linkerFlags": {
+              "common": "",
+              "configuration": ""
+            },
+            "linkerPath": "/usr/bin/ld",
+            "sdkVersion": "15.5",
+            "sysroot": "/Applications/Xcode_16.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+            "systemName": "Darwin",
+            "systemProcessor": "arm64"
+          },
+          "totalMemoryBytes": 7516192768
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 3185561,
+      "p95Us": 3278886,
+      "reportDigests": [
+        "cf488f7c84faf36b240df34915b0da97feb3d2c30ef496f45395cbf15796aad6",
+        "995f2527cddba585b7fcafb2c942b6d5bdadc22de7f648162c5074be4cbbf04a",
+        "d94f408b112dd5581770bd52fddd8be4dbf4b4323e8bd673906a45d99febc5eb",
+        "aa21b6fe57b8750d232bc968b308ef700e3023e53d4ae224c9dd2a2bd4617216",
+        "4f219254a0897b1181f323f937b5559ca50d31ae9db3a494659c5d92c477404c"
+      ],
+      "resultHashes": [
+        "3d35ac41d01d986f57270073b11c8807280aac9e34b832f2b94df71d5171d231",
+        "0b616b71fe09a95206409f76a8ef5845c04335f9ad0c1963df2e274042cca064"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 755843072,
+      "comparator": {
+        "absolutePeakBytes": 699858944,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 3185561,
+        "observedMedianRatio": 1.0114457076791183,
+        "observedP95Ratio": 1.0969872084604344,
+        "observedPeakOverheadBytes": 55984128,
+        "p95Us": 3278886,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 753057792,
+        "on": 755843072
+      },
+      "inferenceOnlyMedianUs": 3187593,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "c9918d339ddcfba7176e7d279a1c40d1481fd45c985c7b45dcd9b4f954369468",
+        "fixtureId": "tiled-four-way-intersection-2048",
+        "implementation": "node",
+        "nodeVersion": "v22.23.1",
+        "packageVersion": "0.2.0",
+        "pixelHash": "d10527c50bc5dcd4004257a12b34dfa99274bea18f530bb223ea005bae024299",
+        "platformId": "macos-arm64",
+        "runnerClass": {
+          "cpu": "Apple M1 (Virtual)",
+          "logicalCpus": 3,
+          "machine": "arm64",
+          "napi": "10",
+          "release": "24.6.0",
+          "system": "darwin",
+          "totalMemoryBytes": 7516192768
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 3222022,
+      "p95Us": 3596896,
+      "reportDigests": [
+        "597ce4ee325c287e8f11c49307b8e9930a9e747ff23ff2ed491234c81a27a35e",
+        "1a1cdcc1833ad7f3b90df008ef4c27be52d474ec58f88d763374bc866a73f6fc"
+      ],
+      "resultHashes": [
+        "85713cd85a4ddc979565cef3cb306f3683a74b8f28e1a2b072fd0d352ce6c022"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 758792192,
+      "comparator": {
+        "absolutePeakBytes": 699858944,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 3185561,
+        "observedMedianRatio": 1.3002004984365392,
+        "observedP95Ratio": 1.3414540792208085,
+        "observedPeakOverheadBytes": 58933248,
+        "p95Us": 3278886,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 758792192,
+        "on": 752336896
+      },
+      "inferenceOnlyMedianUs": 4076645,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "c9918d339ddcfba7176e7d279a1c40d1481fd45c985c7b45dcd9b4f954369468",
+        "fixtureId": "tiled-four-way-intersection-2048",
+        "implementation": "node",
+        "nodeVersion": "v24.18.0",
+        "packageVersion": "0.2.0",
+        "pixelHash": "d10527c50bc5dcd4004257a12b34dfa99274bea18f530bb223ea005bae024299",
+        "platformId": "macos-arm64",
+        "runnerClass": {
+          "cpu": "Apple M1 (Virtual)",
+          "logicalCpus": 3,
+          "machine": "arm64",
+          "napi": "10",
+          "release": "24.6.0",
+          "system": "darwin",
+          "totalMemoryBytes": 7516192768
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 4141868,
+      "p95Us": 4398475,
+      "reportDigests": [
+        "68bd4af08acb8ef6b4e1b82210ba4b23a5016313af5e891a4aecf1f4f876f041",
+        "d4faca0bf522f2800aa6ba363e98c6d993f871c407f822f01b56e9ee97140a19"
+      ],
+      "resultHashes": [
+        "85713cd85a4ddc979565cef3cb306f3683a74b8f28e1a2b072fd0d352ce6c022"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 653053952,
+      "comparator": {
+        "identity": "python-tiled-v1-oracle",
+        "inferenceOnlyMedianUs": 4057256,
+        "medianUs": 4478579,
+        "p95Us": 4887253
+      },
+      "diagnosticsPeakBytes": {
+        "off": 653053952,
+        "on": 620347392
+      },
+      "inferenceOnlyMedianUs": 4379628,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "79aa3c093fe85fabc7bcd1beca07da189588fc7ba8d1b08a2d20ea109284a7a5",
+        "fixtureId": "tiled-small-text-2048",
+        "implementation": "core",
+        "nodeVersion": null,
+        "pixelHash": "576d9c14ec019f0c219021101a21a52b3f22887ad9d30105341b1af8b51a02ff",
+        "platformId": "macos-x64",
+        "runnerClass": {
+          "logicalCpus": 4,
+          "machine": "x86_64",
+          "processor": "i386",
+          "python": "3.11.9",
+          "release": "24.6.0",
+          "system": "Darwin",
+          "toolchain": {
+            "buildType": "Release",
+            "cmake": "cmake version 4.3.4",
+            "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)",
+            "compilerPath": "/usr/bin/c++",
+            "compilerTarget": "x86_64-apple-darwin24.6.0",
+            "cxxFlags": {
+              "common": "",
+              "configuration": "-O3 -DNDEBUG"
+            },
+            "deploymentTarget": "13.3",
+            "generator": "Ninja",
+            "linker": "@(#)PROGRAM:ld PROJECT:ld-1167.5",
+            "linkerFlags": {
+              "common": "",
+              "configuration": ""
+            },
+            "linkerPath": "/usr/bin/ld",
+            "sdkVersion": "15.5",
+            "sysroot": "/Applications/Xcode_16.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+            "systemName": "Darwin",
+            "systemProcessor": "x86_64"
+          },
+          "totalMemoryBytes": 15032385536
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 4457910,
+      "p95Us": 5536490,
+      "reportDigests": [
+        "2794e965e3d0177aca5b43ecd55bf35a39c80be2ba6792d8946a8ef4156dfb55",
+        "b9ce42a05ea3be79aaedae74037e1bad6a11f86356a455ddc25f86501dcf74e4",
+        "e36b23e9b892b079ae97b496963de2f11fc1613a3613887e6679e8bc1536993c",
+        "ccd23ded525b64b32ac9972be36829ee928dd71c354ef9cf46253a1f0502bdb8",
+        "436bfafbd11bef8c08bb33d8a4a164e85676e6201f87fe5924f126b6aabc7e07"
+      ],
+      "resultHashes": [
+        "5d028f8ccc3e26546f2cae7cf8ad3f9514dfe7779af13a657ed96b3122a75a1a",
+        "dadd90ef3809dad3f1da71873da76e096d4d436e3247d6894725756207907827"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 697569280,
+      "comparator": {
+        "absolutePeakBytes": 653053952,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 4457910,
+        "observedMedianRatio": 0.9808138791496464,
+        "observedP95Ratio": 0.9049068994976962,
+        "observedPeakOverheadBytes": 44515328,
+        "p95Us": 5536490,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 674684928,
+        "on": 697569280
+      },
+      "inferenceOnlyMedianUs": 4286340,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "79aa3c093fe85fabc7bcd1beca07da189588fc7ba8d1b08a2d20ea109284a7a5",
+        "fixtureId": "tiled-small-text-2048",
+        "implementation": "node",
+        "nodeVersion": "v22.23.1",
+        "packageVersion": "0.2.0",
+        "pixelHash": "576d9c14ec019f0c219021101a21a52b3f22887ad9d30105341b1af8b51a02ff",
+        "platformId": "macos-x64",
+        "runnerClass": {
+          "cpu": "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "24.6.0",
+          "system": "darwin",
+          "totalMemoryBytes": 15032385536
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 4372380,
+      "p95Us": 5010008,
+      "reportDigests": [
+        "2b8ce6c5b8b39575aec10e9ce574243477db5b214a3655169bdab64439e25ffb",
+        "608bec91696314a0b7f96bc9b4e162372231d402ca564eaac0f915c79f269149"
+      ],
+      "resultHashes": [
+        "4a92fcf7f3291b691f5acc7fe73b6dfd00085bc1e5f9767e0cef63e1cdc3154c"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 701841408,
+      "comparator": {
+        "absolutePeakBytes": 653053952,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 4457910,
+        "observedMedianRatio": 1.2308862224674793,
+        "observedP95Ratio": 1.2886397338385873,
+        "observedPeakOverheadBytes": 48787456,
+        "p95Us": 5536490,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 700850176,
+        "on": 701841408
+      },
+      "inferenceOnlyMedianUs": 5382711,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "79aa3c093fe85fabc7bcd1beca07da189588fc7ba8d1b08a2d20ea109284a7a5",
+        "fixtureId": "tiled-small-text-2048",
+        "implementation": "node",
+        "nodeVersion": "v24.18.0",
+        "packageVersion": "0.2.0",
+        "pixelHash": "576d9c14ec019f0c219021101a21a52b3f22887ad9d30105341b1af8b51a02ff",
+        "platformId": "macos-x64",
+        "runnerClass": {
+          "cpu": "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "24.6.0",
+          "system": "darwin",
+          "totalMemoryBytes": 15032385536
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 5487180,
+      "p95Us": 7134541,
+      "reportDigests": [
+        "d232d0f21d7c572a7e73489019a958d008da3721f0a056d40af00314b699ac61",
+        "5e45dba443c9435ebbffdcffe7e3bd4cfc9f54c571eead581f7d4ac99d705b78"
+      ],
+      "resultHashes": [
+        "4a92fcf7f3291b691f5acc7fe73b6dfd00085bc1e5f9767e0cef63e1cdc3154c"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 653344768,
+      "comparator": {
+        "identity": "python-tiled-v1-oracle",
+        "inferenceOnlyMedianUs": 5653331,
+        "medianUs": 6153096,
+        "p95Us": 7060897
+      },
+      "diagnosticsPeakBytes": {
+        "off": 645869568,
+        "on": 653344768
+      },
+      "inferenceOnlyMedianUs": 6313860,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "d5497796ca117c104d504d720d93b3cd8821f4700d7b384f7210334fe313236f",
+        "fixtureId": "tiled-dense-2048",
+        "implementation": "core",
+        "nodeVersion": null,
+        "pixelHash": "695d947c97b67687ee66e79c1d3433836422fce89a974e0a1d72fae62af38e8f",
+        "platformId": "macos-x64",
+        "runnerClass": {
+          "logicalCpus": 4,
+          "machine": "x86_64",
+          "processor": "i386",
+          "python": "3.11.9",
+          "release": "24.6.0",
+          "system": "Darwin",
+          "toolchain": {
+            "buildType": "Release",
+            "cmake": "cmake version 4.3.4",
+            "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)",
+            "compilerPath": "/usr/bin/c++",
+            "compilerTarget": "x86_64-apple-darwin24.6.0",
+            "cxxFlags": {
+              "common": "",
+              "configuration": "-O3 -DNDEBUG"
+            },
+            "deploymentTarget": "13.3",
+            "generator": "Ninja",
+            "linker": "@(#)PROGRAM:ld PROJECT:ld-1167.5",
+            "linkerFlags": {
+              "common": "",
+              "configuration": ""
+            },
+            "linkerPath": "/usr/bin/ld",
+            "sdkVersion": "15.5",
+            "sysroot": "/Applications/Xcode_16.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+            "systemName": "Darwin",
+            "systemProcessor": "x86_64"
+          },
+          "totalMemoryBytes": 15032385536
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 6464936,
+      "p95Us": 6982781,
+      "reportDigests": [
+        "2e153730077cc19690dc8e468ef5342d0e11c33415a8dbbbe421c83ae4e9fb2c",
+        "b9ce42a05ea3be79aaedae74037e1bad6a11f86356a455ddc25f86501dcf74e4",
+        "e36b23e9b892b079ae97b496963de2f11fc1613a3613887e6679e8bc1536993c",
+        "65a45f399a9dfd4271dde93e152e111221977b6989f563195912531e7d4dae79",
+        "6d58ef2b7ae006611c87a74b8f96f107e5bc188ada73f8e5ec2d63338c026cd4"
+      ],
+      "resultHashes": [
+        "24a0f99eb11da4c0583ff03a078744d2bddb55978ddbfb61e25dedeb323e0897",
+        "2f1f5f6fcf1e6eed417e11861ccb09c64a1c08a1b01cc6ff42661e8d4be3b8a7"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 702320640,
+      "comparator": {
+        "absolutePeakBytes": 653344768,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 6464936,
+        "observedMedianRatio": 1.1359866516853376,
+        "observedP95Ratio": 1.4565692379583435,
+        "observedPeakOverheadBytes": 48975872,
+        "p95Us": 6982781,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 702320640,
+        "on": 700223488
+      },
+      "inferenceOnlyMedianUs": 7155577,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "d5497796ca117c104d504d720d93b3cd8821f4700d7b384f7210334fe313236f",
+        "fixtureId": "tiled-dense-2048",
+        "implementation": "node",
+        "nodeVersion": "v22.23.1",
+        "packageVersion": "0.2.0",
+        "pixelHash": "695d947c97b67687ee66e79c1d3433836422fce89a974e0a1d72fae62af38e8f",
+        "platformId": "macos-x64",
+        "runnerClass": {
+          "cpu": "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "24.6.0",
+          "system": "darwin",
+          "totalMemoryBytes": 15032385536
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 7344081,
+      "p95Us": 10170904,
+      "reportDigests": [
+        "5ef1a97ba9a83cead294cbedfc0df240b4b0b66e0e13d753a8cd8e4b49f4a74b",
+        "bde00c0887726e272bb8ad650c3aec88593083f70331353f7944618b0dd2b709"
+      ],
+      "resultHashes": [
+        "4cd5d33eae38dfbda7e7e9c5d741a1bb58062647306a890dbcbfa693cd8c0257"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 705499136,
+      "comparator": {
+        "absolutePeakBytes": 653344768,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 6464936,
+        "observedMedianRatio": 0.9328045938892512,
+        "observedP95Ratio": 1.0047904982269957,
+        "observedPeakOverheadBytes": 52154368,
+        "p95Us": 6982781,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 703225856,
+        "on": 705499136
+      },
+      "inferenceOnlyMedianUs": 5883408,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "d5497796ca117c104d504d720d93b3cd8821f4700d7b384f7210334fe313236f",
+        "fixtureId": "tiled-dense-2048",
+        "implementation": "node",
+        "nodeVersion": "v24.18.0",
+        "packageVersion": "0.2.0",
+        "pixelHash": "695d947c97b67687ee66e79c1d3433836422fce89a974e0a1d72fae62af38e8f",
+        "platformId": "macos-x64",
+        "runnerClass": {
+          "cpu": "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "24.6.0",
+          "system": "darwin",
+          "totalMemoryBytes": 15032385536
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 6030522,
+      "p95Us": 7016232,
+      "reportDigests": [
+        "ba487804c1f75bdb38fc4898963852cf00497e8ef6817b58e73471bd00e2d2f0",
+        "24331c13d499441e50d41e1ae6f1012d7c299d99922db4168c6378c64fac2ae3"
+      ],
+      "resultHashes": [
+        "4cd5d33eae38dfbda7e7e9c5d741a1bb58062647306a890dbcbfa693cd8c0257"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 651231232,
+      "comparator": {
+        "identity": "python-tiled-v1-oracle",
+        "inferenceOnlyMedianUs": 3060091,
+        "medianUs": 3408214,
+        "p95Us": 3721926
+      },
+      "diagnosticsPeakBytes": {
+        "off": 648871936,
+        "on": 651231232
+      },
+      "inferenceOnlyMedianUs": 3030852,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "c9918d339ddcfba7176e7d279a1c40d1481fd45c985c7b45dcd9b4f954369468",
+        "fixtureId": "tiled-four-way-intersection-2048",
+        "implementation": "core",
+        "nodeVersion": null,
+        "pixelHash": "d10527c50bc5dcd4004257a12b34dfa99274bea18f530bb223ea005bae024299",
+        "platformId": "macos-x64",
+        "runnerClass": {
+          "logicalCpus": 4,
+          "machine": "x86_64",
+          "processor": "i386",
+          "python": "3.11.9",
+          "release": "24.6.0",
+          "system": "Darwin",
+          "toolchain": {
+            "buildType": "Release",
+            "cmake": "cmake version 4.3.4",
+            "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)",
+            "compilerPath": "/usr/bin/c++",
+            "compilerTarget": "x86_64-apple-darwin24.6.0",
+            "cxxFlags": {
+              "common": "",
+              "configuration": "-O3 -DNDEBUG"
+            },
+            "deploymentTarget": "13.3",
+            "generator": "Ninja",
+            "linker": "@(#)PROGRAM:ld PROJECT:ld-1167.5",
+            "linkerFlags": {
+              "common": "",
+              "configuration": ""
+            },
+            "linkerPath": "/usr/bin/ld",
+            "sdkVersion": "15.5",
+            "sysroot": "/Applications/Xcode_16.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+            "systemName": "Darwin",
+            "systemProcessor": "x86_64"
+          },
+          "totalMemoryBytes": 15032385536
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 3074684,
+      "p95Us": 3253577,
+      "reportDigests": [
+        "3c21e68f388684baf8751cc4cc2d69691e2f60f9d0eb7aed08dc21aa5bead671",
+        "b9ce42a05ea3be79aaedae74037e1bad6a11f86356a455ddc25f86501dcf74e4",
+        "e36b23e9b892b079ae97b496963de2f11fc1613a3613887e6679e8bc1536993c",
+        "8497c26ce9dd4efa95765bcda793292702cede8fd4e479e1c231258e427f21fb",
+        "dd31f8db7d92994db3231ac95e362afffd82db40af2014be8261fb15296f375b"
+      ],
+      "resultHashes": [
+        "1d05365aa4a4c663da43ad3f1ee91741c43badaace661647d9f71183a8e09bb8",
+        "1b1996a7dd596905f205dfec1062a3743228d145fa93eaf96de54045b63bbc94"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 695685120,
+      "comparator": {
+        "absolutePeakBytes": 651231232,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 3074684,
+        "observedMedianRatio": 1.2159220264586539,
+        "observedP95Ratio": 1.3636689711047256,
+        "observedPeakOverheadBytes": 44453888,
+        "p95Us": 3253577,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 691089408,
+        "on": 695685120
+      },
+      "inferenceOnlyMedianUs": 3680061,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "c9918d339ddcfba7176e7d279a1c40d1481fd45c985c7b45dcd9b4f954369468",
+        "fixtureId": "tiled-four-way-intersection-2048",
+        "implementation": "node",
+        "nodeVersion": "v22.23.1",
+        "packageVersion": "0.2.0",
+        "pixelHash": "d10527c50bc5dcd4004257a12b34dfa99274bea18f530bb223ea005bae024299",
+        "platformId": "macos-x64",
+        "runnerClass": {
+          "cpu": "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "24.6.0",
+          "system": "darwin",
+          "totalMemoryBytes": 15032385536
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 3738576,
+      "p95Us": 4436802,
+      "reportDigests": [
+        "08c3aef1e2682d0deab7f0ac72b4bd805744dd1a9d11f3bd11adce0a11e8b6f2",
+        "a8b76ae6d7d10425b3077d92c81c0ed0e4f393c24df88dc9cac681cc0b62e29f"
+      ],
+      "resultHashes": [
+        "c3ac0b23bfff2368a7d12f9a18272fe99a48469c3f11ffd02c8b61f93d2db9d7"
+      ],
+      "samples": 10
+    },
+    {
+      "absolutePeakBytes": 701337600,
+      "comparator": {
+        "absolutePeakBytes": 651231232,
+        "enforced": false,
+        "identity": "same-runner-core",
+        "medianUs": 3074684,
+        "observedMedianRatio": 0.9944124339281696,
+        "observedP95Ratio": 1.0302875880915068,
+        "observedPeakOverheadBytes": 50106368,
+        "p95Us": 3253577,
+        "reason": "separate process baselines and non-interleaved samples"
+      },
+      "diagnosticsPeakBytes": {
+        "off": 671744000,
+        "on": 701337600
+      },
+      "inferenceOnlyMedianUs": 3010167,
+      "key": {
+        "bundleId": "ppocrv6-small-onnx-20260714.2",
+        "contractVersion": "tiled-v1",
+        "coreVersion": "0.2.0",
+        "fixtureHash": "c9918d339ddcfba7176e7d279a1c40d1481fd45c985c7b45dcd9b4f954369468",
+        "fixtureId": "tiled-four-way-intersection-2048",
+        "implementation": "node",
+        "nodeVersion": "v24.18.0",
+        "packageVersion": "0.2.0",
+        "pixelHash": "d10527c50bc5dcd4004257a12b34dfa99274bea18f530bb223ea005bae024299",
+        "platformId": "macos-x64",
+        "runnerClass": {
+          "cpu": "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz",
+          "logicalCpus": 4,
+          "machine": "x64",
+          "napi": "10",
+          "release": "24.6.0",
+          "system": "darwin",
+          "totalMemoryBytes": 15032385536
+        },
+        "threadConfig": "ort-intra-1/inter-1"
+      },
+      "medianUs": 3057504,
+      "p95Us": 3352120,
+      "reportDigests": [
+        "64a4ea9ed0b67088cc357e884e962db54bdc82d78d4e035bfedc2999cf9d83ae",
+        "7b99de9578768a16ed0e925713c3cc9cb481bffa7947024c3d06dd96234f28b8"
+      ],
+      "resultHashes": [
+        "c3ac0b23bfff2368a7d12f9a18272fe99a48469c3f11ffd02c8b61f93d2db9d7"
+      ],
+      "samples": 10
+    }
+  ],
+  "generatedFromCommit": "21d812dcb60e642036c285647571d900b57cc3a6",
+  "groundTruthLockSha256": "87a36bfc9bebcb0f2c2d6f07d979492a9b4a692d14680d53b5d8e1b7eb8542a9",
+  "matrix": {
+    "entries": 36,
+    "fixtures": [
+      "tiled-small-text-2048",
+      "tiled-dense-2048",
+      "tiled-four-way-intersection-2048"
+    ],
+    "implementations": [
+      "core",
+      "node22",
+      "node24"
+    ],
+    "platforms": [
+      "linux-x64",
+      "windows-x64",
+      "macos-arm64",
+      "macos-x64"
+    ]
+  },
+  "modelBundleId": "ppocrv6-small-onnx-20260714.2",
+  "schema": "light-ocr-tiled-platform-baselines/1.0",
+  "status": "accepted"
+}

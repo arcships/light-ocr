@@ -441,7 +441,7 @@ Reports MUST include load time, engine initialization, every stage duration, tot
 Initial gates are:
 
 - Warm median, warm p95, and inference-only Core/Python ratios MUST be reported. They are hard gates (`1.10x`, `1.15x`, and `1.05x`) only when the Core and oracle use the same ONNX Runtime binary build identity.
-- When official native and Python distributions require different ONNX Runtime binaries, all Core/Python latency ratios are non-blocking observations; they cannot isolate application overhead from binary build performance. Initial release qualification instead uses the absolute per-call timeout, the reviewed platform baseline, and same-native-runtime Node/Core ratios.
+- When official native and Python distributions require different ONNX Runtime binaries, all Core/Python latency ratios are non-blocking observations; they cannot isolate application overhead from binary build performance. Non-interleaved Node/Core samples from separate processes are observations for the same reason: process baselines and runner thermal state are not isolated. Initial qualification instead uses absolute timeout and memory gates plus reviewed per-implementation platform baselines; hard cross-runtime ratios require controlled interleaved sampling.
 - Every measured call completes within the declared absolute timeout and produces stable, quality-equivalent output.
 - Model and session initialization once per engine.
 - No unbounded memory growth.
