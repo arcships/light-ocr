@@ -49,6 +49,20 @@ class NpmReleaseTests(unittest.TestCase):
         self.assertIn("--prefer-online", command)
         self.assertIn(f"--registry={npm_release.NPM_REGISTRY}", command)
 
+    @mock.patch("tools.npm_release.time.sleep")
+    @mock.patch("tools.npm_release.npm_dist_tag")
+    def test_dist_tag_verification_waits_for_registry_convergence(
+        self, dist_tag: mock.Mock, sleep: mock.Mock
+    ) -> None:
+        dist_tag.side_effect = ["0.1.0", "0.2.0"]
+
+        npm_release.wait_for_dist_tag(
+            "npm", "@arcships/light-ocr", "latest", "0.2.0"
+        )
+
+        self.assertEqual(dist_tag.call_count, 2)
+        sleep.assert_called_once_with(3)
+
     def test_stages_and_deterministically_packs_six_packages(self) -> None:
         npm = shutil.which("npm")
         if npm is None:

@@ -1,0 +1,67 @@
+name: npm promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Already-published lockstep version to promote
+        required: true
+        default: 0.2.0
+        type: string
+      release_run_id:
+        description: npm release run containing the verified release artifact
+        required: true
+        type: string
+      tag:
+        description: Distribution tag to assign after registry verification
+        required: true
+        default: latest
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: npm-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-24.04
+    environment: npm-release
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      RELEASE_VERSION: ${{ inputs.version }}
+      NPM_CONFIG_USERCONFIG: ${{ github.workspace }}/.npmrc
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          registry-url: https://registry.npmjs.org
+          scope: "@arcships"
+      - name: Validate promotion request and npm authentication
+        shell: bash
+        run: |
+          test "${GITHUB_REF}" = "refs/heads/main"
+          [[ "${RELEASE_VERSION}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ "${{ inputs.release_run_id }}" =~ ^[1-9][0-9]*$ ]]
+          [[ "${{ inputs.tag }}" =~ ^[a-z][a-z0-9._-]*$ ]]
+          test -n "${NODE_AUTH_TOKEN}"
+          npm install --global npm@11.0.0
+          npm whoami
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: light-ocr-npm-${{ inputs.version }}
+          path: dist/release
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.release_run_id }}
+      - name: Verify published integrity and promote dependencies before facade
+        run: >-
+          python tools/npm_release.py promote
+          --tarball-dir dist/release
+          --expected-version "${RELEASE_VERSION}"
+          --tag "${{ inputs.tag }}"
+      - name: Show promoted metadata
+        run: npm dist-tag ls "@arcships/light-ocr"

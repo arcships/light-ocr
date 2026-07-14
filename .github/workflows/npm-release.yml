@@ -437,6 +437,7 @@ jobs:
         run: >-
           python tools/npm_release.py promote
           --tarball-dir dist/release
+          --expected-version "${RELEASE_VERSION}"
           --tag latest
       - name: Show published metadata
         shell: bash

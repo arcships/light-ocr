@@ -541,6 +541,44 @@ def wait_for_integrity(npm: str, specification: str, expected: str) -> None:
     )
 
 
+def npm_dist_tag(npm: str, package: str, tag: str) -> str | None:
+    completed = subprocess.run(
+        [
+            npm,
+            "view",
+            package,
+            f"dist-tags.{tag}",
+            "--json",
+            "--prefer-online",
+            f"--registry={NPM_REGISTRY}",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            f"npm dist-tag lookup failed for {package}: {completed.stderr.strip()}"
+        )
+    value = json.loads(completed.stdout)
+    if value is not None and not isinstance(value, str):
+        raise RuntimeError(f"registry returned invalid {tag} tag for {package}")
+    return value
+
+
+def wait_for_dist_tag(npm: str, package: str, tag: str, version: str) -> None:
+    attempts = REGISTRY_WAIT_SECONDS // 3
+    for _ in range(attempts):
+        if npm_dist_tag(npm, package, tag) == version:
+            return
+        time.sleep(3)
+    raise RuntimeError(
+        f"registry did not expose {package}@{version} as {tag} "
+        f"within {REGISTRY_WAIT_SECONDS} seconds"
+    )
+
+
 def publish(arguments: argparse.Namespace) -> None:
     tarballs = arguments.tarball_dir.resolve()
     release = read_json(tarballs / "release-manifest.json")
@@ -584,7 +622,17 @@ def publish(arguments: argparse.Namespace) -> None:
 def promote(arguments: argparse.Namespace) -> None:
     tarballs = arguments.tarball_dir.resolve()
     release = read_json(tarballs / "release-manifest.json")
-    for record in release["packages"]:
+    if (
+        arguments.expected_version
+        and release.get("version") != arguments.expected_version
+    ):
+        raise RuntimeError("release manifest version does not match promotion request")
+    records = {record["name"]: record for record in release["packages"]}
+    names = [MODEL_PACKAGE] + sorted(
+        platform["package"] for platform in PLATFORMS.values()
+    ) + [FACADE_PACKAGE]
+    for name in names:
+        record = records[name]
         specification = f"{record['name']}@{record['version']}"
         wait_for_integrity(arguments.npm, specification, record["integrity"])
         subprocess.run(
@@ -592,15 +640,9 @@ def promote(arguments: argparse.Namespace) -> None:
             cwd=ROOT,
             check=True,
         )
-        completed = subprocess.run(
-            [arguments.npm, "view", record["name"], f"dist-tags.{arguments.tag}", "--json"],
-            check=True,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
+        wait_for_dist_tag(
+            arguments.npm, record["name"], arguments.tag, record["version"]
         )
-        if json.loads(completed.stdout) != record["version"]:
-            raise RuntimeError(f"failed to promote {specification} to {arguments.tag}")
         print(json.dumps({"package": specification, "tag": arguments.tag}))
 
 
@@ -638,6 +680,7 @@ def main() -> int:
     promotion = subparsers.add_parser("promote")
     promotion.add_argument("--tarball-dir", type=Path, required=True)
     promotion.add_argument("--tag", default="latest")
+    promotion.add_argument("--expected-version")
     promotion.add_argument("--npm", default="npm")
     promotion.set_defaults(handler=promote)
 
