@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0",
+  "python": {
+    "implementation": "CPython",
+    "version": "3.11.11"
+  },
+  "requirementsLock": {
+    "path": "oracle/requirements.lock",
+    "sha256": "e1c72c8b4517cceb9e6555df33431293f778c3838167fa56e5eef18c5a866f3d"
+  },
+  "primaryPackages": {
+    "numpy": "2.1.3",
+    "onnxruntime": "1.22.0",
+    "opencv-contrib-python": "4.10.0.84",
+    "paddlex": "3.7.0",
+    "pyclipper": "1.3.0.post6"
+  },
+  "paddleOcr": {
+    "release": "v3.7.0",
+    "revision": "b03f46425e8ff4442b268ce449e3eef758146cd4",
+    "repository": "https://github.com/PaddlePaddle/PaddleOCR",
+    "sourceFiles": [
+      {
+        "path": "ppocr/data/imaug/operators.py",
+        "gitBlobSha1": "79b7a869a79cbdd81885fd5ac9a53deb7ab30ce0"
+      },
+      {
+        "path": "ppocr/postprocess/db_postprocess.py",
+        "gitBlobSha1": "f7e84d3f7c6e9c77d74c80362bb2804c307e721c"
+      },
+      {
+        "path": "ppocr/postprocess/rec_postprocess.py",
+        "gitBlobSha1": "4700bbfb29cf41c193240268aff084ec7f5f1f4a"
+      },
+      {
+        "path": "tools/infer/predict_rec.py",
+        "gitBlobSha1": "b53f58d44cf802a8cda872f9b360231ced06ea86"
+      },
+      {
+        "path": "tools/infer/predict_system.py",
+        "gitBlobSha1": "bcb0758eb660d0cefd76977377db9ec4eb09d8b9"
+      },
+      {
+        "path": "tools/infer/utility.py",
+        "gitBlobSha1": "fb4833459b845f00bfd4cde2c4d1b6e47395406d"
+      }
+    ]
+  }
+}

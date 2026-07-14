@@ -1,0 +1,123 @@
+{
+  "schemaVersion": "1.0",
+  "revision": "20260714.1",
+  "resources": [
+    {
+      "name": "NotoSansCJKjp-Regular.otf",
+      "url": "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/OTF/Japanese/NotoSansCJKjp-Regular.otf",
+      "bytes": 16467736,
+      "sha256": "68a3fc98800b2a27b371f2fb79991daf3633bd89309d4ffaa6946fd587f375b5",
+      "gitBlob": "f56224957fb13a81b4c14bac34f2f058a017f9fb",
+      "license": "OFL-1.1"
+    },
+    {
+      "name": "NotoSansCJKtc-Regular.otf",
+      "url": "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/OTF/TraditionalChinese/NotoSansCJKtc-Regular.otf",
+      "bytes": 16435884,
+      "sha256": "dce08bd4fd91aa8aa76ed8fea4b694c2dfb8550f67871e326843212ddbeb88b4",
+      "gitBlob": "f9376bae1d421520f73a3c6c9d50b22f89548301",
+      "license": "OFL-1.1"
+    }
+  ],
+  "officialImages": [
+    {
+      "fixtureId": "paddleocr-display-simplified",
+      "path": "deploy/android_demo/app/src/main/assets/images/det_0.jpg",
+      "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/v3.7.0/deploy/android_demo/app/src/main/assets/images/det_0.jpg",
+      "bytes": 63736,
+      "sha256": "f0a5d64e4ba3d3848e747b3b13994c58906e2dc54a811a5ecd6d663bc95b2ff5",
+      "gitBlob": "8517e125c5e660f1bc603a844f946c68086e4616",
+      "groundTruth": {
+        "source": "project-manual-visible-text-v1",
+        "annotationPolicy": "clockwise visible text-region quadrilaterals reviewed without OCR output",
+        "lines": ["约定", "最终相遇"],
+        "boxes": [
+          [[365, 396], [629, 396], [629, 515], [365, 515]],
+          [[361, 531], [628, 531], [628, 596], [361, 596]]
+        ]
+      },
+      "tags": ["simplified-chinese", "display-text", "artistic-text", "uneven-illumination", "sparse"]
+    },
+    {
+      "fixtureId": "paddleocr-rec-simplified",
+      "path": "deploy/android_demo/app/src/main/assets/images/rec_0.jpg",
+      "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/v3.7.0/deploy/android_demo/app/src/main/assets/images/rec_0.jpg",
+      "bytes": 6369,
+      "sha256": "ce8e0a2d47df9d9bcfdfa912903beb374c480faa751b0b3bb63b95b0d1ca564c",
+      "gitBlob": "2c34cd33eac5766a072fde041fa6c9b1d612f1db",
+      "groundTruth": {
+        "source": "project-manual-visible-text-v1",
+        "annotationPolicy": "clockwise visible text-region quadrilaterals reviewed without OCR output",
+        "lines": ["实力活力"],
+        "boxes": [[[0, 0], [225, 0], [225, 46], [0, 46]]]
+      },
+      "tags": ["simplified-chinese", "low-contrast", "sparse", "single-line"]
+    },
+    {
+      "fixtureId": "paddleocr-rec-phone",
+      "path": "deploy/android_demo/app/src/main/assets/images/rec_1.jpg",
+      "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/v3.7.0/deploy/android_demo/app/src/main/assets/images/rec_1.jpg",
+      "bytes": 7937,
+      "sha256": "ede4de4a2fd37d70ef2005279ceaa5c31e3cf8bdb66d4b95bd450811b7e238f7",
+      "gitBlob": "22031ba501c7337bf99e5f0c5a687196d7d27f63",
+      "groundTruth": {
+        "source": "project-manual-visible-text-v1",
+        "annotationPolicy": "clockwise visible text-region quadrilaterals reviewed without OCR output",
+        "lines": ["电话：15952301928"],
+        "boxes": [[[3, 3], [242, 3], [242, 42], [3, 42]]]
+      },
+      "tags": ["simplified-chinese", "digits", "punctuation", "industrial-text", "single-line"]
+    },
+    {
+      "fixtureId": "paddleocr-boarding-pass",
+      "path": "deploy/ios_demo/PaddleOCRDemo/Resources/SampleImages/general_ocr_002.jpg",
+      "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/v3.7.0/deploy/ios_demo/PaddleOCRDemo/Resources/SampleImages/general_ocr_002.jpg",
+      "bytes": 128713,
+      "sha256": "4425af33dd163cf73bdff502bd35ee527e9bdd5725501db1da78bfdae9f538f4",
+      "gitBlob": "5c3329a8a0e64cb251cb5f6719d177146e75b866",
+      "tags": ["simplified-chinese", "english", "digits", "punctuation", "mixed-script", "dense", "perspective"]
+    },
+    {
+      "fixtureId": "paddleocr-book-page",
+      "path": "tests/test_files/book.jpg",
+      "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/v3.7.0/tests/test_files/book.jpg",
+      "bytes": 256618,
+      "sha256": "782cc71a2730020ea8da815de3e40a964b7f150c183d1f8c01dd211de9dcbcc4",
+      "gitBlob": "05897ee7569343dc19d3d137a60c7bdb71ca55a1",
+      "tags": ["english", "digits", "punctuation", "dense", "small-text", "perspective", "uneven-illumination"]
+    },
+    {
+      "fixtureId": "paddleocr-garden-sign",
+      "path": "tests/test_files/textline.png",
+      "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/v3.7.0/tests/test_files/textline.png",
+      "bytes": 73730,
+      "sha256": "5362ba97741413494c507237b5096ef09ed575a501c4d9e68bfeffe17528a6ad",
+      "gitBlob": "6e4efd245d094105a09d2eb46219136a191ee0b8",
+      "groundTruth": {
+        "source": "project-manual-visible-text-v1",
+        "annotationPolicy": "clockwise visible text-region quadrilaterals reviewed without OCR output",
+        "lines": ["绿洲仕格维花园公寓"],
+        "boxes": [[[2, 4], [512, 4], [512, 58], [2, 58]]]
+      },
+      "tags": ["simplified-chinese", "low-contrast", "display-text", "single-line"]
+    },
+    {
+      "fixtureId": "paddleocr-xfund-form",
+      "path": "docs/datasets/images/xfund_demo/gt_zh_train_0.jpg",
+      "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/v3.7.0/docs/datasets/images/xfund_demo/gt_zh_train_0.jpg",
+      "bytes": 650714,
+      "sha256": "2ba146db051f082916cc69fe2abd59ac61299f2cbe9662cd283fa42259247502",
+      "gitBlob": "95e0cf820195fc81b1d0b7ef5d427c563276adc3",
+      "tags": ["simplified-chinese", "english", "digits", "punctuation", "mixed-script", "dense", "small-text", "industrial-text"]
+    },
+    {
+      "fixtureId": "paddleocr-captcha-handwriting",
+      "path": "docs/datasets/images/captcha_demo.png",
+      "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/v3.7.0/docs/datasets/images/captcha_demo.png",
+      "bytes": 170046,
+      "sha256": "7bb6e4fdd46ce708c70d9b514dcc62bac0c738246be6a766eab65c2f71bdf7d6",
+      "gitBlob": "047a72648c5766102fbfb9301a9c19917fe62b04",
+      "tags": ["english", "digits", "punctuation", "handwriting", "artistic-text", "dense"]
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {"major": 3, "minor": 24, "patch": 0},
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/preset-${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+        "LIGHT_OCR_BUILD_TESTS": true,
+        "LIGHT_OCR_BUILD_TOOLS": true
+      }
+    },
+    {"name": "dev", "inherits": "base", "cacheVariables": {"CMAKE_BUILD_TYPE": "Debug"}},
+    {"name": "release", "inherits": "base", "cacheVariables": {"CMAKE_BUILD_TYPE": "Release"}},
+    {
+      "name": "asan",
+      "inherits": "dev",
+      "cacheVariables": {"LIGHT_OCR_ENABLE_SANITIZERS": true}
+    },
+    {
+      "name": "tsan",
+      "inherits": "dev",
+      "cacheVariables": {"LIGHT_OCR_ENABLE_THREAD_SANITIZER": true}
+    },
+    {
+      "name": "fuzz",
+      "inherits": "dev",
+      "cacheVariables": {
+        "LIGHT_OCR_BUILD_TESTS": false,
+        "LIGHT_OCR_BUILD_TOOLS": false,
+        "LIGHT_OCR_BUILD_FUZZERS": true,
+        "LIGHT_OCR_ENABLE_SANITIZERS": true
+      }
+    }
+  ],
+  "buildPresets": [
+    {"name": "dev", "configurePreset": "dev"},
+    {"name": "release", "configurePreset": "release"},
+    {"name": "asan", "configurePreset": "asan"},
+    {"name": "tsan", "configurePreset": "tsan"},
+    {"name": "fuzz", "configurePreset": "fuzz"}
+  ],
+  "testPresets": [
+    {"name": "dev", "configurePreset": "dev", "output": {"outputOnFailure": true}},
+    {"name": "release", "configurePreset": "release", "output": {"outputOnFailure": true}},
+    {"name": "asan", "configurePreset": "asan", "output": {"outputOnFailure": true}},
+    {"name": "tsan", "configurePreset": "tsan", "output": {"outputOnFailure": true}}
+  ]
+}

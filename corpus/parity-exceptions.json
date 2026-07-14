@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "exceptions": [
+    {
+      "id": "PX-0001",
+      "fixtureId": "paddleocr-book-page",
+      "checkpoint": "detectionCandidates[129].score",
+      "platform": "all",
+      "expectedDifference": "Rejected DB candidate score differs when subpixel minAreaRect output crosses the official int32 fillPoly mask boundary.",
+      "tolerance": {"absoluteDifference": 0.013},
+      "requiredInvariant": "decision is exactly below_box_threshold in native and oracle",
+      "rootCause": "The native and Python OpenCV builds differ by about 0.00006 pixels at one rectangle corner; truncation changes one mask column.",
+      "approvedBy": "core parity policy",
+      "expiresWith": "bundle, OpenCV, compiler, or DB postprocess update"
+    }
+  ]
+}

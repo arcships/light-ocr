@@ -1,0 +1,23 @@
+{
+  "name": "light-ocr",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Node-API adapter for the light-ocr C++ core",
+  "type": "commonjs",
+  "main": "./js/index.cjs",
+  "module": "./js/index.mjs",
+  "types": "./js/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./js/index.d.ts",
+      "import": "./js/index.mjs",
+      "require": "./js/index.cjs"
+    }
+  },
+  "engines": {
+    "node": "^22.0.0 || ^24.0.0"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1 test/*.test.cjs"
+  }
+}

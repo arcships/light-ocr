@@ -1,0 +1,8 @@
+/build/
+/build-*/
+/.cache/
+/models/generated/
+/reports/
+.DS_Store
+__pycache__/
+*.pyc

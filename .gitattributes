@@ -1,0 +1,12 @@
+* text=auto eol=lf
+
+*.bin binary
+*.onnx binary
+*.tar binary
+*.zip binary
+*.gz binary
+*.nupkg binary
+*.node binary
+*.dylib binary
+*.so binary
+*.dll binary

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "bundles": [
+    {
+      "bundleId": "ppocrv6-small-onnx-20260713.1",
+      "paddleOcrRevision": "b03f46425e8ff4442b268ce449e3eef758146cd4",
+      "detectionModelRevision": "28fe5895c24fd108c19eb3e8479f4ab385fbfc62",
+      "recognitionModelRevision": "b8f84f0b80c529de40b4fbb3544b84fa7233a513",
+      "bundleArchive": {
+        "filename": "ppocrv6-small-onnx-20260713.1.tar",
+        "format": "ustar",
+        "bytes": 31334400,
+        "sha256": "d320b799ed77511e3743c36d2f23bd8cbcd80d8070d5431f4fb0ec80daa800da",
+        "mirror": null
+      },
+      "artifacts": [
+        {
+          "name": "detection",
+          "filename": "PP-OCRv6_small_det_onnx_infer.tar",
+          "url": "https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/PP-OCRv6_small_det_onnx_infer.tar",
+          "bytes": 9891840,
+          "sha256": "d218f6fbf0f1c23d2161bd6ac7f5eaa6104fa89955c09290497e31008e2618e4",
+          "members": {
+            "inference.onnx": {
+              "bytes": 9880512,
+              "sha256": "d73e0058b7a8086bbd57f3d10b8bcd4ff95363f67e06e2762b5e814fe9c9410e"
+            },
+            "inference.yml": {
+              "bytes": 885,
+              "sha256": "193f435274bf9f0b5f71a929bbfbcf148282df7e633b34e7c373e8f44741b516"
+            }
+          }
+        },
+        {
+          "name": "recognition",
+          "filename": "PP-OCRv6_small_rec_onnx_infer.tar",
+          "url": "https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/PP-OCRv6_small_rec_onnx_infer.tar",
+          "bytes": 21319680,
+          "sha256": "d267ab077a44a0eedb1ea8f8c542d263f211de8e9d7a029bf9fcfff7e5a88fb1",
+          "members": {
+            "inference.onnx": {
+              "bytes": 21159378,
+              "sha256": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634"
+            },
+            "inference.yml": {
+              "bytes": 150579,
+              "sha256": "ab078671bb49f06228eadccd34f1bb501e157f7a047095ffb943ba81512c77d1"
+            }
+          }
+        }
+      ],
+      "license": {
+        "spdx": "Apache-2.0",
+        "filename": "PaddleOCR-Apache-2.0.txt",
+        "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/b03f46425e8ff4442b268ce449e3eef758146cd4/LICENSE",
+        "bytes": 11376,
+        "sha256": "3840c5c0c61c294264d2dd77b8777be6ddd90121ef4e0e64abcd22edea581d6e"
+      }
+    }
+  ]
+}

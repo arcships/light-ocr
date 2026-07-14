@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "1.0",
+  "revision": "20260714.1",
+  "annotationPolicy": "Text transcriptions and clockwise quadrilateral text regions are established independently of OCR output and cryptographically bound to raw fixture pixels.",
+  "fixtures": [
+    {
+      "fixtureId": "generated-blank",
+      "pixelSha256": "c4091db183efc400377abbe2c82f580d2d99445a7a7221f7efecd249f4405184",
+      "groundTruthSha256": "c85772fc1fa470ce9be46e5019e4352fd282c396a3f96820845f9fe012fd9085"
+    },
+    {
+      "fixtureId": "generated-hello-123",
+      "pixelSha256": "b8cf12822dd3dca1561fce780f6615d2359d05fe59189eae8a6c1122fb0c976a",
+      "groundTruthSha256": "0f8baa1630ded8e8af32fdc1a473b70c7ea583e8832af43cf13b857e5ac50a56"
+    },
+    {
+      "fixtureId": "generated-japanese-horizontal",
+      "pixelSha256": "fbab3e2d3cd8426eb1ae4c716b08d710f4200fae2722eac653b1f735fcf25d50",
+      "groundTruthSha256": "505c450838249ab37bdd6d5a8c8f665bef95af0217d532419db3d91ce16c666c"
+    },
+    {
+      "fixtureId": "generated-japanese-rotated",
+      "pixelSha256": "590bfb08a6be669a6d412f1bac3c7eb7c6be05c1206586bab6e12793122ddfe9",
+      "groundTruthSha256": "0496f0d9ee4def9dbcc8284637110556ee8e1e3e94737e4a92f83a2ee22a7cf3"
+    },
+    {
+      "fixtureId": "generated-low-contrast-perspective",
+      "pixelSha256": "cbc864658ff652114642bbaa4172ea4776d81d1c611d0f6401db27e5536ab9c6",
+      "groundTruthSha256": "2a0255295f2509d38a892591f0367a72e7195970dd988bbc4f88a253e251f724"
+    },
+    {
+      "fixtureId": "generated-traditional-horizontal",
+      "pixelSha256": "277ebfbcb3b71a93487065b44ecbca71beacce641ad0ffdd4bed89af4dfb3de8",
+      "groundTruthSha256": "69c0d101c7b52861a2c659c78bea236928803de0877a0f50b0da6eb179dc0e9f"
+    },
+    {
+      "fixtureId": "paddleocr-display-simplified",
+      "pixelSha256": "9386d69a0d3a18ecb512e8386427865d0b0c6acb7ef7b337e829c285e66b15d4",
+      "groundTruthSha256": "890e02727e190c519fd6a682ad9ad4d17104575162f83795098aa4fbf7fcf49c"
+    },
+    {
+      "fixtureId": "paddleocr-garden-sign",
+      "pixelSha256": "4a13cfb2b8039c619a11cc1c93db88b30ceb3207de9a356c2db8bf151d29a03b",
+      "groundTruthSha256": "1d1928c542a2f68dc43bd6920882c7375ed4154b6629f9352d963f9d59dc71e5"
+    },
+    {
+      "fixtureId": "paddleocr-rec-phone",
+      "pixelSha256": "e4ae67c9fd3ee652808323e8b9fd6b240d51a559d6491ac6df899d4393f18b43",
+      "groundTruthSha256": "ab290e7908dcfa955fac5f74053d5b84a6309fe21e5f6d0a1e5efc5a351fa567"
+    },
+    {
+      "fixtureId": "paddleocr-rec-simplified",
+      "pixelSha256": "f22e998cdfab4f91370b47ccbfcf0fb0d6b506bd0726156dad426d6bb0e72c16",
+      "groundTruthSha256": "c214fcd551ffe7433b8de2f9251a15c38bf5bc4666c676baa7910fb4386fcaed"
+    }
+  ]
+}

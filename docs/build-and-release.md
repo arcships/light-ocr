@@ -1,0 +1,225 @@
+# light-ocr Core 构建与发布
+
+状态：已实现；Tier 1 发布证据尚未全部产生  
+范围：C++ Core 的依赖锁、构建、测试、验证报告和发布候选制品  
+需求：[requirements.md](requirements.md)  
+当前状态：[implementation-status.md](implementation-status.md)
+
+## 1. 交付边界
+
+当前交付物是 C++17 静态库 `light_ocr_core`、三个标准库公共头文件、验证工具、真实 PP-OCRv6 模型 bundle 和验收报告。Core 运行时不包含 Python；Python 仅用于测试 oracle、语料生成和发布元数据。
+
+这不是稳定 ABI、公共 C ABI、包管理器 SDK 或已发布的 npm 包。仓库已有可选的 Node-API 源码适配器，但它不改变本 Core 交付边界，也尚无四平台 prebuild。外部安装布局属于 D102；因此仓库当前不提供容易被误认为完整 SDK 的 `cmake --install` 规则。仓库内消费者应通过 `add_subdirectory` 使用 `light_ocr::core`，发布验证包主要服务验收，不构成长期二进制兼容承诺。
+
+```cmake
+add_subdirectory(path/to/light-ocr)
+target_link_libraries(your_target PRIVATE light_ocr::core)
+light_ocr_stage_onnxruntime(your_target)
+```
+
+最后一行把锁定的 ONNX Runtime 动态库放到消费者可执行文件旁，并设置 macOS/Linux 的相对 RPATH；在 D102 完成前，它是源码集成约定，不是已安装 package config API。
+
+## 2. Tier 1 与工具链
+
+| 平台 | GitHub runner | 当前约束 |
+| --- | --- | --- |
+| macOS arm64 | `macos-15` | 最低 macOS 13.3；由 ONNX Runtime 1.22.0 二进制决定 |
+| macOS x64 | `macos-15-intel` | 最低 macOS 13.3 |
+| Windows x64 | `windows-2022` | MSVC 2022，Windows x64 ONNX Runtime |
+| Linux x64 | `ubuntu-24.04` | 以该 runner 产出的 glibc/CPU 需求为准 |
+
+macOS 的 `CMAKE_OSX_DEPLOYMENT_TARGET` 默认固定为 `13.3`。当前没有对 Linux 更低 glibc 版本作未验证承诺；如将来发布通用 Linux SDK，应在 D102 中另行选择构建容器和 CPU baseline。
+
+构建要求：
+
+- CMake 3.24 或更高；本地 preset 不绑定生成器；Unix CI 使用 Ninja，Windows CI 使用 Visual Studio 2022 x64 generator。
+- C++17，关闭编译器扩展。
+- 项目源码强警告并视为错误。
+- Clang/GCC 使用 `-ffp-contract=off`；MSVC 使用 `/fp:strict`；禁止 fast-math。
+- Release 用于对齐、质量和性能验收；Debug 用于 Sanitizer 和 fuzz。
+
+## 3. 已锁定的原生依赖
+
+`models/deps.lock.json` 是唯一版本与归档身份来源：
+
+| 依赖 | 锁定版本 | 用途 |
+| --- | --- | --- |
+| ONNX Runtime | 1.22.0 | CPU Execution Provider |
+| OpenCV | 4.10.0 | 仅 `core`、`imgproc`；静态构建 |
+| Clipper | 6.4.2，来自 pyclipper 1.3.0.post6 | 与 PaddleOCR 的 pyclipper 整数 offset 行为一致 |
+| nlohmann/json | 3.11.3 | 有界 bundle JSON 解析 |
+
+OpenCV 同时带入锁中声明的 zlib 1.3.1 与 Carotene 0.0.1。项目自己的 SHA-256 实现用于 bundle 完整性。
+
+`tools/bootstrap_dependencies.py` 校验归档字节数、SHA-256，并在交给 CMake 前拒绝绝对路径、`..`、重复成员、符号/硬链接、设备和未知成员类型。发布构建先联网填充缓存，再执行一次 `--offline` 校验；后续 CMake 配置只使用该缓存。
+
+## 4. 首次准备
+
+```bash
+python3 tools/bootstrap_dependencies.py --cache-dir .cache/dependencies
+python3 tools/bootstrap_dependencies.py --cache-dir .cache/dependencies --offline
+
+python3 tools/bootstrap_models.py --cache-dir .cache/models
+python3 tools/package_model_bundle.py
+
+python3 corpus/generate_corpus.py \
+  --cache-dir .cache/corpus \
+  --output-dir corpus/fixtures
+```
+
+模型 bootstrap 是显式步骤；正常编译和 Core 运行都不会下载模型。`package_model_bundle.py` 生成确定性的 USTAR 归档并核对 `models/bundles.lock.json` 中的最终字节数和 SHA-256。
+
+## 5. 本地构建
+
+仅 C++ 测试：
+
+```bash
+cmake --preset release \
+  -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
+cmake --build --preset release --parallel
+ctest --preset release
+```
+
+启用完整 Python oracle：
+
+```bash
+python3.11 -m venv .cache/oracle-venv
+.cache/oracle-venv/bin/python -m pip install \
+  --require-hashes -r oracle/requirements.lock
+
+cmake --preset release \
+  -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies" \
+  -DLIGHT_OCR_ORACLE_PYTHON="$PWD/.cache/oracle-venv/bin/python"
+cmake --build --preset release --parallel
+ctest --preset release
+```
+
+可用 preset：`dev`、`release`、`asan`、`tsan`、`fuzz`。Apple Clang 若没有 libFuzzer runtime，`fuzz` preset 会明确退化为固定 seed 的 standalone smoke driver；Linux CI 使用完整 Clang/libFuzzer。
+
+Node-API 是默认关闭的可选 target。开发构建需显式提供 Node headers，并使用调用方已有的本地模型 bundle；完整命令、API 和取消/生命周期说明见 [bindings/node/README.md](../bindings/node/README.md)。启用 `LIGHT_OCR_BUILD_NODE=ON` 和 `LIGHT_OCR_BUILD_TESTS=ON` 后，CTest 会在 Node executable 与生成 bundle 均存在时注册 `light_ocr_node_tests`。
+
+## 6. 构建目标
+
+| 目标 | 内容 |
+| --- | --- |
+| `light_ocr_core` / `light_ocr::core` | C++17 静态 Core |
+| `light_ocr_validate` | 单个 raw-pixel 输入的 JSON 结果 |
+| `light_ocr_stage_probe` | 测试专用全阶段记录 |
+| `light_ocr_benchmark` | load、初始化、各阶段、总延迟和 RSS |
+| `light_ocr_leak_check` | 重复完整生命周期的 RSS 门槛 |
+| `light_ocr_unit_tests` | 算法、边界和错误契约 |
+| `light_ocr_integration_tests` | 真实模型、golden、并发、关闭和 ORT 错误映射 |
+| `light_ocr_fuzz_*` | image、bundle、geometry、lifecycle 四个 fuzz 入口 |
+| `light_ocr_node` | 可选 Node-API v8 addon；需要 `LIGHT_OCR_BUILD_NODE=ON` 与显式 Node headers |
+
+所有需要 ONNX Runtime 的项目可执行文件在构建后会把动态运行库放到自身目录。macOS 使用 `@loader_path`，Linux 使用 `$ORIGIN`，Windows 将 `onnxruntime.dll` 放在 `.exe` 旁边；这样验证工具不依赖构建缓存的绝对路径。
+
+## 7. 验证命令
+
+全阶段和质量：
+
+```bash
+ctest --test-dir build/preset-release --output-on-failure -L acceptance
+```
+
+Sanitizer 和 fuzz 使用独立 build tree，不能把 ASan/UBSan 与 TSan 混在同一构建：
+
+```bash
+cmake --preset asan -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
+cmake --build --preset asan --parallel
+ASAN_OPTIONS=detect_leaks=0:halt_on_error=1 \
+UBSAN_OPTIONS=halt_on_error=1 ctest --preset asan
+
+cmake --preset tsan -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
+cmake --build --preset tsan --parallel
+TSAN_OPTIONS=halt_on_error=1 ctest --preset tsan
+
+cmake --preset fuzz -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
+cmake --build --preset fuzz --parallel
+build/preset-fuzz/bin/light_ocr_fuzz_image -runs=100000
+build/preset-fuzz/bin/light_ocr_fuzz_bundle -runs=100000
+build/preset-fuzz/bin/light_ocr_fuzz_geometry -runs=100000
+LIGHT_OCR_MODEL_BUNDLE="$PWD/models/generated/ppocrv6-small-onnx-20260713.1" \
+  build/preset-fuzz/bin/light_ocr_fuzz_lifecycle -runs=10 -max_len=64
+```
+
+macOS 的系统 Apple Clang 通常没有 libFuzzer runtime，因此本地 `fuzz` 可能是确定性 standalone driver，且 ASan 设置 `detect_leaks=0`；Linux safety CI 使用真正的 libFuzzer 与 LSan。
+
+性能门槛：
+
+```bash
+.cache/oracle-venv/bin/python oracle/run_benchmark.py \
+  --native-benchmark build/preset-release/bin/light_ocr_benchmark \
+  --bundle models/generated/ppocrv6-small-onnx-20260713.1 \
+  --fixture corpus/fixtures/generated-hello-123/fixture.json \
+  --warmup 5 --iterations 30 \
+  --report reports/benchmark/macos-arm64.generated-hello-123.json
+```
+
+重复生命周期：
+
+```bash
+build/preset-release/bin/light_ocr_leak_check \
+  --bundle models/generated/ppocrv6-small-onnx-20260713.1 \
+  --pixels corpus/fixtures/generated-hello-123/pixels.bin \
+  --width 800 --height 180 --stride 2400 --format bgr8 \
+  --warmup 2 --iterations 10 \
+  --report reports/leak/macos-arm64.generated-hello-123.json
+```
+
+无 cwd、locale、隐式环境依赖：
+
+```bash
+python3 tools/run_offline_check.py \
+  --validate build/preset-release/bin/light_ocr_validate \
+  --bundle models/generated/ppocrv6-small-onnx-20260713.1 \
+  --fixture corpus/fixtures/generated-hello-123/fixture.json
+```
+
+Linux CI 还把同一命令放入 `unshare --net` 网络命名空间并要求 `--require-network-disabled`。
+
+## 8. CI
+
+`.github/workflows/core.yml` 定义三类 job：
+
+- `tier1`：四个 Tier 1 原生 runner，锁定依赖/模型、离线缓存复核、Release 构建、真实模型测试、sterile/offline 检查、RSS gate、manifest/license/SBOM。
+- `safety`：Linux ASan+UBSan+LSan、TSan、四个 libFuzzer 入口。
+- `oracle`：hash-locked Python 环境、14 个语料的全阶段对齐、首 bundle 质量基线和相对性能门槛。
+
+Actions 均固定到 commit SHA。当前工作目录不是 Git 仓库，因此本机无法产生这套 GitHub Actions 的真实 run URL；工作流“已配置”不等于四平台“已通过”。发布候选必须保留每个 job 的不可变 run/artifact 证据。
+
+## 9. 发布元数据
+
+```bash
+python3 tools/generate_release_metadata.py \
+  --build-dir build/preset-release \
+  --output-dir reports/release/macos-arm64 \
+  --platform-id macos-arm64 \
+  --configuration Release
+```
+
+输出：
+
+- `build-manifest.json`：源码快照 SHA-256、Git revision（若可用）、编译器/目标/链接器/SDK/deployment target、规范化 compile commands、锁文件摘要、二进制摘要和模型归档身份。
+- `license-inventory.json` 与 `licenses/`：ORT、OpenCV、zlib、Carotene、Clipper、JSON 和模型许可证/notice。
+- `sbom.spdx.json`：SPDX 2.3 package/relationship/checksum 记录。
+
+模型最终归档当前锁定为：
+
+```text
+ppocrv6-small-onnx-20260713.1.tar
+bytes: 31334400
+sha256: d320b799ed77511e3743c36d2f23bd8cbcd80d8070d5431f4fb0ec80daa800da
+```
+
+## 10. 发布候选门槛
+
+1. 在带 revision 的干净 Git snapshot 上运行全部 CI。
+2. 四个 Tier 1 原生 job 全绿；不得用交叉编译替代。
+3. 保存 parity、quality、benchmark、leak、Sanitizer、fuzz 和 offline 报告。
+4. 为模型归档填写并验证受控不可变镜像地址；当前 `mirror: null` 明确表示此步未完成。
+5. 为每个平台生成 manifest、许可证清单和 SBOM。
+6. 在隔离环境验证下载后的 package 和模型归档 SHA-256。
+7. 对照 [implementation-status.md](implementation-status.md) 关闭所有 Pending 项。
+
+发布、签名、公证、公共下载地址和保留策略仍按 D104 处理；这些外部操作不能由源码仓库中的“计划文字”冒充完成证据。

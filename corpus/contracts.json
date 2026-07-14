@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0",
+  "corpusRevision": "20260714.1",
+  "fixtures": [
+    {"id": "contract-minimum-1x1-gray8", "contract": {"width": 1, "height": 1, "stride": 1, "bytes": 1}, "expected": "success-no-text", "testTarget": "light_ocr_integration_tests", "test": "minimum 1x1 gray8 input contract did not succeed without text"},
+    {"id": "contract-maximum-accepted-gray8", "contract": {"width": 10000, "height": 4000, "stride": 10000, "bytes": 40000000}, "expected": "accepted-by-input-contract", "testTarget": "light_ocr_unit_tests", "test": "image_layout_accepts_declared_maximum_gray8_contract"},
+    {"id": "contract-invalid-stride", "contract": {"width": 16, "height": 16, "stride": 15, "bytes": 256}, "expectedError": "invalid_image", "testTarget": "light_ocr_unit_tests", "test": "image_rejects_bad_stride_and_truncated_buffer"},
+    {"id": "contract-truncated-buffer", "contract": {"width": 16, "height": 16, "stride": 48, "bytes": 767}, "expectedError": "invalid_image", "testTarget": "light_ocr_unit_tests", "test": "image_rejects_bad_stride_and_truncated_buffer"},
+    {"id": "contract-oversized-image", "contract": {"width": 10001, "height": 1, "stride": 30003, "bytes": 30003}, "expectedError": "resource_limit_exceeded", "testTarget": "light_ocr_unit_tests", "test": "image_distinguishes_structural_errors_from_resource_limits"},
+    {"id": "contract-malformed-bundle", "mutation": "invalid-or-missing-manifest-fields", "expectedError": "invalid_model_bundle", "testTarget": "light_ocr_unit_tests", "test": "model_bundle_rejects_correctly_hashed_invalid_configuration"},
+    {"id": "contract-unsupported-capability", "mutation": "useTextlineOrientation=true", "expectedError": "unsupported_capability", "testTarget": "light_ocr_integration_tests", "test": "unsupported orientation did not return unsupported_capability"},
+    {"id": "contract-invalid-tensor", "mutation": "wrong-rank-or-storage-size", "expectedError": "inference_failed", "testTarget": "light_ocr_integration_tests", "test": "mismatched tensor size did not return inference_failed"}
+  ]
+}
