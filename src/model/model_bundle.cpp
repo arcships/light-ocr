@@ -218,7 +218,7 @@ void validate_file_inventory(const Json& manifest,
 }
 
 void validate_checksum_inventory(const std::unordered_map<std::string, SharedBytes>& files) {
-  const auto& checksum_bytes = file_at(files, "SHA256SUMS");
+  const auto checksum_bytes = file_at(files, "SHA256SUMS");
   require(checksum_bytes->size() <= 64 * 1024,
           "SHA256SUMS exceeds its size limit", "SHA256SUMS");
   const std::string contents(checksum_bytes->begin(), checksum_bytes->end());

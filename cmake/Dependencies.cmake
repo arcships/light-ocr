@@ -141,7 +141,12 @@ function(light_ocr_configure_dependencies)
   elseif(UNIX AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
     set(_ort_runtime_dir "runtimes/linux-x64/native")
     set(_ort_library "${onnxruntime_package_SOURCE_DIR}/${_ort_runtime_dir}/libonnxruntime.so")
-    set(_ort_runtime_files "${_ort_library}")
+    set(_ort_soname_library
+      "${onnxruntime_package_SOURCE_DIR}/${_ort_runtime_dir}/libonnxruntime.so.1")
+    if(NOT EXISTS "${_ort_soname_library}")
+      file(CREATE_LINK "libonnxruntime.so" "${_ort_soname_library}" SYMBOLIC)
+    endif()
+    set(_ort_runtime_files "${_ort_library}" "${_ort_soname_library}")
   else()
     message(FATAL_ERROR "Unsupported ONNX Runtime target: ${CMAKE_SYSTEM_NAME}/${CMAKE_SYSTEM_PROCESSOR}")
   endif()
@@ -155,8 +160,8 @@ function(light_ocr_configure_dependencies)
     set_target_properties(light_ocr_onnxruntime PROPERTIES IMPORTED_IMPLIB "${_ort_implib}")
     set(_ort_runtime_files "${_ort_library}")
   elseif(NOT APPLE)
-    # The Linux NuGet binary has no DT_SONAME. Link by logical name so the
-    # executable records libonnxruntime.so instead of a cache-absolute path.
+    # Link by logical name instead of recording a cache-absolute path. The
+    # binary's libonnxruntime.so.1 SONAME alias is staged alongside it above.
     set_target_properties(light_ocr_onnxruntime PROPERTIES IMPORTED_NO_SONAME TRUE)
   endif()
   set_property(GLOBAL PROPERTY LIGHT_OCR_ONNXRUNTIME_RUNTIME_FILES

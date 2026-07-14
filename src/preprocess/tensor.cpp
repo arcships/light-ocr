@@ -117,7 +117,8 @@ Result<DetectionInput> make_detection_input(const cv::Mat& bgr,
         const auto offset = static_cast<std::size_t>(y) * resized_width + x;
         for (std::size_t channel = 0; channel < 3; ++channel) {
           result.values[channel * channel_size + offset] =
-              (static_cast<float>(row[x][channel]) * config.scale - config.mean[channel]) /
+              (static_cast<float>(row[x][static_cast<int>(channel)]) * config.scale -
+               config.mean[channel]) /
               config.std[channel];
         }
       }
@@ -231,7 +232,7 @@ Result<std::vector<RecognitionBatch>> make_recognition_batches(
               const auto destination_offset = batch_index * 3 * destination_plane +
                                               channel * destination_plane + pixel_offset;
               batch.values[destination_offset] =
-                  (static_cast<float>(row[column][channel]) * config.scale -
+                  (static_cast<float>(row[column][static_cast<int>(channel)]) * config.scale -
                    config.mean[channel]) /
                   config.std[channel];
             }
