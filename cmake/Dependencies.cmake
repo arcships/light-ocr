@@ -123,11 +123,14 @@ function(light_ocr_configure_dependencies)
     URL_HASH SHA256=d571e63a2329baacb713f441e65ad75284de354db6e1ac435fe4bebbb417986a
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 
-  FetchContent_MakeAvailable(nlohmann_json clipper stb opencv onnxruntime_package)
+  FetchContent_MakeAvailable(nlohmann_json clipper opencv onnxruntime_package)
 
-  add_library(light_ocr_stb INTERFACE)
-  add_library(light_ocr::stb ALIAS light_ocr_stb)
-  target_include_directories(light_ocr_stb SYSTEM INTERFACE "${stb_SOURCE_DIR}")
+  if(LIGHT_OCR_BUILD_NODE OR LIGHT_OCR_BUILD_FUZZERS)
+    FetchContent_MakeAvailable(stb)
+    add_library(light_ocr_stb INTERFACE)
+    add_library(light_ocr::stb ALIAS light_ocr_stb)
+    target_include_directories(light_ocr_stb SYSTEM INTERFACE "${stb_SOURCE_DIR}")
+  endif()
 
   add_library(light_ocr_clipper STATIC "${clipper_SOURCE_DIR}/src/clipper.cpp")
   add_library(light_ocr::clipper ALIAS light_ocr_clipper)

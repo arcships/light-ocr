@@ -111,6 +111,23 @@ test('decodes JPEG and PNG snapshots on the engine worker', async () => {
   await engine.close();
 });
 
+test('decodes encoded images concurrently across independent engines', async () => {
+  const engines = await Promise.all([
+    createEngine({ bundlePath }),
+    createEngine({ bundlePath }),
+  ]);
+  try {
+    const [pngResult, jpegResult] = await Promise.all([
+      engines[0].recognizeEncoded(encodedBlankPng),
+      engines[1].recognizeEncoded(encodedBlankJpeg),
+    ]);
+    assert.deepEqual([pngResult.imageWidth, pngResult.imageHeight], [2, 3]);
+    assert.deepEqual([jpegResult.imageWidth, jpegResult.imageHeight], [2, 3]);
+  } finally {
+    await Promise.all(engines.map((engine) => engine.close()));
+  }
+});
+
 test('rejects malformed and unsupported encoded images safely', async () => {
   const engine = await createEngine({ bundlePath });
   await assert.rejects(
@@ -150,7 +167,9 @@ test('rejects malformed and unsupported encoded images safely', async () => {
       maxDetectionCandidates: limits.maxDetectionCandidates,
       maxRecognitionBatchSize: limits.maxRecognitionBatchSize,
       maxRecognitionWidth: limits.maxRecognitionWidth,
-      maxTemporaryBytes: 17,
+      // 18 decoded RGB bytes fit the old output-only check (18 <= 64 / 2),
+      // but stb's decoder allocations do not fit this request-level budget.
+      maxTemporaryBytes: 64,
     },
   });
   await assert.rejects(
@@ -322,6 +341,10 @@ test('enforces bounded admission and restores capacity after queued cancellation
   const first = oneSlot.recognize(slowImage);
   await assert.rejects(
     oneSlot.recognize(loadFixture('generated-blank')),
+    (error) => error instanceof OcrError && error.code === 'queue_full',
+  );
+  await assert.rejects(
+    oneSlot.recognizeEncoded(Buffer.from('not an image')),
     (error) => error instanceof OcrError && error.code === 'queue_full',
   );
   await first;
