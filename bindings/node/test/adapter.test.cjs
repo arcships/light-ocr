@@ -6,6 +6,7 @@ const path = require('node:path');
 const test = require('node:test');
 const { pathToFileURL } = require('node:url');
 const { Worker } = require('node:worker_threads');
+const zlib = require('node:zlib');
 
 const { createEngine, OcrError } = require('../js/index.cjs');
 
@@ -34,6 +35,55 @@ function loadFixture(id) {
     stride: metadata.stride,
     pixelFormat: metadata.pixelFormat,
   };
+}
+
+function crc32(data) {
+  let crc = 0xffffffff;
+  for (const byte of data) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; ++bit) {
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type, data) {
+  const typeBytes = Buffer.from(type, 'ascii');
+  const chunk = Buffer.alloc(12 + data.length);
+  chunk.writeUInt32BE(data.length, 0);
+  typeBytes.copy(chunk, 4);
+  data.copy(chunk, 8);
+  chunk.writeUInt32BE(crc32(Buffer.concat([typeBytes, data])), 8 + data.length);
+  return chunk;
+}
+
+function encodeBgrFixtureAsPng(image) {
+  assert.equal(image.pixelFormat, 'bgr8');
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(image.width, 0);
+  ihdr.writeUInt32BE(image.height, 4);
+  ihdr.set([8, 2, 0, 0, 0], 8);
+
+  const scanlines = Buffer.alloc(image.height * (1 + image.width * 3));
+  for (let y = 0; y < image.height; ++y) {
+    const row = y * (1 + image.width * 3);
+    scanlines[row] = 0;
+    for (let x = 0; x < image.width; ++x) {
+      const source = y * image.stride + x * 3;
+      const destination = row + 1 + x * 3;
+      scanlines[destination] = image.data[source + 2];
+      scanlines[destination + 1] = image.data[source + 1];
+      scanlines[destination + 2] = image.data[source];
+    }
+  }
+
+  return Buffer.concat([
+    Buffer.from('89504e470d0a1a0a', 'hex'),
+    pngChunk('IHDR', ihdr),
+    pngChunk('IDAT', zlib.deflateSync(scanlines)),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]);
 }
 
 function delay(milliseconds) {
@@ -109,6 +159,25 @@ test('decodes JPEG and PNG snapshots on the engine worker', async () => {
   assert.equal(jpegResult.imageHeight, 3);
   assert.deepEqual(jpegResult.lines, []);
   await engine.close();
+});
+
+test('matches raw recognition for a non-blank color PNG', async () => {
+  const engine = await createEngine({ bundlePath });
+  try {
+    const image = loadFixture('paddleocr-garden-sign');
+    const png = encodeBgrFixtureAsPng(image);
+    const options = { includeDiagnostics: true };
+    const rawResult = await engine.recognize(image, options);
+    const encodedResult = await engine.recognizeEncoded(png, options);
+
+    const stableResult = ({ timingUs, ...result }) => result;
+    assert.deepEqual(stableResult(encodedResult), stableResult(rawResult));
+    assert.deepEqual(rawResult.lines.map((line) => line.text), ['绿洲仕格维花园公寓']);
+    assert.equal(rawResult.timingUs.decode, 0);
+    assert.ok(encodedResult.timingUs.decode > 0);
+  } finally {
+    await engine.close();
+  }
 });
 
 test('decodes encoded images concurrently across independent engines', async () => {
