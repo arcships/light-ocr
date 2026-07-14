@@ -6,7 +6,7 @@
   },
   "requirementsLock": {
     "path": "oracle/requirements.lock",
-    "sha256": "21204853e07dc49b5221774bf453419c5645a97f2e616a33352b09efa0e99c8e"
+    "sha256": "bd3cb456917c629ec2298339bdaea3761689c9bda4371bd8fab8125f57fe962a"
   },
   "primaryPackages": {
     "numpy": "2.1.3",
