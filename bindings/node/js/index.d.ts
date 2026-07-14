@@ -94,6 +94,7 @@ export interface Diagnostics {
 }
 export interface TimingUs {
   readonly total: number;
+  readonly decode: number;
   readonly inputValidation: number;
   readonly detectionPreprocess: number;
   readonly detectionInference: number;
@@ -170,6 +171,7 @@ export class OcrError extends Error {
 export interface OcrEngine {
   readonly info: EngineInfo;
   recognize(image: RawImage, options?: RecognizeOptions): Promise<OcrResult>;
+  recognizeEncoded(data: Uint8Array, options?: RecognizeOptions): Promise<OcrResult>;
   close(): Promise<void>;
 }
 

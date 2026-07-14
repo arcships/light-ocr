@@ -47,6 +47,7 @@ macOS 的 `CMAKE_OSX_DEPLOYMENT_TARGET` 默认固定为 `13.3`。当前没有对
 | ONNX Runtime | 1.22.0 | CPU Execution Provider |
 | OpenCV | 4.10.0 | 仅 `core`、`imgproc`；静态构建 |
 | Clipper | 6.4.2，来自 pyclipper 1.3.0.post6 | 与 PaddleOCR 的 pyclipper 整数 offset 行为一致 |
+| stb | commit `31c1ad374564` | Node adapter 的内存 JPEG/PNG 解码；关闭 stdio 和其他格式 |
 | nlohmann/json | 3.11.3 | 有界 bundle JSON 解析 |
 
 OpenCV 同时带入锁中声明的 zlib 1.3.1 与 Carotene 0.0.1。项目自己的 SHA-256 实现用于 bundle 完整性。

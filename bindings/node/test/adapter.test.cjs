@@ -6,6 +6,7 @@ const path = require('node:path');
 const test = require('node:test');
 const { pathToFileURL } = require('node:url');
 const { Worker } = require('node:worker_threads');
+const zlib = require('node:zlib');
 
 const { createEngine, OcrError } = require('../js/index.cjs');
 
@@ -13,6 +14,15 @@ const repositoryRoot = path.resolve(__dirname, '../../..');
 const bundlePath = path.resolve(
   process.env.LIGHT_OCR_MODEL_BUNDLE ||
     path.join(repositoryRoot, 'models/generated/ppocrv6-small-onnx-20260714.2'),
+);
+
+const encodedBlankPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAIAAAA2iEnWAAAAFUlEQVR4nGP8//8/AwMDEwMDA4ICADkbAwP+wj6MAAAAAElFTkSuQmCC',
+  'base64',
+);
+const encodedBlankJpeg = Buffer.from(
+  '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAADAAIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3+iiigD//2Q==',
+  'base64',
 );
 
 function loadFixture(id) {
@@ -25,6 +35,55 @@ function loadFixture(id) {
     stride: metadata.stride,
     pixelFormat: metadata.pixelFormat,
   };
+}
+
+function crc32(data) {
+  let crc = 0xffffffff;
+  for (const byte of data) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; ++bit) {
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type, data) {
+  const typeBytes = Buffer.from(type, 'ascii');
+  const chunk = Buffer.alloc(12 + data.length);
+  chunk.writeUInt32BE(data.length, 0);
+  typeBytes.copy(chunk, 4);
+  data.copy(chunk, 8);
+  chunk.writeUInt32BE(crc32(Buffer.concat([typeBytes, data])), 8 + data.length);
+  return chunk;
+}
+
+function encodeBgrFixtureAsPng(image) {
+  assert.equal(image.pixelFormat, 'bgr8');
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(image.width, 0);
+  ihdr.writeUInt32BE(image.height, 4);
+  ihdr.set([8, 2, 0, 0, 0], 8);
+
+  const scanlines = Buffer.alloc(image.height * (1 + image.width * 3));
+  for (let y = 0; y < image.height; ++y) {
+    const row = y * (1 + image.width * 3);
+    scanlines[row] = 0;
+    for (let x = 0; x < image.width; ++x) {
+      const source = y * image.stride + x * 3;
+      const destination = row + 1 + x * 3;
+      scanlines[destination] = image.data[source + 2];
+      scanlines[destination + 1] = image.data[source + 1];
+      scanlines[destination + 2] = image.data[source];
+    }
+  }
+
+  return Buffer.concat([
+    Buffer.from('89504e470d0a1a0a', 'hex'),
+    pngChunk('IHDR', ihdr),
+    pngChunk('IDAT', zlib.deflateSync(scanlines)),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]);
 }
 
 function delay(milliseconds) {
@@ -72,6 +131,7 @@ test('loads PP-OCRv6, snapshots pixels, maps results, and closes idempotently', 
   assert.equal(result.diagnostics.detectionPasses.length, 1);
   assert.equal(result.timingUs.detectionMerge, 0);
   assert.deepEqual(result.diagnostics.recognitionBatchShapes.map((shape) => shape.batchSize), [1]);
+  assert.equal(result.timingUs.decode, 0);
 
   const closeA = engine.close();
   const closeB = engine.close();
@@ -81,6 +141,111 @@ test('loads PP-OCRv6, snapshots pixels, maps results, and closes idempotently', 
     engine.recognize(loadFixture('generated-blank')),
     (error) => error instanceof OcrError && error.code === 'invalid_engine',
   );
+});
+
+test('decodes JPEG and PNG snapshots on the engine worker', async () => {
+  const engine = await createEngine({ bundlePath });
+  const png = Buffer.from(encodedBlankPng);
+  const pngRecognition = engine.recognizeEncoded(png);
+  png.fill(0);
+  const pngResult = await pngRecognition;
+  assert.equal(pngResult.imageWidth, 2);
+  assert.equal(pngResult.imageHeight, 3);
+  assert.deepEqual(pngResult.lines, []);
+  assert.ok(Number.isSafeInteger(pngResult.timingUs.decode));
+
+  const jpegResult = await engine.recognizeEncoded(encodedBlankJpeg);
+  assert.equal(jpegResult.imageWidth, 2);
+  assert.equal(jpegResult.imageHeight, 3);
+  assert.deepEqual(jpegResult.lines, []);
+  await engine.close();
+});
+
+test('matches raw recognition for a non-blank color PNG', async () => {
+  const engine = await createEngine({ bundlePath });
+  try {
+    const image = loadFixture('paddleocr-garden-sign');
+    const png = encodeBgrFixtureAsPng(image);
+    const options = { includeDiagnostics: true };
+    const rawResult = await engine.recognize(image, options);
+    const encodedResult = await engine.recognizeEncoded(png, options);
+
+    const stableResult = ({ timingUs, ...result }) => result;
+    assert.deepEqual(stableResult(encodedResult), stableResult(rawResult));
+    assert.deepEqual(rawResult.lines.map((line) => line.text), ['绿洲仕格维花园公寓']);
+    assert.equal(rawResult.timingUs.decode, 0);
+    assert.ok(encodedResult.timingUs.decode > 0);
+  } finally {
+    await engine.close();
+  }
+});
+
+test('decodes encoded images concurrently across independent engines', async () => {
+  const engines = await Promise.all([
+    createEngine({ bundlePath }),
+    createEngine({ bundlePath }),
+  ]);
+  try {
+    const [pngResult, jpegResult] = await Promise.all([
+      engines[0].recognizeEncoded(encodedBlankPng),
+      engines[1].recognizeEncoded(encodedBlankJpeg),
+    ]);
+    assert.deepEqual([pngResult.imageWidth, pngResult.imageHeight], [2, 3]);
+    assert.deepEqual([jpegResult.imageWidth, jpegResult.imageHeight], [2, 3]);
+  } finally {
+    await Promise.all(engines.map((engine) => engine.close()));
+  }
+});
+
+test('rejects malformed and unsupported encoded images safely', async () => {
+  const engine = await createEngine({ bundlePath });
+  await assert.rejects(
+    engine.recognizeEncoded(Buffer.from('not an image')),
+    (error) => error instanceof OcrError && error.code === 'invalid_image',
+  );
+  await assert.rejects(
+    engine.recognizeEncoded(new Uint8Array()),
+    (error) => error instanceof OcrError && error.code === 'invalid_image',
+  );
+  await assert.rejects(
+    engine.recognizeEncoded(new Uint16Array([1, 2, 3])),
+    (error) => error instanceof OcrError && error.code === 'invalid_image',
+  );
+  const oversizedPng = Buffer.from(encodedBlankPng);
+  oversizedPng.writeUInt32BE(engine.info.limits.maxWidth + 1, 16);
+  await assert.rejects(
+    engine.recognizeEncoded(oversizedPng),
+    (error) => error instanceof OcrError && error.code === 'resource_limit_exceeded',
+  );
+  if (typeof SharedArrayBuffer === 'function') {
+    await assert.rejects(
+      engine.recognizeEncoded(new Uint8Array(new SharedArrayBuffer(16))),
+      (error) => error instanceof OcrError && error.code === 'invalid_image',
+    );
+  }
+  await engine.close();
+
+  const limits = engine.info.limits;
+  const memoryLimited = await createEngine({
+    bundlePath,
+    reducedLimits: {
+      maxWidth: limits.maxWidth,
+      maxHeight: limits.maxHeight,
+      maxPixels: limits.maxPixels,
+      maxDetectionSide: limits.maxDetectionSide,
+      maxDetectionCandidates: limits.maxDetectionCandidates,
+      maxRecognitionBatchSize: limits.maxRecognitionBatchSize,
+      maxRecognitionWidth: limits.maxRecognitionWidth,
+      // 18 decoded RGB bytes fit the old output-only check (18 <= 64 / 2),
+      // but stb's decoder allocations do not fit this request-level budget.
+      maxTemporaryBytes: 64,
+    },
+  });
+  await assert.rejects(
+    memoryLimited.recognizeEncoded(encodedBlankPng),
+    (error) => error instanceof OcrError && error.code === 'resource_limit_exceeded',
+  );
+  await memoryLimited.close();
 });
 
 test('validates input and reports adapter errors as OcrError', async () => {
@@ -245,6 +410,10 @@ test('enforces bounded admission and restores capacity after queued cancellation
   const first = oneSlot.recognize(slowImage);
   await assert.rejects(
     oneSlot.recognize(loadFixture('generated-blank')),
+    (error) => error instanceof OcrError && error.code === 'queue_full',
+  );
+  await assert.rejects(
+    oneSlot.recognizeEncoded(Buffer.from('not an image')),
     (error) => error instanceof OcrError && error.code === 'queue_full',
   );
   await first;
