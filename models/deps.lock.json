@@ -42,6 +42,21 @@
       "patches": []
     },
     {
+      "name": "stb",
+      "version": "31c1ad37456438565541f4919958214b6e762fb4",
+      "filename": "stb-31c1ad374564.tar.gz",
+      "source": "https://codeload.github.com/nothings/stb/tar.gz/31c1ad37456438565541f4919958214b6e762fb4",
+      "bytes": 1516082,
+      "sha256": "e4e3bba9c572a4a4148373a914d88ea0f0d11de8cc2c66739926e7eca0223319",
+      "license": "MIT OR Unlicense",
+      "buildOptions": {
+        "components": ["stb_image"],
+        "formats": ["jpeg", "png"],
+        "stdio": false
+      },
+      "patches": []
+    },
+    {
       "name": "nlohmann-json",
       "version": "3.11.3",
       "filename": "json-3.11.3.tar.gz",

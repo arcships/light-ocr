@@ -70,9 +70,9 @@ Consequence: Validation packages must be built for each Tier 1 target; consumers
 ### D008 — Accept decoded pixels only
 
 Status: Accepted  
-Decision: The public boundary accepts validated `GRAY8`, `RGB8`, `BGR8`, or `RGBA8` memory views. Encoded images and documents are decoded by the caller.  
+Decision: The C++ Core boundary accepts validated `GRAY8`, `RGB8`, `BGR8`, or `RGBA8` memory views. Host adapters may offer bounded decoding before crossing that boundary; the Node adapter supports in-memory JPEG/PNG. Documents and other formats are decoded by the caller.
 Reason: Decoding greatly expands format, security, dependency, and platform scope without improving the OCR algorithms.  
-Consequence: Fixtures cross the C++ boundary as raw pixels, and parity compares identical decoded bytes.
+Consequence: Fixtures cross the C++ boundary as raw pixels, parity compares identical decoded bytes, and adapter decoders require their own dependency, security-limit, and format tests.
 
 ### D009 — Support four Tier 1 targets
 

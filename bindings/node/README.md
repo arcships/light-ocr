@@ -15,13 +15,14 @@ npm install @arcships/light-ocr
 - 原始 Node-API C API，编译为 `NAPI_VERSION=8`，不依赖 `node-addon-api`。
 - `createEngine()`、`recognize()`、`close()` 全部返回 Promise。
 - 每个 engine 一条专用 C++ worker thread 和一个有界 FIFO；推理不占 JavaScript 线程或 libuv 共享线程池。
-- 输入只接受 `Uint8Array` raw pixels：`gray8`、`rgb8`、`bgr8`、`rgba8`。
+- `recognize()` 接受 `Uint8Array` raw pixels：`gray8`、`rgb8`、`bgr8`、`rgba8`。
+- `recognizeEncoded()` 接受内存中的 JPEG/PNG `Uint8Array`；格式自动检测，解码在 engine worker 中执行。
 - `recognize()` 返回前同步复制本次调用实际需要的像素范围；调用返回后可以立即修改或复用原 Buffer。
 - 支持 `AbortSignal` 协作式取消：queued 请求会从队列移除；running 请求立即拒绝 public Promise，但 Core 会安全运行到返回并丢弃结果。
 - native addon 只接收现有绝对 bundle 目录。当前源码开发调用显式传 `bundlePath`；发布后的 facade 默认使用随 npm 安装的 model package 路径。
 - 产品 engine 默认报告 `detectionStrategy: 'bounded'`、`detectionMaxSide: 960` 和 `defaultRecognitionBatchSize: 1`。`detection: {strategy: 'upstreamExact'}` 只用于显式上游对照；单次 `recognize({detectionMaxSide})` 只能继续降低 bounded engine 的 side。
 
-v1 不支持 encoded image、zero-copy/transfer、运行中 inference 硬中断、Electron 或 Bun。详细契约见 [Node-API 设计](../../docs/napi-design.md)。
+不支持 WebP、GIF、PDF、EXIF orientation 自动旋转、zero-copy/transfer、运行中 inference 硬中断、Electron 或 Bun。详细契约见 [Node-API 设计](../../docs/napi-design.md)。
 
 ## 本地构建
 
@@ -96,7 +97,12 @@ async function main() {
         signal: controller.signal,
       },
     );
+    const encodedResult = await engine.recognizeEncoded(
+      await require('node:fs/promises').readFile('/absolute/path/to/image.jpg'),
+      { signal: controller.signal },
+    );
     console.log(result.lines);
+    console.log(encodedResult.lines);
   } catch (error) {
     if (error instanceof OcrError) console.error(error.code, error.message, error.detail);
     else throw error; // 包括调用方提供的 AbortSignal.reason

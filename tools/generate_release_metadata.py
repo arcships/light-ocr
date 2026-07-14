@@ -125,7 +125,9 @@ def source_dir(build: Path, name: str) -> Path:
     raise RuntimeError(f"dependency source directory not found: {name}-src")
 
 
-def copy_licenses(build: Path, output: Path) -> list[dict[str, str]]:
+def copy_licenses(
+    build: Path, output: Path, include_stb: bool
+) -> list[dict[str, str]]:
     license_dir = output / "licenses"
     license_dir.mkdir(parents=True, exist_ok=True)
     sources = [
@@ -137,6 +139,10 @@ def copy_licenses(build: Path, output: Path) -> list[dict[str, str]]:
         (source_dir(build, "clipper") / "LICENSE", "clipper-BSL-1.0.txt", "clipper"),
         (source_dir(build, "nlohmann_json") / "LICENSE.MIT", "nlohmann-json-MIT.txt", "nlohmann-json"),
     ]
+    if include_stb:
+        sources.append(
+            (source_dir(build, "stb") / "LICENSE", "stb-MIT-or-Unlicense.txt", "stb")
+        )
     bundle = ROOT / "models" / "generated" / "ppocrv6-small-onnx-20260714.2"
     sources.extend([
         (bundle / "LICENSES" / "PaddleOCR-Apache-2.0.txt", "PP-OCRv6-Apache-2.0.txt", "PP-OCRv6-models"),
@@ -188,6 +194,10 @@ def main() -> int:
     output = arguments.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
     cache = cache_values(build / "CMakeCache.txt")
+    include_stb = (
+        cache.get("LIGHT_OCR_BUILD_NODE") == "ON"
+        or cache.get("LIGHT_OCR_BUILD_FUZZERS") == "ON"
+    )
     dependency_lock_path = ROOT / "models" / "deps.lock.json"
     bundle_lock_path = ROOT / "models" / "bundles.lock.json"
     dependency_lock = json.loads(dependency_lock_path.read_text("utf-8"))
@@ -267,7 +277,7 @@ def main() -> int:
         json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8"
     )
 
-    inventory = copy_licenses(build, output)
+    inventory = copy_licenses(build, output, include_stb)
     (output / "license-inventory.json").write_text(
         json.dumps({"schemaVersion": "1.0", "files": inventory}, sort_keys=True, separators=(",", ":")) + "\n",
         encoding="utf-8",
@@ -284,6 +294,8 @@ def main() -> int:
     }]
     relationships: list[dict[str, str]] = []
     for record in dependency_lock["dependencies"]:
+        if record["name"] == "stb" and not include_stb:
+            continue
         identifier = "SPDXRef-Package-" + record["name"].replace("_", "-")
         packages.append(spdx_package(identifier, record))
         relationships.append({"spdxElementId": "SPDXRef-Package-light-ocr-core", "relationshipType": "DEPENDS_ON", "relatedSpdxElement": identifier})

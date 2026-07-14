@@ -42,7 +42,7 @@ const engine = await createEngine();
 | 包 | 类型 | 内容 | 安装关系 |
 | --- | --- | --- | --- |
 | `@arcships/light-ocr` | facade | CJS、ESM、TypeScript types、平台与模型解析器 | 用户直接安装 |
-| `@arcships/light-ocr-model-ppocrv6-small` | model | 完整 `ppocrv6-small-onnx-20260714.1` bundle、模型 license、可解析的 manifest subpath | facade 的普通 dependency |
+| `@arcships/light-ocr-model-ppocrv6-small` | model | 完整 `ppocrv6-small-onnx-20260714.2` bundle、模型 license、可解析的 manifest subpath | facade 的普通 dependency |
 | `@arcships/light-ocr-darwin-arm64` | native | arm64 `.node`、ONNX Runtime dylib、licenses、SBOM、hashes | facade 的 optional dependency |
 | `@arcships/light-ocr-darwin-x64` | native | x64 `.node`、ONNX Runtime dylib、licenses、SBOM、hashes | facade 的 optional dependency |
 | `@arcships/light-ocr-win32-x64` | native | x64 `.node`、`onnxruntime.dll`、licenses、SBOM、hashes | facade 的 optional dependency |
@@ -209,7 +209,7 @@ export function createEngine(options?: CreateEngineOptions): Promise<OcrEngine>;
 模型内容身份与 npm 版本分离：
 
 - npm version 表示 package release set，例如 `0.1.0`。
-- bundle ID 表示 OCR 模型与配置身份，例如 `ppocrv6-small-onnx-20260714.1`。
+- bundle ID 表示 OCR 模型与配置身份，例如 `ppocrv6-small-onnx-20260714.2`。
 - 任何模型 bytes、normalized config、dictionary 或 manifest 变化都创建新 bundle ID，并发布新的完整 release set。
 - 只修改 README 不需要创建新 bundle ID，但仍需要新的 npm version。
 
@@ -221,7 +221,7 @@ export function createEngine(options?: CreateEngineOptions): Promise<OcrEngine>;
 
 ```text
 bindings/node/js + facade manifest template
-models/generated/ppocrv6-small-onnx-20260714.1
+models/generated/ppocrv6-small-onnx-20260714.2
 reports/release/<platform> native artifacts
                          ↓
 dist/npm/<six staging directories>

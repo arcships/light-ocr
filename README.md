@@ -28,13 +28,13 @@ It is made for products where OCR should feel like a local capability: quick to 
 | **On-premise and edge software** | Run a consistent OCR model in kiosks, terminals, appliances, or controlled networks where a cloud dependency is undesirable. |
 | **Native and Node.js services** | Embed OCR directly instead of deploying and supervising a separate Python process or OCR daemon. |
 
-The current model is best suited to general text detection and recognition in CJK/Latin mixed content. PDF rendering, encoded-image decoding, document layout analysis, tables, formulas, and translation remain the host application's responsibility.
+The current model is best suited to general text detection and recognition in CJK/Latin mixed content. The Node.js adapter can decode in-memory JPEG and PNG inputs; the native core still accepts decoded pixels only. PDF rendering, other image formats, document layout analysis, tables, formulas, and translation remain the host application's responsibility.
 
 ## Why this project exists
 
 Cloud OCR is convenient, but it introduces uploads, network availability, recurring cost, and a new privacy boundary. Operating-system OCR APIs avoid the network, but their behavior and availability vary by platform. PaddleOCR offers excellent models, while its usual Python deployment is not always a natural fit for desktop software, native products, or a Node.js application.
 
-`light-ocr` closes that gap with one reusable native core built around official PP-OCRv6 Small models. Applications keep control of image decoding, scheduling, storage, and user experience; the library focuses on turning pixels into structured OCR results.
+`light-ocr` closes that gap with one reusable native core built around official PP-OCRv6 Small models. Applications keep control of scheduling, storage, and user experience; the library focuses on turning images into structured OCR results while preserving a raw-pixel native boundary.
 
 ## Why use light-ocr
 
@@ -105,6 +105,7 @@ The package installs the matching native runtime and the pinned PP-OCRv6 Small m
 
 ```ts
 import { createEngine } from "@arcships/light-ocr";
+import { readFile } from "node:fs/promises";
 
 const engine = await createEngine();
 const result = await engine.recognize({
@@ -114,8 +115,12 @@ const result = await engine.recognize({
   stride,
   pixelFormat: "rgba8",
 });
+const encodedResult = await engine.recognizeEncoded(
+  await readFile("image.jpg"),
+);
 
 console.log(result.lines);
+console.log(encodedResult.lines);
 await engine.close();
 ```
 

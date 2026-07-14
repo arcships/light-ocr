@@ -117,6 +117,14 @@ class OcrEngineImpl {
   }
 
   recognize(image, options = {}) {
+    return this.#recognize('recognize', image, options);
+  }
+
+  recognizeEncoded(data, options = {}) {
+    return this.#recognize('recognizeEncoded', data, options);
+  }
+
+  #recognize(nativeMethod, image, options) {
     let signal;
     let nativeOptions;
     try {
@@ -136,7 +144,7 @@ class OcrEngineImpl {
 
     let operation;
     try {
-      operation = this.#native.recognize(image, nativeOptions);
+      operation = this.#native[nativeMethod](image, nativeOptions);
     } catch (error) {
       return Promise.reject(normalizeNativeError(error));
     }

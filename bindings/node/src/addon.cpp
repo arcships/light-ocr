@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <condition_variable>
 #include <cstddef>
@@ -24,6 +25,7 @@
 #include <vector>
 
 #include "bundle_loader.hpp"
+#include "encoded_image.hpp"
 #include "light_ocr/core.hpp"
 
 namespace light_ocr::node {
@@ -557,6 +559,7 @@ struct ImageSnapshot {
   std::uint32_t height = 0;
   std::size_t stride = 0;
   PixelFormat pixel_format = PixelFormat::bgr8;
+  bool encoded = false;
 };
 
 ImageSnapshot copy_image(const ParsedImage& parsed) {
@@ -569,6 +572,56 @@ ImageSnapshot copy_image(const ParsedImage& parsed) {
   if (parsed.required_bytes != 0) {
     std::memcpy(snapshot.bytes.data(), parsed.data, parsed.required_bytes);
   }
+  return snapshot;
+}
+
+struct ParsedEncodedImage {
+  const std::uint8_t* data = nullptr;
+  std::size_t size = 0;
+};
+
+ParsedEncodedImage parse_encoded_image(napi_env env, napi_value value) {
+  bool typed = false;
+  check(env, napi_is_typedarray(env, value, &typed), "check encoded image typed array");
+  if (!typed) {
+    throw AddonFailure("invalid_image", "encoded image must be a Uint8Array");
+  }
+  napi_typedarray_type type = napi_int8_array;
+  std::size_t length = 0;
+  void* data = nullptr;
+  napi_value backing = nullptr;
+  std::size_t byte_offset = 0;
+  check(env,
+        napi_get_typedarray_info(env, value, &type, &length, &data, &backing, &byte_offset),
+        "read encoded image typed array");
+  (void)byte_offset;
+  if (type != napi_uint8_array) {
+    throw AddonFailure("invalid_image", "encoded image must be a Uint8Array");
+  }
+  bool array_buffer = false;
+  check(env, napi_is_arraybuffer(env, backing, &array_buffer),
+        "check encoded image ArrayBuffer");
+  if (!array_buffer) {
+    throw AddonFailure("invalid_image",
+                       "SharedArrayBuffer-backed encoded images are unsupported");
+  }
+  bool detached = false;
+  check(env, napi_is_detached_arraybuffer(env, backing, &detached),
+        "check detached encoded image ArrayBuffer");
+  if (detached) {
+    throw AddonFailure("invalid_image", "encoded image ArrayBuffer is detached");
+  }
+  if (length == 0 || data == nullptr) {
+    throw AddonFailure("invalid_image", "encoded image is empty");
+  }
+  return ParsedEncodedImage{static_cast<const std::uint8_t*>(data), length};
+}
+
+ImageSnapshot copy_encoded_image(const ParsedEncodedImage& parsed) {
+  ImageSnapshot snapshot;
+  snapshot.encoded = true;
+  snapshot.bytes.resize(parsed.size);
+  std::memcpy(snapshot.bytes.data(), parsed.data, parsed.size);
   return snapshot;
 }
 
@@ -585,6 +638,7 @@ struct Request {
   RequestStatus status = RequestStatus::queued;
   bool discard_result = false;
   bool operation_live = false;
+  std::uint64_t decode_us = 0;
 };
 
 enum class CompletionKind { create, recognize, maintenance, close, reap };
@@ -805,14 +859,27 @@ void EngineState::run() {
     }
 
     const auto snapshot_size = static_cast<std::uint64_t>(request->image.bytes.size());
-    ImageView view;
-    view.data = request->image.bytes.data();
-    view.size = request->image.bytes.size();
-    view.width = request->image.width;
-    view.height = request->image.height;
-    view.stride = request->image.stride;
-    view.pixel_format = request->image.pixel_format;
-    auto result = core->recognize(view, request->options);
+    auto result = [&]() -> Result<OcrResult> {
+      if (request->image.encoded) {
+        const auto decode_begin = std::chrono::steady_clock::now();
+        auto decoded_result = decode_encoded_image(request->image.bytes, info.limits);
+        request->decode_us = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now() - decode_begin)
+                .count());
+        if (!decoded_result) {
+          return Result<OcrResult>::failure(decoded_result.error());
+        }
+        auto decoded = std::move(decoded_result).value();
+        const ImageView view{decoded.bytes.data(), decoded.bytes.size(), decoded.width,
+                             decoded.height, decoded.stride, decoded.pixel_format};
+        return core->recognize(view, request->options);
+      }
+      const ImageView view{request->image.bytes.data(), request->image.bytes.size(),
+                           request->image.width, request->image.height,
+                           request->image.stride, request->image.pixel_format};
+      return core->recognize(view, request->options);
+    }();
 
     bool discard = false;
     {
@@ -937,7 +1004,8 @@ napi_value create_line(napi_env env, const OcrLine& line) {
   return object;
 }
 
-napi_value create_timing(napi_env env, const Timing& timing) {
+napi_value create_timing(napi_env env, const Timing& timing,
+                         std::uint64_t decode_us) {
   napi_value object = nullptr;
   check(env, napi_create_object(env, &object), "create timing");
   const auto set = [&](const char* name, std::uint64_t value) {
@@ -946,7 +1014,11 @@ napi_value create_timing(napi_env env, const Timing& timing) {
     }
     set_named(env, object, name, double_value(env, static_cast<double>(value)));
   };
-  set("total", timing.total_us);
+  if (decode_us > std::numeric_limits<std::uint64_t>::max() - timing.total_us) {
+    throw NapiFailure("total timing overflows");
+  }
+  set("total", timing.total_us + decode_us);
+  set("decode", decode_us);
   set("inputValidation", timing.input_validation_us);
   set("detectionPreprocess", timing.detection_preprocess_us);
   set("detectionInference", timing.detection_inference_us);
@@ -1051,7 +1123,8 @@ napi_value create_diagnostics(napi_env env, const Diagnostics& diagnostics) {
   return object;
 }
 
-napi_value create_result(napi_env env, const OcrResult& result) {
+napi_value create_result(napi_env env, const OcrResult& result,
+                         std::uint64_t decode_us) {
   napi_value object = nullptr;
   check(env, napi_create_object(env, &object), "create OCR result");
   napi_value lines = nullptr;
@@ -1065,7 +1138,7 @@ napi_value create_result(napi_env env, const OcrResult& result) {
   set_named(env, object, "imageWidth", uint32_value(env, result.image_width));
   set_named(env, object, "imageHeight", uint32_value(env, result.image_height));
   set_named(env, object, "modelBundleId", string_value(env, result.model_bundle_id));
-  set_named(env, object, "timingUs", create_timing(env, result.timing));
+  set_named(env, object, "timingUs", create_timing(env, result.timing, decode_us));
   if (result.diagnostics) {
     set_named(env, object, "diagnostics", create_diagnostics(env, *result.diagnostics));
   }
@@ -1170,7 +1243,8 @@ std::shared_ptr<EngineState> unwrap_engine(napi_env env, napi_value value) {
   return *static_cast<std::shared_ptr<EngineState>*>(data);
 }
 
-napi_value native_recognize(napi_env env, napi_callback_info callback_info) {
+napi_value native_recognize_impl(napi_env env, napi_callback_info callback_info,
+                                 bool encoded) {
   std::shared_ptr<EngineState> engine;
   std::uint64_t snapshot_size = 0;
   bool reservation_live = false;
@@ -1215,8 +1289,15 @@ napi_value native_recognize(napi_env env, napi_callback_info callback_info) {
     }
     auto options = parse_recognize_options(
         env, argument_count >= 2 ? arguments[1] : nullptr, info);
-    const auto parsed_image = parse_image(env, arguments[0], info);
-    snapshot_size = static_cast<std::uint64_t>(parsed_image.required_bytes);
+    std::optional<ParsedImage> parsed_image;
+    std::optional<ParsedEncodedImage> parsed_encoded_image;
+    if (encoded) {
+      parsed_encoded_image = parse_encoded_image(env, arguments[0]);
+      snapshot_size = static_cast<std::uint64_t>(parsed_encoded_image->size);
+    } else {
+      parsed_image = parse_image(env, arguments[0], info);
+      snapshot_size = static_cast<std::uint64_t>(parsed_image->required_bytes);
+    }
     if (snapshot_size > engine->create_options.max_pending_input_bytes) {
       throw AddonFailure("resource_limit_exceeded",
                          "image snapshot exceeds maxPendingInputBytes");
@@ -1237,7 +1318,8 @@ napi_value native_recognize(napi_env env, napi_callback_info callback_info) {
       reservation_live = true;
     }
 
-    auto snapshot = copy_image(parsed_image);
+    auto snapshot = encoded ? copy_encoded_image(*parsed_encoded_image)
+                            : copy_image(*parsed_image);
     auto request = std::make_shared<Request>();
     request->id = engine->context->next_request_id.fetch_add(1);
     if (request->id == 0) {
@@ -1296,6 +1378,15 @@ napi_value native_recognize(napi_env env, napi_callback_info callback_info) {
     throw_unknown_failure(env, "Unknown recognize admission failure");
   }
   return nullptr;
+}
+
+napi_value native_recognize(napi_env env, napi_callback_info callback_info) {
+  return native_recognize_impl(env, callback_info, false);
+}
+
+napi_value native_recognize_encoded(napi_env env,
+                                    napi_callback_info callback_info) {
+  return native_recognize_impl(env, callback_info, true);
 }
 
 napi_value native_cancel(napi_env env, napi_callback_info callback_info) {
@@ -1422,8 +1513,10 @@ void finalize_engine(napi_env, void* data, void*) {
 napi_value create_native_engine(napi_env env, const std::shared_ptr<EngineState>& engine) {
   napi_value object = nullptr;
   check(env, napi_create_object(env, &object), "create native engine");
-  const std::array<napi_property_descriptor, 3> properties{{
+  const std::array<napi_property_descriptor, 4> properties{{
       {"recognize", nullptr, native_recognize, nullptr, nullptr, nullptr, napi_default, nullptr},
+      {"recognizeEncoded", nullptr, native_recognize_encoded, nullptr, nullptr, nullptr,
+       napi_default, nullptr},
       {"cancel", nullptr, native_cancel, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"close", nullptr, native_close, nullptr, nullptr, nullptr, napi_default, nullptr},
   }};
@@ -1500,7 +1593,9 @@ void call_js(napi_env env, napi_value, void*, void* data) {
                                                         error.message, error.detail)),
                 "reject recognition");
         } else {
-          check(env, napi_resolve_deferred(env, deferred, create_result(env, *completion->result)),
+          check(env, napi_resolve_deferred(
+                         env, deferred,
+                         create_result(env, *completion->result, request->decode_us)),
                 "resolve recognition");
         }
       }
