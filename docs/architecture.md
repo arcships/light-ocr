@@ -1,6 +1,6 @@
 # light-ocr Core Architecture
 
-Status: Core 0.1.0 published; Core 0.2.0 tiled candidate implemented locally<br>
+Status: Core 0.2.0 tiled path implemented, qualified, and published through the Node.js distribution<br>
 Authority: module boundaries, data flow, state ownership, concurrency, and dependency boundaries  
 Requirements: [requirements.md](requirements.md)
 
@@ -250,7 +250,7 @@ This deliberately avoids an internal executor before N-API requirements exist.
 
 ## 8. Memory and resource control
 
-Core 0.1.0 implements D013's bounded detection and one-batch-at-a-time recognition lifecycle. The 0.2.0 candidate adds a separately gated tiled path: it plans row-major source ROIs, executes one detection pass at a time, restores accepted candidates to full-image coordinates, applies deterministic global merge and then reuses the same one-batch-at-a-time recognition pipeline against the original image.
+Core 0.1.0 implements D013's bounded detection and one-batch-at-a-time recognition lifecycle. Version 0.2.0 adds the qualified tiled path: it plans row-major source ROIs, executes one detection pass at a time, restores accepted candidates to full-image coordinates, applies deterministic global merge and then reuses the same one-batch-at-a-time recognition pipeline against the original image.
 
 Before the relevant Core-owned allocation, the request checks:
 

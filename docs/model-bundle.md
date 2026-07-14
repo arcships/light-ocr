@@ -1,6 +1,6 @@
 # light-ocr Model Bundle
 
-Status: schema 1.1 bundle published in npm `0.1.0`; schema 1.2 / `tiled-v1` candidate implemented for the unreleased 0.2.0 line<br>
+Status: schema 1.2 / `tiled-v1` bundle published in npm `0.2.0`; schema 1.1 remains the immutable `0.1.0` bundle<br>
 Authority: model identity, bundle schema, normalized configuration, integrity, and licensing  
 Requirements: [requirements.md](requirements.md)
 
@@ -89,7 +89,7 @@ Integrity avoids circular hashes:
 1. `manifest.json` contains SHA-256 for every payload except itself and `SHA256SUMS`.
 2. `SHA256SUMS` contains hashes for all payload files plus `manifest.json`; it excludes itself.
 3. `tools/package_model_bundle.py` creates a deterministic USTAR archive and verifies its identity against `models/bundles.lock.json`.
-4. The `.2` candidate archive is 31,334,400 bytes with SHA-256 `e543b93bc4882f35b1564a71961e5bc55439ede6c2f33b4166acc15e6348712f`.
+4. The published `.2` archive is 31,334,400 bytes with SHA-256 `e543b93bc4882f35b1564a71961e5bc55439ede6c2f33b4166acc15e6348712f`.
 5. `@arcships/light-ocr-model-ppocrv6-small` must contain the exact unpacked bundle files and record its npm tarball SHA-256/integrity. Publishing that verified package is the v1 controlled redistribution path. `mirror: null` only means the standalone USTAR archive has no separate mirror; it does not trigger runtime download and is not a prerequisite for the npm topology.
 
 Runtime bundle validation verifies:
@@ -157,15 +157,15 @@ A hash mismatch returns `model_integrity_failed`. A structurally invalid but cor
 }
 ```
 
-The real manifest lists every payload file. Core `0.1.x` and the current `0.2.0` candidate accept manifest schema `1.0` exactly; normalized configuration evolves independently. A future manifest schema revision requires an explicit Core compatibility decision instead of being silently accepted.
+The real manifest lists every payload file. Core `0.1.x` and `0.2.0` accept manifest schema `1.0` exactly; normalized configuration evolves independently. A future manifest schema revision requires an explicit Core compatibility decision instead of being silently accepted.
 
 ## 7. Normalized configuration
 
 Runtime code parses only `normalized-config.json`. This prevents YAML-parser differences and silent upstream defaults.
 
-The published 0.1.0 normalized-config schema is `1.1`. It separates `sourceDetectionResize` (`64/min/4000` provenance), `runtimeDefaults.detection` (`bounded/960`), and `resourceLimits.maxDetectionSide` (`4000` ceiling). The 0.2.0 candidate uses schema `1.2` and adds the locked tiled profile plus `maxDetectionTiles`. Core still accepts schema `1.0` bundles as the legacy `upstream_exact` / batch-8 contract; it never silently assigns new product defaults or tiled capability to an old bundle.
+The published 0.1.0 normalized-config schema is `1.1`. It separates `sourceDetectionResize` (`64/min/4000` provenance), `runtimeDefaults.detection` (`bounded/960`), and `resourceLimits.maxDetectionSide` (`4000` ceiling). The published 0.2.0 bundle uses schema `1.2` and adds the locked tiled profile plus `maxDetectionTiles`. Core still accepts schema `1.0` bundles as the legacy `upstream_exact` / batch-8 contract; it never silently assigns new product defaults or tiled capability to an old bundle.
 
-The [Tiled Detection specification](tiled-design-and-acceptance.md) defines normalized-config schema `1.2` and the versioned `tiled-v1` runtime profile. The parser, candidate bundle and old-bundle rejection are implemented in the current source tree, while schema `1.1` remains the latest published npm contract until the complete tiled acceptance checklist passes.
+The [Tiled Detection specification](tiled-design-and-acceptance.md) defines normalized-config schema `1.2` and the versioned `tiled-v1` runtime profile. The parser, published `.2` bundle, and old-bundle rejection are implemented; schema `1.1` remains supported only for the immutable 0.1.0 release contract.
 
 The same file also fixes the bundle ceilings:
 

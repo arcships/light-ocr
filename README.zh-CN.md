@@ -16,7 +16,7 @@
 
 这个项目面向希望把 OCR 做成真正本地能力的产品：随时调用、默认保护隐私，也能自然嵌入现有的图像处理流程。
 
-> **npm 已可用：**`@arcships/light-ocr@0.1.0` 自带默认 PP-OCRv6 Small 模型，并为全部 Tier 1 平台提供预编译原生运行时。`main` 上的 `0.2.0` release candidate 新增可选 tiled 检测和 Node.js JPEG/PNG 直接输入。详见[包支持](#包支持)。
+> **npm 已可用：**`@arcships/light-ocr@0.2.0` 自带默认 PP-OCRv6 Small 模型和全部 Tier 1 平台的预编译原生运行时，并支持可选 tiled 检测与 Node.js 内存 JPEG/PNG 直接输入。详见[包支持](#包支持)。
 
 ## 适合哪些场景
 
@@ -40,7 +40,7 @@
 
 - **默认本地运行。**识别过程不会访问网络，也不会启动子进程。
 - **适合真实应用流程。**直接接收 `GRAY8`、`RGB8`、`BGR8` 和 `RGBA8` 像素；Node.js 适配器也能解码已经在内存中的 JPEG 和 PNG。
-- **两种明确的大图策略。**bounded/960 仍是速度和内存优先的默认模式；`0.2.0` candidate 新增可选 tiled 检测，用于小字和密集的 2048 像素文档，并始终逐个处理 detection tile。
+- **两种明确的大图策略。**bounded/960 仍是速度和内存优先的默认模式；可选 tiled 检测为小字和密集的 2048 像素文档保留更多细节，并始终逐个处理 detection tile。
 - **模型固定且可复现。**约 31 MB 的 PP-OCRv6 Small bundle 会经过完整性验证，目标是随应用一起安装，而不是首次运行时再下载。
 - **跨平台结果一致。**macOS、Linux 和 Windows 使用同一套模型与结果契约。
 - **适合异步宿主。**Node-API 适配器不会占用 JavaScript 主线程，并提供有界队列、取消和明确的生命周期控制。
@@ -101,7 +101,7 @@ Node.js 22 和 24 支持 macOS arm64/x64、Linux x64 glibc 与 Windows x64：
 npm install @arcships/light-ocr
 ```
 
-安装会自动取得当前平台的原生运行时和固定版本的 PP-OCRv6 Small 模型；首次运行不会再下载模型，`postinstall` 也不会现场编译原生代码。下面的 `recognizeEncoded()` 属于 `0.2.0` candidate；`0.1.0` 用户应把解码后的像素传给 `recognize()`。
+安装会自动取得当前平台的原生运行时和固定版本的 PP-OCRv6 Small 模型；首次运行不会再下载模型，`postinstall` 也不会现场编译原生代码。0.2.0 同时支持下面的 `recognizeEncoded()` 和 raw-pixel `recognize()`。
 
 ```ts
 import { createEngine } from "@arcships/light-ocr";
@@ -150,15 +150,15 @@ ctest --preset release
 | --- | --- | --- |
 | C++ Core 源码 | 可用 | macOS arm64/x64、Linux x64 glibc、Windows x64 |
 | Node-API 适配器源码 | 可用 | Node.js 22 和 24 |
-| [`@arcships/light-ocr`](https://www.npmjs.com/package/@arcships/light-ocr) | 已发布 `0.1.0` | 全部 Tier 1 平台的 Node.js 22/24 |
-| [`@arcships/light-ocr-model-ppocrv6-small`](https://www.npmjs.com/package/@arcships/light-ocr-model-ppocrv6-small) | 已发布 `0.1.0` | 与平台无关的必需模型依赖 |
-| 各平台 native npm packages | 已发布 `0.1.0` | macOS arm64/x64、Linux x64 glibc、Windows x64 |
+| [`@arcships/light-ocr`](https://www.npmjs.com/package/@arcships/light-ocr) | 已发布 `0.2.0` | 全部 Tier 1 平台的 Node.js 22/24 |
+| [`@arcships/light-ocr-model-ppocrv6-small`](https://www.npmjs.com/package/@arcships/light-ocr-model-ppocrv6-small) | 已发布 `0.2.0` | 与平台无关的必需模型依赖 |
+| 各平台 native npm packages | 已发布 `0.2.0` | macOS arm64/x64、Linux x64 glibc、Windows x64 |
 
-npm 分发会安装一个统一入口、一个必需的模型包，以及与当前系统匹配的 native 包。包内容、版本策略和发布门槛见 [npm package 设计](docs/npm-packaging.md)；`0.1.0` 的不可变哈希和验证证据见[发布记录](docs/releases/npm-0.1.0.md)。
+npm 分发会安装一个统一入口、一个必需的模型包，以及与当前系统匹配的 native 包。包内容、版本策略和发布门槛见 [npm package 设计](docs/npm-packaging.md)；`0.2.0` 的不可变哈希和验证证据见[发布记录](docs/releases/npm-0.2.0.md)。
 
 ## 项目状态
 
-`light-ocr` 仍在积极开发。`0.1.0` 是首个公开 npm 版本。`0.2.0` release candidate 新增确定性的 `tiled-v1` 大图模式，以及 Node.js 适配器中受资源限制的内存 JPEG/PNG 解码；C++ Core 的 raw-pixel 边界保持不变。
+`light-ocr` 仍在积极开发。`0.2.0` 已发布确定性的 `tiled-v1` 大图模式，以及 Node.js 适配器中受资源限制的内存 JPEG/PNG 解码；C++ Core 的 raw-pixel 边界保持不变。
 
 作为 pre-1.0 项目，公共 API 和 package 布局仍可能调整；项目目前不承诺跨版本稳定的 C++ ABI。
 

@@ -1,6 +1,6 @@
 # light-ocr Tiled Detection 技术设计与验收规格
 
-状态：Implementation in progress；Core/Node、八张 locked 语料、独立 oracle 与发布候选门禁已实现，四平台受审基线与 0.2.0 registry evidence 尚未完成，不构成已发布能力<br>
+状态：Implemented and published in `@arcships/light-ocr@0.2.0`；Core/Node、八张 locked 语料、独立 oracle、四平台受审基线与 registry evidence 已完成<br>
 Authority：`DetectionStrategy::tiled` 的算法、公开 API、runtime contract、语料、报告、四平台门槛与发布条件<br>
 依赖：[高分辨率内存优化设计](memory-optimization.md) · [C++ API](native-api.md) · [Node-API 设计](napi-design.md) · [对齐与质量验证](parity-testing.md)
 
@@ -15,7 +15,7 @@ Authority：`DetectionStrategy::tiled` 的算法、公开 API、runtime contract
 - C++ Core 是分块、合并和排序的唯一实现；Node-API 只映射类型、错误、diagnostics 和生命周期。
 - `tiled-v1` 的 tile/overlap/merge 参数由 bundle 的版本化 runtime contract 固定，首版不提供用户可调旋钮。
 - C++ enum、Node types、normalized-config schema、四平台 prebuild 和六个 npm packages 必须在同一次 lockstep minor release 中出现。
-- 在第 14 节全部通过前，README、已发布 npm 类型/运行时都不得宣称支持 `tiled`，也不得使用隐藏环境变量提前开放；candidate 源码中的 additive API 只用于完成验收。
+- 第 14 节已全部通过；README 与 0.2.0 npm 类型/运行时可以公开声明 `tiled`。后续 contract revision 仍不得用隐藏环境变量提前开放。
 
 本文是第二阶段 tiled 实现的 authority。`memory-optimization.md` 继续说明整体内存背景；两份文档冲突时，tiled 的算法和验收以本文为准。
 
@@ -748,9 +748,9 @@ npm version 不可覆写。发现 tiled 严重问题时：
 - [x] C++ public enum/info/diagnostics/timing/limits 与 Node runtime/`.d.ts` 同步，非法组合和旧 bundle 得到稳定错误。
 - [x] Linux x64 glibc、Windows x64、macOS arm64、macOS x64 的 Core 与 Node absolute peak 均通过 hard gate并保存非空报告。
 - [x] 四平台 warm median/p95 基线已受审提交，Node/Core bootstrap observations 已保存，后续各实现 `1.15x` regression gate 有真实失败测试。
-- [ ] 现有 bounded/upstream parity、quality、memory、Node lifecycle 和 package tests 无回归。
-- [ ] 六个同版本 npm tarballs 通过本地 registry、Node 22/24、真实 tiled OCR、禁网、integrity、SBOM 和 license 检查。
-- [ ] release commit、CI artifacts、baseline digest、tarball integrity 和 dist-tag 形成可追溯 evidence。
-- [ ] README 中英文、native API、Node design、model bundle、memory design、npm packaging 与 implementation status 已交叉更新。
+- [x] 现有 bounded/upstream parity、quality、memory、Node lifecycle 和 package tests 无回归。
+- [x] 六个同版本 npm tarballs 通过本地 registry、Node 22/24、真实 tiled OCR、禁网、integrity、SBOM 和 license 检查。
+- [x] release commit、CI artifacts、baseline digest、tarball integrity 和 dist-tag 形成可追溯 evidence。
+- [x] README 中英文、native API、Node design、model bundle、memory design、npm packaging 与 implementation status 已交叉更新。
 
-任一项未完成时，对外准确表述只能是“tiled 设计中/实现中”，不能是“已支持”。
+本 checklist 的 0.2.0 evidence 见 [npm 发布记录](releases/npm-0.2.0.md)。
