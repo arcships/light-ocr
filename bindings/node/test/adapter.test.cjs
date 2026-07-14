@@ -76,6 +76,14 @@ test('loads PP-OCRv6, snapshots pixels, maps results, and closes idempotently', 
 
 test('validates input and reports adapter errors as OcrError', async () => {
   await assert.rejects(
+    createEngine({ model: 'ppocrv6-small', bundlePath }),
+    (error) => error instanceof OcrError && error.code === 'invalid_argument',
+  );
+  await assert.rejects(
+    createEngine({ model: 'unknown-model' }),
+    (error) => error instanceof OcrError && error.code === 'invalid_argument',
+  );
+  await assert.rejects(
     createEngine({ bundlePath: path.join(repositoryRoot, 'models/does-not-exist') }),
     (error) => error instanceof OcrError && error.code === 'bundle_io_failed',
   );

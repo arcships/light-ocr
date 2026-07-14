@@ -24,7 +24,7 @@
 | Sanitizer、fuzz、leak、lifecycle、malformed input | Done（当前代码） | 本机 ASan+UBSan、TSan、standalone fuzz、lifecycle 和 malformed model/tensor 已通过；最新 CI safety job 的 sanitizers、TSan 和 libFuzzer smoke 通过。D013 新路径必须进入相同 gates。 |
 | 无 network/shell/cwd/locale 运行依赖 | Done（当前代码） | 本地 sterile cwd+minimal env 两次结果一致；最新 Linux job 的 network namespace disabled 测试通过。 |
 | manifest、hash、licenses、SBOM、parity、benchmark | Done（当前 CI artifacts） | 最新 Tier 1 workflow 已生成并上传平台 metadata；D013 和 npm package 完成后仍需从最终 release commit 重新生成发布制品及 hashes。 |
-| N-API/npm 非本 Core milestone | 源码实现 Done / package 发布 Pending | `bindings/node` 已有 raw Node-API v8 addon、CJS/ESM facade、`.d.ts`、安全 bundle loader、专用 FIFO worker、双重背压、输入快照、AbortSignal、close/GC/environment teardown 和真实模型测试；公开名固定为 `@arcships/light-ocr`，六包拓扑与内置模型契约已写入 [npm-packaging.md](npm-packaging.md)。尚无默认模型解析实现、四平台 prebuild、npm registry 发布或 Node 24 平台证据。 |
+| N-API/npm 非本 Core milestone | 源码与发布自动化 Done / package 发布 Pending | `bindings/node` 已有 raw Node-API v8 addon、CJS/ESM facade、`.d.ts`、安全 bundle loader、默认 model package 解析、四平台 native package 选择、专用 FIFO worker、双重背压、AbortSignal 和生命周期管理；`tools/npm_release.py` 与手动 `npm release` workflow 已实现六包确定性 staging、inventory/hash、Node 22/24 四平台 smoke、registry 分阶段发布和禁网复验。首次 prebuild、registry 与 provenance 证据仍待 workflow 实际完成。 |
 | 高分辨率峰值内存 | Done（macOS arm64）/ Pending（其他 Tier 1） | Release 原生独立进程：2048² 空白 `318.8 MiB ≤ 384 MiB`；xfund 密集表单 116 框 `400.5 MiB ≤ 640 MiB`，同时低于 512 MiB 目标。报告锁定 detection `[1,3,960,960]` 与所有 recognition batch size 1。 |
 
 ## 本机最终验证快照

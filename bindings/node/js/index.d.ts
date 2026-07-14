@@ -2,6 +2,7 @@
 
 export type PixelFormat = 'gray8' | 'rgb8' | 'bgr8' | 'rgba8';
 export type DetectionStrategy = 'bounded' | 'upstreamExact';
+export type BuiltInModel = 'ppocrv6-small';
 
 export interface DetectionOptions {
   readonly strategy?: DetectionStrategy;
@@ -28,7 +29,8 @@ export interface ResourceLimits {
 }
 
 export interface CreateEngineOptions {
-  readonly bundlePath: string;
+  readonly model?: BuiltInModel;
+  readonly bundlePath?: string;
   readonly intraOpThreads?: number;
   readonly interOpThreads?: number;
   readonly recognitionScoreThreshold?: number;
@@ -122,7 +124,9 @@ export type CoreErrorCode =
   | 'model_integrity_failed' | 'runtime_initialization_failed' | 'inference_failed'
   | 'postprocess_failed' | 'resource_limit_exceeded' | 'invalid_engine'
   | 'internal_error';
-export type AdapterErrorCode = 'bundle_io_failed' | 'queue_full' | 'environment_closing';
+export type AdapterErrorCode =
+  | 'bundle_io_failed' | 'queue_full' | 'environment_closing'
+  | 'unsupported_platform' | 'package_load_failed';
 export type OcrErrorCode = CoreErrorCode | AdapterErrorCode;
 
 export class OcrError extends Error {
@@ -138,4 +142,4 @@ export interface OcrEngine {
   close(): Promise<void>;
 }
 
-export function createEngine(options: CreateEngineOptions): Promise<OcrEngine>;
+export function createEngine(options?: CreateEngineOptions): Promise<OcrEngine>;

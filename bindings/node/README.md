@@ -1,6 +1,6 @@
 # light-ocr Node-API adapter
 
-状态：v1 adapter 源码可用；Node.js 22/macOS arm64 已通过本地真实 PP-OCRv6 测试。公开入口已确定为 `@arcships/light-ocr`，默认模型 package 设计已接受；facade 默认解析、四平台 prebuild 和 npm 发布尚未实现。
+状态：v1 adapter 源码可用；Node.js 22/macOS arm64 已通过本地真实 PP-OCRv6 测试。facade 已实现默认模型解析和四平台 native package 选择；四平台 prebuild、Node.js 22/24 package matrix 与 npm registry 发布由手动 `npm release` workflow 生成，当前仍待取得首次远端发布证据。
 
 ## 能力边界
 
@@ -47,7 +47,7 @@ node --test --test-concurrency=1 bindings/node/test/adapter.test.cjs
 # 或：ctest --test-dir build-node -R '^light_ocr_node_tests$' --output-on-failure
 ```
 
-当前源码加载器不会搜索任意 cwd。它只接受 `LIGHT_OCR_NODE_BINARY` 这一开发覆盖路径，或 package 内的 `js/native`、`prebuilds/<platform>-<arch>` 固定位置。发布 loader 将改为固定映射四个 `@arcships/light-ocr-<platform>` optional packages，详见 [npm package 设计](../../docs/npm-packaging.md)。
+当前源码加载器不会搜索任意 cwd。开发构建优先接受 `LIGHT_OCR_NODE_BINARY`，发布构建则按 `process.platform`、`process.arch` 和 Linux libc 固定选择四个 `@arcships/light-ocr-<platform>` optional packages。facade 通过 model package 导出的 manifest 定位默认 bundle，并在进入 native addon 前核对 bundle ID。详见 [npm package 设计](../../docs/npm-packaging.md)。
 
 ## 使用
 

@@ -69,7 +69,7 @@ def cache_values(path: Path) -> dict[str, str]:
 
 
 def source_snapshot() -> dict[str, Any]:
-    excluded_roots = {".cache", ".git", "build", "models/generated", "reports"}
+    excluded_roots = {".cache", ".git", "build", "dist", "models/generated", "reports"}
     files: list[Path] = []
     for path in ROOT.rglob("*"):
         if not path.is_file():
@@ -279,8 +279,8 @@ def main() -> int:
     packages = [{
         "name": "light-ocr-core", "SPDXID": "SPDXRef-Package-light-ocr-core",
         "versionInfo": "0.1.0", "downloadLocation": "NOASSERTION", "filesAnalyzed": False,
-        "licenseConcluded": "NOASSERTION", "licenseDeclared": "NOASSERTION",
-        "copyrightText": "NOASSERTION",
+        "licenseConcluded": "Apache-2.0", "licenseDeclared": "Apache-2.0",
+        "copyrightText": "Copyright 2026 light-ocr contributors",
     }]
     relationships: list[dict[str, str]] = []
     for record in dependency_lock["dependencies"]:
@@ -308,7 +308,16 @@ def main() -> int:
         "licenseDeclared": "Apache-2.0", "copyrightText": "NOASSERTION",
     })
     relationships.append({"spdxElementId": "SPDXRef-Package-light-ocr-core", "relationshipType": "DEPENDS_ON", "relatedSpdxElement": model_id})
-    created = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    revision_time = command(["git", "show", "-s", "--format=%cI", revision])
+    if revision_time == "unavailable":
+        raise RuntimeError("cannot determine the release commit timestamp")
+    created = (
+        datetime.fromisoformat(revision_time.replace("Z", "+00:00"))
+        .astimezone(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
     sbom = {
         "spdxVersion": "SPDX-2.3", "dataLicense": "CC0-1.0", "SPDXID": "SPDXRef-DOCUMENT",
         "name": f"light-ocr-core-{arguments.platform_id}",

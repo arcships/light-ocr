@@ -1,0 +1,331 @@
+name: npm release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Lockstep version for all six packages
+        required: true
+        default: 0.1.0
+        type: string
+      promote_latest:
+        description: Promote the verified release from next to latest
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate release context
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          test "${GITHUB_REF}" = "refs/heads/main"
+          [[ "${RELEASE_VERSION}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+
+  build-native:
+    needs: validate
+    name: build ${{ matrix.id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: macos-arm64
+            runner: macos-15
+          - id: macos-x64
+            runner: macos-15-intel
+          - id: linux-x64
+            runner: ubuntu-24.04
+          - id: windows-x64
+            runner: windows-2022
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - name: Bootstrap pinned dependencies and model
+        shell: bash
+        run: |
+          python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies
+          python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies --offline
+          python tools/bootstrap_models.py --cache-dir .cache/models
+          python tools/package_model_bundle.py
+      - name: Install verified Node development files (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          node_version="$(node -p process.versions.node)"
+          node_dev="$PWD/.cache/node-gyp/$node_version"
+          npx --yes node-gyp@11.4.2 install "$node_version" --devdir "$PWD/.cache/node-gyp"
+          test -f "$node_dev/include/node/node_api.h"
+          echo "NODE_INCLUDE_DIR=$node_dev/include/node" >> "$GITHUB_ENV"
+      - name: Install verified Node development files (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $nodeVersion = node -p process.versions.node
+          $devDir = Join-Path $env:GITHUB_WORKSPACE ".cache/node-gyp"
+          npx --yes node-gyp@11.4.2 install $nodeVersion --devdir $devDir
+          $nodeRoot = Join-Path $devDir $nodeVersion
+          $nodeHeaders = Join-Path $nodeRoot "include/node"
+          $nodeLibrary = Get-ChildItem $nodeRoot -Recurse -Filter node.lib | Select-Object -First 1
+          if (-not (Test-Path (Join-Path $nodeHeaders "node_api.h"))) {
+            throw "node_api.h is missing"
+          }
+          if ($null -eq $nodeLibrary) {
+            throw "node.lib is missing"
+          }
+          "NODE_INCLUDE_DIR=$nodeHeaders" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "NODE_LIBRARY=$($nodeLibrary.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Configure Node addon (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: >-
+          cmake -S . -B build-npm -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
+          -DLIGHT_OCR_BUILD_NODE=ON
+          -DLIGHT_OCR_BUILD_TESTS=ON
+          -DLIGHT_OCR_BUILD_TOOLS=OFF
+          -DLIGHT_OCR_NODE_INCLUDE_DIR="$NODE_INCLUDE_DIR"
+          -DLIGHT_OCR_NODE_EXECUTABLE="$(command -v node)"
+      - name: Configure Node addon (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >-
+          cmake -S . -B build-npm -G "Visual Studio 17 2022" -A x64
+          "-DLIGHT_OCR_DEPENDENCY_CACHE_DIR=$env:GITHUB_WORKSPACE/.cache/dependencies"
+          -DLIGHT_OCR_BUILD_NODE=ON
+          -DLIGHT_OCR_BUILD_TESTS=ON
+          -DLIGHT_OCR_BUILD_TOOLS=OFF
+          "-DLIGHT_OCR_NODE_INCLUDE_DIR=$env:NODE_INCLUDE_DIR"
+          "-DLIGHT_OCR_NODE_LIBRARY=$env:NODE_LIBRARY"
+          "-DLIGHT_OCR_NODE_EXECUTABLE=$((Get-Command node).Source)"
+      - name: Build and test Node addon
+        run: |
+          cmake --build build-npm --config Release --parallel
+          ctest --test-dir build-npm -C Release --output-on-failure
+      - name: Generate native release metadata
+        shell: bash
+        run: |
+          python tools/generate_release_metadata.py \
+            --build-dir build-npm \
+            --output-dir "reports/npm/${{ matrix.id }}" \
+            --platform-id "${{ matrix.id }}" \
+            --configuration Release
+          python tools/npm_release.py stage-native \
+            --platform-id "${{ matrix.id }}" \
+            --build-dir build-npm \
+            --metadata-dir "reports/npm/${{ matrix.id }}" \
+            --output-dir "dist/native-input/${{ matrix.id }}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-${{ matrix.id }}
+          path: dist/native-input/${{ matrix.id }}
+          if-no-files-found: error
+          retention-days: 30
+
+  assemble:
+    needs: build-native
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - name: Use the release npm version
+        run: npm install --global npm@11.0.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: native-*
+          path: dist/native-input
+          merge-multiple: false
+      - name: Bootstrap and verify the model bundle
+        shell: bash
+        run: |
+          python tools/bootstrap_models.py --cache-dir .cache/models
+          python tools/package_model_bundle.py
+      - name: Assemble and deterministically pack six packages
+        shell: bash
+        run: |
+          python tools/npm_release.py assemble \
+            --version "$RELEASE_VERSION" \
+            --bundle models/generated/ppocrv6-small-onnx-20260714.1 \
+            --native-root dist/native-input \
+            --output-dir dist/npm/staging
+          python tools/npm_release.py pack \
+            --staging-dir dist/npm/staging \
+            --output-dir dist/npm/tarballs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: light-ocr-npm-${{ inputs.version }}
+          path: |
+            dist/npm/tarballs/*.tgz
+            dist/npm/tarballs/release-manifest.json
+          if-no-files-found: error
+          retention-days: 90
+
+  test-packages:
+    needs: assemble
+    name: test ${{ matrix.id }} / Node ${{ matrix.node }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: macos-arm64
+            runner: macos-15
+            node: "22"
+            native: darwin-arm64
+          - id: macos-arm64
+            runner: macos-15
+            node: "24"
+            native: darwin-arm64
+          - id: macos-x64
+            runner: macos-15-intel
+            node: "22"
+            native: darwin-x64
+          - id: macos-x64
+            runner: macos-15-intel
+            node: "24"
+            native: darwin-x64
+          - id: linux-x64
+            runner: ubuntu-24.04
+            node: "22"
+            native: linux-x64-gnu
+          - id: linux-x64
+            runner: ubuntu-24.04
+            node: "24"
+            native: linux-x64-gnu
+          - id: windows-x64
+            runner: windows-2022
+            node: "22"
+            native: win32-x64
+          - id: windows-x64
+            runner: windows-2022
+            node: "24"
+            native: win32-x64
+    runs-on: ${{ matrix.runner }}
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ matrix.node }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: light-ocr-npm-${{ inputs.version }}
+          path: dist/release
+      - name: Install the local release without scripts or network
+        shell: bash
+        run: |
+          mkdir package-smoke
+          cd package-smoke
+          npm init --yes
+          npm install --offline --ignore-scripts --no-audit --no-fund --package-lock=false \
+            "../dist/release/arcships-light-ocr-model-ppocrv6-small-${RELEASE_VERSION}.tgz" \
+            "../dist/release/arcships-light-ocr-${{ matrix.native }}-${RELEASE_VERSION}.tgz" \
+            "../dist/release/arcships-light-ocr-${RELEASE_VERSION}.tgz"
+          cp ../tools/npm/smoke.cjs ../tools/npm/smoke.ts .
+          npm ls --all
+      - name: Run real OCR from CJS and ESM
+        shell: bash
+        working-directory: package-smoke
+        env:
+          LIGHT_OCR_SMOKE_FIXTURE: ${{ github.workspace }}/corpus/fixtures/generated-hello-123
+        run: node smoke.cjs
+      - name: Compile the published TypeScript declarations
+        shell: bash
+        working-directory: package-smoke
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund --no-save \
+            typescript@5.9.3 @types/node@22.20.1
+          npx tsc --strict --noEmit --skipLibCheck false \
+            --target ES2022 --module NodeNext --moduleResolution NodeNext \
+            --types node smoke.ts
+
+  publish:
+    needs: test-packages
+    runs-on: ubuntu-24.04
+    environment: npm-release
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          registry-url: https://registry.npmjs.org
+      - name: Use the release npm version and verify authentication
+        shell: bash
+        run: |
+          test -n "$NODE_AUTH_TOKEN"
+          npm install --global npm@11.0.0
+          npm whoami
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: light-ocr-npm-${{ inputs.version }}
+          path: dist/release
+      - name: Publish model and native dependencies to next
+        run: >-
+          python tools/npm_release.py publish
+          --tarball-dir dist/release
+          --phase dependencies
+          --tag next
+      - name: Verify facade tarball against registry dependencies
+        shell: bash
+        run: |
+          mkdir registry-preflight
+          cd registry-preflight
+          npm init --yes
+          npm install --ignore-scripts --no-audit --no-fund --package-lock=false \
+            "../dist/release/arcships-light-ocr-${RELEASE_VERSION}.tgz"
+          cp ../tools/npm/smoke.cjs .
+          LIGHT_OCR_SMOKE_FIXTURE="$GITHUB_WORKSPACE/corpus/fixtures/generated-hello-123" \
+            node smoke.cjs
+      - name: Publish facade to next
+        run: >-
+          python tools/npm_release.py publish
+          --tarball-dir dist/release
+          --phase facade
+          --tag next
+      - name: Verify the registry package with runtime network disabled
+        shell: bash
+        run: |
+          mkdir registry-final
+          cd registry-final
+          npm init --yes
+          npm install --ignore-scripts --no-audit --no-fund --package-lock=false \
+            "@arcships/light-ocr@${RELEASE_VERSION}"
+          cp ../tools/npm/smoke.cjs .
+          sudo unshare --net -- env \
+            LIGHT_OCR_SMOKE_FIXTURE="$GITHUB_WORKSPACE/corpus/fixtures/generated-hello-123" \
+            node smoke.cjs
+      - name: Promote the verified release to latest
+        if: inputs.promote_latest
+        run: >-
+          python tools/npm_release.py promote
+          --tarball-dir dist/release
+          --tag latest
+      - name: Show published metadata
+        shell: bash
+        run: |
+          npm view "@arcships/light-ocr@${RELEASE_VERSION}" name version dist.integrity dist.tarball --json
+          npm dist-tag ls @arcships/light-ocr

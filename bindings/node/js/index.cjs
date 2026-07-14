@@ -1,6 +1,13 @@
 'use strict';
 
+const fs = require('node:fs');
+const path = require('node:path');
+
 const { loadNative } = require('./load-native.cjs');
+
+const DEFAULT_MODEL = 'ppocrv6-small';
+const MODEL_PACKAGE = '@arcships/light-ocr-model-ppocrv6-small';
+const EXPECTED_BUNDLE_ID = 'ppocrv6-small-onnx-20260714.1';
 
 class OcrError extends Error {
   constructor(code, message, detail) {
@@ -40,6 +47,63 @@ function abortReason(signal) {
   return signal.reason === undefined
     ? new DOMException('The operation was aborted', 'AbortError')
     : signal.reason;
+}
+
+function resolveBuiltInBundle(model) {
+  if (model !== DEFAULT_MODEL) {
+    throw new OcrError(
+      'invalid_argument',
+      `model must be ${JSON.stringify(DEFAULT_MODEL)}`,
+    );
+  }
+  let manifestPath;
+  try {
+    manifestPath = require.resolve(`${MODEL_PACKAGE}/bundle/manifest.json`);
+  } catch (cause) {
+    throw new OcrError(
+      'package_load_failed',
+      `Unable to locate the built-in ${DEFAULT_MODEL} model`,
+      `Reinstall ${MODEL_PACKAGE}; ${cause instanceof Error ? cause.message : String(cause)}`,
+    );
+  }
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  } catch (cause) {
+    throw new OcrError(
+      'package_load_failed',
+      'Unable to read the built-in model manifest',
+      cause instanceof Error ? cause.message : String(cause),
+    );
+  }
+  if (manifest.bundleId !== EXPECTED_BUNDLE_ID) {
+    throw new OcrError(
+      'package_load_failed',
+      'The installed model package is incompatible with this light-ocr release',
+      `expected ${EXPECTED_BUNDLE_ID}, received ${String(manifest.bundleId)}`,
+    );
+  }
+  return path.dirname(manifestPath);
+}
+
+function resolveCreateOptions(options) {
+  if (options === undefined) options = {};
+  if (options === null || typeof options !== 'object' || Array.isArray(options)) {
+    throw new OcrError('invalid_argument', 'createEngine options must be an object');
+  }
+  const hasModel = Object.prototype.hasOwnProperty.call(options, 'model');
+  const hasBundlePath = Object.prototype.hasOwnProperty.call(options, 'bundlePath');
+  if (hasModel && hasBundlePath) {
+    throw new OcrError(
+      'invalid_argument',
+      'model and bundlePath cannot be used together',
+    );
+  }
+  if (hasBundlePath) return options;
+  const model = hasModel ? options.model : DEFAULT_MODEL;
+  const resolved = { ...options, bundlePath: resolveBuiltInBundle(model) };
+  delete resolved.model;
+  return resolved;
 }
 
 class OcrEngineImpl {
@@ -128,8 +192,9 @@ let binding;
 
 async function createEngine(options) {
   try {
+    const resolvedOptions = resolveCreateOptions(options);
     if (!binding) binding = loadNative();
-    const nativeEngine = await binding.createEngine(options);
+    const nativeEngine = await binding.createEngine(resolvedOptions);
     return new OcrEngineImpl(nativeEngine);
   } catch (error) {
     throw normalizeNativeError(error);

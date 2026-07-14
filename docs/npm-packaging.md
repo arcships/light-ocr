@@ -1,6 +1,6 @@
 # @arcships/light-ocr npm Package Design
 
-状态：v1 设计已接受；打包脚本、四平台产物和 registry 发布待实现<br>
+状态：v1 设计与实现已完成；四平台产物、registry 发布和首次安装证据等待 `npm release` workflow<br>
 更新时间：2026-07-14<br>
 Authority：npm 包名、包拆分、依赖关系、内置模型、版本与发布门槛<br>
 Node API：[napi-design.md](napi-design.md)<br>

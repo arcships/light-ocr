@@ -3,6 +3,7 @@
 /.cache/
 /models/generated/
 /reports/
+/dist/
 .DS_Store
 __pycache__/
 *.pyc
