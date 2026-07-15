@@ -93,6 +93,7 @@ bool valid_execution_options(const ExecutionOptions& options) {
           options.precision == Precision::fp16);
 }
 
+#if defined(LIGHT_OCR_HAS_COREML)
 internal::AppleModelPackage make_apple_package(
     const internal::BundleData& bundle,
     const internal::AppleModelConfig& model,
@@ -125,6 +126,7 @@ internal::AppleModelPackage make_apple_package(
   }
   return package;
 }
+#endif
 
 class EngineImpl final : public Engine {
  public:
