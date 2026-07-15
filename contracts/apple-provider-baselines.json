@@ -1,0 +1,32 @@
+{
+  "acceptanceSha256": "b3fe8423ad4fda604fcb3512e3bdcb9a6294338c8f17e0ca80f9291cddb65460",
+  "approvedByCommit": "ab94a8e5ba64f9b7cce2d01ebdd31b91ab48b50d",
+  "candidateReportSha256": "8a49eda1f0c4f57a3b02ee409764a7057d2eb577d22dd4819d7bb43e48b5e4bc",
+  "devices": [
+    {
+      "cacheConcurrencyReportSha256": "8356c20cfebf5c10aef5eed401e72ddb8bac968da5abcea46eab2cb9c53f2f64",
+      "deviceBrand": "Apple M4 Max",
+      "deviceFamily": "Apple M4",
+      "lifecycleGrowthBytes": -28803072,
+      "lifecycleReportSha256": "f695157ab3ed27b1d20db8eb109a11306835f434e3740c058c7fe2a940f66195",
+      "modelQualificationReportSha256": "f9b4cfdb198ebd6f523c7a71365b6a206f68a022792e029a716bf290c084d983",
+      "operatingSystem": "macOS-26.5.1-arm64-arm-64bit",
+      "performanceReportSha256": "cecf760749ace0982905557af833522db0bbaa69e1c8ed6e0fd9e8e50d05cd8d",
+      "qualityReportSha256": "79d5b9f6db90142a57cdee8c20428280d642a9a203b5b190d6eaacc3fcff6ae1",
+      "runnerLabel": "local-m4-max"
+    }
+  ],
+  "generatedFromCommit": "ab94a8e5ba64f9b7cce2d01ebdd31b91ab48b50d",
+  "modelArtifactId": "apple-fp16-20260715.1",
+  "modelPackageSha256": {
+    "detection": "2097bd785947c6bc239bfcb27599362c48ec78bab72f439583e41a585b727f76",
+    "recognition": "c54a0719cbde2d93e65eb40dd01fff5b78373b5aaaaa648fee614d3ef3615f4b"
+  },
+  "qualificationId": "apple-fp16-mixed-20260715.2",
+  "qualifiedDeviceFamilies": [
+    "Apple M4"
+  ],
+  "reportSha256": "5ac8e11738babee028c4e63f470a290a8582222ed76acfab209e5a3f6ee62788",
+  "schema": "light-ocr-apple-provider-baselines/1.0",
+  "status": "accepted"
+}

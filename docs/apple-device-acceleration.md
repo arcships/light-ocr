@@ -407,7 +407,7 @@ Apple provider 继承 Roadmap Provider Gate，并增加交互式 CPU 目标：
 4. Recognition 使用 320–3200、步长 32 的 91-function MLProgram 做全量资格审查；运行时向上取整到锁定的 20 个加权 bucket，≤1600 走 ANE envelope，>1600 走 GPU，LRU≤20。
 5. 随包携带源 `.mlpackage`，首次运行离线编译并以 package/OS/device identity 缓存；不分发跨 OS 的预编译 `.mlmodelc`。
 6. 质量、两 workload speedup、CPU-time 降幅、canary 的 3 次 cold start、30 次 warm、RSS、同 engine 100 页生命周期和 32 MiB 包增量阈值由 `tools/apple/acceptance.json` 锁定。
-7. M4 的 placement、质量、两 workload 性能、CPU-time、cache、RSS、100 页生命周期和未资格设备 CPU fallback 报告已完成并由 accepted provider baseline 锁定。旧 SHA `d9be…12c4` PDF 仅是无法复跑的历史 scoreboard，不阻塞当前 M4 实现；新增设备族时必须重新执行本地资格流程并审阅新 baseline。
+7. M4 的 placement、质量、两 workload 性能、CPU-time、cache、RSS、100 页生命周期和未资格设备 CPU fallback 报告已完成，并由 accepted provider baseline `5ac8e117…2788` 锁定。旧 SHA `d9be…12c4` PDF 仅是无法复跑的历史 scoreboard，不阻塞当前 M4 实现；新增设备族时必须重新执行本地资格流程并审阅新 baseline。
 
 ## 14. 关联工作
 

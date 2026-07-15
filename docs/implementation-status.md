@@ -53,6 +53,7 @@
 | Apple cache concurrency | 4 进程竞争通过；detector/recognizer 各恰好一个 miss、3 个 hit，结果哈希一致且无临时目录残留；`.2` 报告 `8356c20c…2f64` |
 | Apple 100-page lifecycle | 同一 interactive engine 预热 2 页后连续处理 100 个 xfund 密集页；RSS baseline/final/maximum 为 887.27/859.80/888.09 MiB，growth -27.47 MiB，通过 32 MiB 工具门槛和 64 MiB acceptance；`.2` 报告 `f695157a…6195` |
 | Apple unqualified fallback | 本机以不含 M4 的临时 allow-list 请求 `apple_cpu_fallback`，detector/recognizer 均稳定落到 ONNX Runtime CPU，原因 `apple_device_unqualified`，canary 保持 `HELLO 123`；报告 `2e72ab7e…d823` |
+| Apple provider baseline | qualification `apple-fp16-mixed-20260715.2` 已接受；allow-list 仅 `Apple M4`，candidate/accepted 自哈希链完整，accepted 报告 `5ac8e117…2788` |
 | Tiled corpus | 八张 2048² locked fixtures 共 196 行：196 TP / 0 FP / 0 FN、CER 0、duplicate line 0；独立 oracle 与原生 pass tensor、candidate source、suppression、representative、crop、decode 和 final order 对齐；side override、tile ceiling、global candidate ceiling 均返回稳定错误 |
 | Tiled qualification | [run 29336329115](https://github.com/arcships/light-ocr/actions/runs/29336329115) 四个平台采样 jobs 成功；36 个 Core/Node 22/Node 24 entries 已受审。各平台最大 Core/Node 峰值：Linux x64 639.7/715.6 MiB、Windows x64 616.1/667.5 MiB、macOS arm64 667.4/733.6 MiB、macOS x64 623.1/672.8 MiB |
 
