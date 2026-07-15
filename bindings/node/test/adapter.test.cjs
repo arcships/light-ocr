@@ -15,6 +15,9 @@ const bundlePath = path.resolve(
   process.env.LIGHT_OCR_MODEL_BUNDLE ||
     path.join(repositoryRoot, 'models/generated/ppocrv6-small-onnx-20260714.2'),
 );
+const appleBundlePath = process.env.LIGHT_OCR_APPLE_MODEL_BUNDLE
+  ? path.resolve(process.env.LIGHT_OCR_APPLE_MODEL_BUNDLE)
+  : undefined;
 
 const encodedBlankPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAIAAAA2iEnWAAAAFUlEQVR4nGP8//8/AwMDEwMDA4ICADkbAwP+wj6MAAAAAElFTkSuQmCC',
@@ -176,6 +179,76 @@ test('loads PP-OCRv6, snapshots pixels, maps results, and closes idempotently', 
   );
 });
 
+test('exposes qualified Apple interactive and strict routing', {
+  skip: appleBundlePath === undefined,
+}, async () => {
+  const image = loadFixture('generated-hello-123');
+  const interactive = await createEngine({
+    bundlePath: appleBundlePath,
+    execution: { provider: 'apple', precision: 'fp16' },
+  });
+  try {
+    assert.equal(interactive.info.executionProvider, 'CoreML');
+    assert.equal(interactive.info.execution.requestedProvider, 'apple');
+    assert.deepEqual(
+      interactive.info.execution.sessions.detection.actualProviderChain,
+      ['CoreML(MLNeuralEngine,qualified-MLCPU)'],
+    );
+    assert.deepEqual(
+      interactive.info.execution.sessions.recognition.actualProviderChain,
+      ['CoreML(MLNeuralEngine,qualified-MLCPU)', 'CoreML(MLGPU)'],
+    );
+    assert.match(
+      interactive.info.execution.sessions.detection.qualificationId,
+      /^apple-/,
+    );
+    assert.match(
+      interactive.info.execution.sessions.detection.deviceFamily,
+      /^Apple M/,
+    );
+    assert.ok(
+      interactive.info.execution.sessions.detection.operatingSystem.length > 0,
+    );
+    const result = await interactive.recognize(image, { includeDiagnostics: true });
+    assert.deepEqual(result.lines.map((line) => line.text), ['HELLO 123']);
+    assert.deepEqual(
+      result.diagnostics.recognitionBatchShapes.map((shape) => shape.computeUnit),
+      ['ane'],
+    );
+    assert.match(result.diagnostics.recognitionBatchShapes[0].modelId, /_coreml_fp16_/);
+    assert.match(result.diagnostics.recognitionBatchShapes[0].shapeBucket, /^w\d{4}$/);
+  } finally {
+    await interactive.close();
+  }
+
+  const strict = await createEngine({
+    bundlePath: appleBundlePath,
+    execution: {
+      provider: 'apple',
+      precision: 'fp16',
+      cpuPartition: 'forbid',
+    },
+  });
+  try {
+    assert.deepEqual(
+      strict.info.execution.sessions.detection.actualProviderChain,
+      ['CoreML(MLGPU)'],
+    );
+    assert.deepEqual(
+      strict.info.execution.sessions.recognition.actualProviderChain,
+      ['CoreML(MLGPU)'],
+    );
+    const result = await strict.recognize(image, { includeDiagnostics: true });
+    assert.deepEqual(result.lines.map((line) => line.text), ['HELLO 123']);
+    assert.deepEqual(
+      result.diagnostics.recognitionBatchShapes.map((shape) => shape.computeUnit),
+      ['gpu'],
+    );
+  } finally {
+    await strict.close();
+  }
+});
+
 test('decodes JPEG and PNG snapshots on the engine worker', async () => {
   const engine = await createEngine({ bundlePath });
   const png = Buffer.from(encodedBlankPng);
@@ -297,6 +370,10 @@ test('validates input and reports adapter errors as OcrError', async () => {
   await assert.rejects(
     createEngine({ bundlePath, execution: { provider: 'coreml' } }),
     (error) => error instanceof OcrError && error.code === 'invalid_argument',
+  );
+  await assert.rejects(
+    createEngine({ bundlePath, execution: { provider: 'apple' } }),
+    (error) => error instanceof OcrError && error.code === 'unsupported_capability',
   );
   await assert.rejects(
     createEngine({ bundlePath, execution: { precision: 'fp16' } }),

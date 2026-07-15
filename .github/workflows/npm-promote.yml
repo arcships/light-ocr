@@ -6,7 +6,7 @@ on:
       version:
         description: Already-published lockstep version to promote
         required: true
-        default: 0.2.0
+        default: 0.2.1
         type: string
       release_run_id:
         description: npm release run containing the verified release artifact

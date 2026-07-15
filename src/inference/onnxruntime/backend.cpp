@@ -100,7 +100,9 @@ void validate_session_config(const InferenceSessionConfig& config) {
 
 SessionExecutionInfo make_execution_info(const InferenceSessionConfig& config) {
   SessionExecutionInfo info;
-  info.requested_provider = "cpu";
+  info.requested_provider = config.requested_provider_override.empty()
+                                ? "cpu"
+                                : config.requested_provider_override;
   info.actual_provider_chain = {"CPUExecutionProvider"};
   info.device = "cpu";
   info.precision = "fp32";
@@ -111,6 +113,8 @@ SessionExecutionInfo make_execution_info(const InferenceSessionConfig& config) {
   info.runtime_version = Ort::GetVersionString();
   info.provider_version = info.runtime_version;
   info.model_cache_status = "not_applicable";
+  info.session_fallback = config.session_fallback_used;
+  info.fallback_reason = config.fallback_reason;
   return info;
 }
 

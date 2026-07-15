@@ -1,6 +1,6 @@
 # light-ocr Node-API 适配器设计
 
-状态：`@arcships/light-ocr@0.2.0` 已发布；Perf-1A execution contract 已实现、尚未发布 accelerator<br>
+状态：`@arcships/light-ocr@0.2.0` 已发布；0.2.1 Apple/Core ML provider 候选已实现并进入资格审查<br>
 更新时间：2026-07-15<br>
 Authority：JavaScript/TypeScript API、异步调度、内存所有权、Node.js 生命周期与 npm 布局  
 Core contract：[native-api.md](native-api.md)  
@@ -43,7 +43,7 @@ Decision：[decisions.md](decisions.md) D101、D105、D111
 - install/postinstall 或运行时网络下载、默认目录扫描或模型自动更新。
 - 无模型瘦包、按语言拆分模型、tiny/medium/orientation 模型。
 - 对运行中的 ONNX Runtime inference 做硬中断或强制超时终止。
-- 发布 GPU/ANE/CUDA/DirectML Execution Provider；provider-neutral 配置与诊断契约已由 D111 接受，但当前只允许 CPU。
+- 发布 CUDA/DirectML 等其他 Execution Provider；本增量只实现 Apple Silicon 上受资格约束的 Core ML ANE/GPU 路由。
 - Electron、Bun、Deno 或浏览器支持声明。
 - Linux musl、Linux arm64、Windows arm64。
 - 跨进程共享 engine、跨 Node.js Environment 传递 engine。
@@ -86,7 +86,7 @@ export interface DetectionOptions {
   readonly maxSide?: number;
 }
 
-export type ExecutionProvider = "cpu";
+export type ExecutionProvider = "cpu" | "apple";
 export type SessionFallback = "error" | "cpu";
 export type CpuPartition = "allow" | "forbid";
 export type PerformanceHint = "latency" | "throughput";
@@ -182,6 +182,9 @@ export interface Diagnostics {
     readonly batchSize: number;
     readonly height: number;
     readonly width: number;
+    readonly computeUnit: "cpu" | "ane" | "gpu";
+    readonly modelId: string;
+    readonly shapeBucket: string;
   }[];
 }
 
@@ -213,6 +216,8 @@ export interface SessionExecutionInfo {
   readonly requestedProvider: string;
   readonly actualProviderChain: readonly string[];
   readonly device: string;
+  readonly deviceFamily: string;
+  readonly operatingSystem: string;
   readonly precision: string;
   readonly shapePolicy: string;
   readonly modelId: string;
@@ -221,6 +226,7 @@ export interface SessionExecutionInfo {
   readonly runtimeVersion: string;
   readonly providerVersion: string;
   readonly modelCacheStatus: string;
+  readonly qualificationId: string;
   readonly sessionFallback: boolean;
   readonly fallbackReason?: string;
 }
@@ -323,11 +329,11 @@ export interface OcrEngine {
 export function createEngine(options?: CreateEngineOptions): Promise<OcrEngine>;
 ```
 
-`SessionExecutionInfo` 分别保存 requested provider、实际配置的 provider chain、device、有效 precision、shape policy、模型 ID/SHA-256、runtime/provider version、model cache status，以及是否发生 session fallback 和稳定原因。provider chain 只证明 session 配置，不能替代逐节点 compute-plan/profiling 证据。
+`SessionExecutionInfo` 分别保存 requested provider、实际配置的 provider chain、device/device family/OS、有效 precision、shape policy、模型 ID/SHA-256、runtime/provider version、model cache status、qualification ID，以及是否发生 session fallback 和稳定原因。`recognitionBatchShapes` 进一步报告每个请求使用的 Core ML function bucket 和 ANE/GPU/CPU 路由。provider chain 只证明 session 配置，不能替代逐函数 Compute Plan 证据。
 
 `Buffer` 是 `Uint8Array` 的子类，因此可以直接作为 `RawImage.data` 或 `recognizeEncoded()` 输入。不接受 `DataView`、其他 TypedArray 或以 `SharedArrayBuffer` 为 backing store 的 `Uint8Array`。
 
-`OcrEngine` 没有 public constructor，只能由成功的 `createEngine` 创建。未传 `model`/`bundlePath` 时默认使用内置 `ppocrv6-small`；二者同时出现是 `invalid_argument`。`execution` 默认选择 CPU；当前 `.d.ts` 只把 `cpu` 放入 provider union，且不支持的 FP16、device、partition、fallback 或 throughput 组合稳定失败。`reducedLimits` 一旦提供就必须包含全部八个字段；适配器把 Core 固定的 `maxConcurrentCalls=1` 补入 native options。所有配置对象拒绝未知 own property，避免拼写错误被静默忽略。预期的参数、package、I/O、Core 和队列错误都通过 Promise rejection 返回 `OcrError`；取消按 `AbortSignal.reason` 拒绝，默认 `AbortController.abort()` 因而得到标准 `AbortError`。只有非法 receiver、Node-API 无法创建 Promise 或不可恢复的运行时故障可能同步抛出。
+`OcrEngine` 没有 public constructor，只能由成功的 `createEngine` 创建。未传 `model`/`bundlePath` 时默认使用内置 `ppocrv6-small`；二者同时出现是 `invalid_argument`。`execution` 默认选择 CPU；Apple 需要自包含 Apple bundle，接受 `fp16`、`latency`、batch 1 和 bounded detection，并按 `sessionFallback` 决定稳定失败或整 session CPU 回退。`reducedLimits` 一旦提供就必须包含全部八个字段；适配器把 Core 固定的 `maxConcurrentCalls=1` 补入 native options。所有配置对象拒绝未知 own property，避免拼写错误被静默忽略。预期的参数、package、I/O、Core 和队列错误都通过 Promise rejection 返回 `OcrError`；取消按 `AbortSignal.reason` 拒绝，默认 `AbortController.abort()` 因而得到标准 `AbortError`。只有非法 receiver、Node-API 无法创建 Promise 或不可恢复的运行时故障可能同步抛出。
 
 ### 3.1 使用示例
 

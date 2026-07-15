@@ -349,9 +349,9 @@ DetectionOptions parse_detection_options(napi_env env, napi_value value) {
 ExecutionProvider parse_execution_provider(napi_env env, napi_value value) {
   const auto provider = get_string(env, value, "execution.provider");
   if (provider == "cpu") return ExecutionProvider::cpu;
-  throw AddonFailure(
-      "invalid_argument",
-      "execution.provider must be cpu; accelerator providers are not qualified in this release");
+  if (provider == "apple") return ExecutionProvider::apple;
+  throw AddonFailure("invalid_argument",
+                     "execution.provider must be cpu or apple");
 }
 
 SessionFallback parse_session_fallback(napi_env env, napi_value value) {
@@ -1186,6 +1186,11 @@ napi_value create_diagnostics(napi_env env, const Diagnostics& diagnostics) {
     set_named(env, entry, "batchSize", uint32_value(env, shape.batch_size));
     set_named(env, entry, "height", uint32_value(env, shape.height));
     set_named(env, entry, "width", uint32_value(env, shape.width));
+    set_named(env, entry, "computeUnit",
+              string_value(env, shape.compute_unit));
+    set_named(env, entry, "modelId", string_value(env, shape.model_id));
+    set_named(env, entry, "shapeBucket",
+              string_value(env, shape.shape_bucket));
     check(env,
           napi_set_element(env, batch_shapes, static_cast<std::uint32_t>(index),
                            entry),
@@ -1239,7 +1244,7 @@ napi_value create_resource_limits(napi_env env, const ResourceLimits& limits) {
 }
 
 const char* execution_provider_string(ExecutionProvider provider) {
-  return provider == ExecutionProvider::cpu ? "cpu" : "unknown";
+  return provider == ExecutionProvider::apple ? "apple" : "cpu";
 }
 
 const char* session_fallback_string(SessionFallback fallback) {
@@ -1279,6 +1284,10 @@ napi_value create_session_execution_info(napi_env env,
   }
   set_named(env, object, "actualProviderChain", providers);
   set_named(env, object, "device", string_value(env, info.device));
+  set_named(env, object, "deviceFamily",
+            string_value(env, info.device_family));
+  set_named(env, object, "operatingSystem",
+            string_value(env, info.operating_system));
   set_named(env, object, "precision", string_value(env, info.precision));
   set_named(env, object, "shapePolicy", string_value(env, info.shape_policy));
   set_named(env, object, "modelId", string_value(env, info.model_id));
@@ -1290,6 +1299,8 @@ napi_value create_session_execution_info(napi_env env,
             string_value(env, info.provider_version));
   set_named(env, object, "modelCacheStatus",
             string_value(env, info.model_cache_status));
+  set_named(env, object, "qualificationId",
+            string_value(env, info.qualification_id));
   set_named(env, object, "sessionFallback",
             boolean_value(env, info.session_fallback));
   if (info.fallback_reason) {

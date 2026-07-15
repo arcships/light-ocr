@@ -12,8 +12,6 @@
 
 namespace light_ocr::internal {
 
-enum class ModelKind { detection, recognition };
-
 class OnnxSession final : public InferenceSession {
  public:
   static Result<std::unique_ptr<OnnxSession>> create(

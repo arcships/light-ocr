@@ -13,7 +13,7 @@ enum class PixelFormat { gray8, rgb8, bgr8, rgba8 };
 
 enum class DetectionStrategy { bounded, tiled, upstream_exact };
 
-enum class ExecutionProvider { cpu };
+enum class ExecutionProvider { cpu, apple };
 
 enum class SessionFallback { error, cpu };
 
@@ -63,6 +63,9 @@ struct RecognitionBatchShape {
   std::uint32_t batch_size = 0;
   std::uint32_t height = 0;
   std::uint32_t width = 0;
+  std::string compute_unit;
+  std::string model_id;
+  std::string shape_bucket;
 };
 
 struct DetectionPassShape {
@@ -186,6 +189,8 @@ struct SessionExecutionInfo {
   std::string requested_provider;
   std::vector<std::string> actual_provider_chain;
   std::string device;
+  std::string device_family;
+  std::string operating_system;
   std::string precision;
   std::string shape_policy;
   std::string model_id;
@@ -194,6 +199,7 @@ struct SessionExecutionInfo {
   std::string runtime_version;
   std::string provider_version;
   std::string model_cache_status;
+  std::string qualification_id;
   bool session_fallback = false;
   std::optional<std::string> fallback_reason;
 };

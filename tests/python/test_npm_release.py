@@ -29,7 +29,7 @@ class NpmReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "does not match source version"):
             npm_release.assemble(
                 argparse.Namespace(
-                    version="0.2.1",
+                    version="0.2.2",
                     bundle=Path("unused"),
                     native_root=Path("unused"),
                     output_dir=Path("unused"),
@@ -100,9 +100,16 @@ class NpmReleaseTests(unittest.TestCase):
             bundle.mkdir()
             (bundle / "manifest.json").write_text(
                 json.dumps({
-                    "schemaVersion": "1.0",
+                    "schemaVersion": "1.1",
                     "bundleId": npm_release.BUNDLE_ID,
                     "normalizedConfigPath": "normalized-config.json",
+                    "providers": {
+                        "apple": {
+                            "schemaVersion": "1.0",
+                            "architecture": "arm64",
+                            "qualifiedDeviceFamilies": ["Apple M1", "Apple M2"],
+                        }
+                    },
                 }) + "\n", "utf-8"
             )
             (bundle / "normalized-config.json").write_text(
@@ -117,19 +124,19 @@ class NpmReleaseTests(unittest.TestCase):
             staging = root / "staging"
             npm_release.assemble(
                 argparse.Namespace(
-                    version="0.2.0",
+                    version="0.2.1",
                     bundle=bundle,
                     native_root=native_root,
                     output_dir=staging,
                 )
             )
             facade = json.loads((staging / "facade" / "package.json").read_text("utf-8"))
-            self.assertEqual(facade["dependencies"][npm_release.MODEL_PACKAGE], "0.2.0")
+            self.assertEqual(facade["dependencies"][npm_release.MODEL_PACKAGE], "0.2.1")
             self.assertEqual(len(facade["optionalDependencies"]), 4)
             model = json.loads(
                 (staging / "model-ppocrv6-small" / "package.json").read_text("utf-8")
             )
-            self.assertEqual(model["lightOcr"]["manifestSchemaVersion"], "1.0")
+            self.assertEqual(model["lightOcr"]["manifestSchemaVersion"], "1.1")
             self.assertEqual(
                 model["lightOcr"]["normalizedConfigSchemaVersion"], "1.2"
             )
@@ -140,7 +147,7 @@ class NpmReleaseTests(unittest.TestCase):
                 argparse.Namespace(staging_dir=staging, output_dir=tarballs, npm=npm)
             )
             release = json.loads((tarballs / "release-manifest.json").read_text("utf-8"))
-            self.assertEqual(release["version"], "0.2.0")
+            self.assertEqual(release["version"], "0.2.1")
             self.assertEqual(len(release["packages"]), 6)
             self.assertEqual(len(list(tarballs.glob("*.tgz"))), 6)
 

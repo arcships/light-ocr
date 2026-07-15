@@ -63,6 +63,28 @@ struct RecognitionConfig {
   std::vector<std::string> characters;
 };
 
+struct AppleModelConfig {
+  std::string model_id;
+  std::string package_path;
+  std::string package_sha256;
+  std::string input_name;
+  std::string output_name;
+  std::string shape_policy;
+};
+
+struct AppleProviderConfig {
+  std::string minimum_macos;
+  std::string architecture;
+  std::vector<std::string> qualified_device_families;
+  std::string qualification_id;
+  AppleModelConfig detection;
+  AppleModelConfig recognition;
+  std::uint32_t recognition_width_multiple = 1;
+  std::uint32_t recognition_ane_maximum_width = 0;
+  std::vector<std::uint32_t> recognition_runtime_width_buckets;
+  std::uint32_t maximum_cached_functions = 1;
+};
+
 struct BundleData {
   std::string id;
   std::string schema_version;
@@ -80,6 +102,7 @@ struct BundleData {
   std::uint32_t default_detection_max_side = 4'000;
   GeometryConfig geometry;
   RecognitionConfig recognition;
+  std::optional<AppleProviderConfig> apple_provider;
   ResourceLimits limits;
   Capabilities capabilities;
 };

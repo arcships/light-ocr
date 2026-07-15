@@ -22,6 +22,29 @@ SharedBytes bytes(const std::string& value) {
   return std::make_shared<const std::vector<std::uint8_t>>(value.begin(), value.end());
 }
 
+std::string package_hash(const std::vector<BundleFile>& files,
+                         const std::string& prefix) {
+  std::vector<const BundleFile*> package_files;
+  for (const auto& file : files) {
+    if (file.path.compare(0, prefix.size(), prefix) == 0) {
+      package_files.push_back(&file);
+    }
+  }
+  std::sort(package_files.begin(), package_files.end(),
+            [](const auto* left, const auto* right) {
+              return left->path < right->path;
+            });
+  std::string inventory;
+  for (const auto* file : package_files) {
+    inventory += file->path.substr(prefix.size());
+    inventory.push_back('\0');
+    inventory += internal::sha256_hex(file->bytes->data(), file->bytes->size());
+    inventory.push_back('\n');
+  }
+  return internal::sha256_hex(
+      reinterpret_cast<const std::uint8_t*>(inventory.data()), inventory.size());
+}
+
 void refresh_checksums(std::vector<BundleFile>* files) {
   std::string sums;
   for (const auto& file : *files) {
@@ -196,6 +219,81 @@ std::vector<BundleFile> valid_bundle_files(bool tiled = false) {
   return files;
 }
 
+std::vector<BundleFile> valid_apple_bundle_files() {
+  auto files = valid_bundle_files(true);
+  files.erase(std::remove_if(files.begin(), files.end(), [](const BundleFile& file) {
+                return file.path == "SHA256SUMS";
+              }),
+              files.end());
+  const std::string detection_root = "apple/detector.mlpackage/";
+  const std::string recognition_root = "apple/recognizer.mlpackage/";
+  for (const auto& root : {detection_root, recognition_root}) {
+    files.push_back(BundleFile{root + "Manifest.json", bytes("manifest")});
+    files.push_back(BundleFile{root + "Data/com.apple.CoreML/model.mlmodel",
+                               bytes("model")});
+    files.push_back(BundleFile{
+        root + "Data/com.apple.CoreML/weights/weight.bin", bytes("weights")});
+  }
+  for (auto& file : files) {
+    if (file.path != "manifest.json") continue;
+    auto manifest = Json::parse(std::string(file.bytes->begin(), file.bytes->end()));
+    manifest["schemaVersion"] = "1.1";
+    manifest["coreCompatibility"]["minimum"] = "0.2.1";
+    for (const auto& payload : files) {
+      if (payload.path == "manifest.json") continue;
+      manifest["files"][payload.path] = {
+          {"bytes", payload.bytes->size()},
+          {"sha256", internal::sha256_hex(payload.bytes->data(),
+                                           payload.bytes->size())},
+      };
+    }
+    std::vector<std::uint32_t> widths;
+    for (std::uint32_t width = 320; width <= 3200; width += 32) {
+      widths.push_back(width);
+    }
+    manifest["providers"]["apple"] = {
+        {"schemaVersion", "1.0"},
+        {"minimumMacOS", "15.0"},
+        {"architecture", "arm64"},
+        {"qualifiedDeviceFamilies", {"Apple M4"}},
+        {"qualificationId", "apple-test-qualification"},
+        {"detection",
+         {{"modelId", "detector-fp16"},
+          {"packagePath", detection_root.substr(0, detection_root.size() - 1)},
+          {"packageSha256", package_hash(files, detection_root)},
+          {"inputName", "x"},
+          {"outputName", "output"},
+          {"shapePolicy", "nchw-bounded-range-32-960-v1"},
+          {"preferredComputeUnit", "ane"},
+          {"strictComputeUnit", "gpu"},
+          {"qualifiedMLCPUOperations", {{"ios18.relu", 1}, {"pad", 1}}}}},
+        {"recognition",
+         {{"modelId", "recognizer-fp16"},
+          {"packagePath", recognition_root.substr(0, recognition_root.size() - 1)},
+          {"packageSha256", package_hash(files, recognition_root)},
+          {"inputName", "x"},
+          {"outputName", "output"},
+          {"shapePolicy", "nchw-static-width-multiple-32-v1"},
+          {"functionFormat", "w%04u"},
+          {"widths", widths},
+          {"widthMultiple", 32},
+          {"aneMaximumWidth", 1600},
+          {"runtimeWidthBuckets",
+           {320, 384, 480, 544, 576, 608, 704, 736, 832, 960,
+            1056, 1184, 1248, 1376, 1600, 1984, 2240, 2560, 2880,
+            3200}},
+          {"maximumCachedFunctions", 20},
+          {"qualifiedMLCPUOperations",
+           {{"ios18.cast", 1}, {"ios18.conv", 3},
+            {"ios18.relu", 3}, {"pad", 3}}}}},
+    };
+    file.bytes = bytes(manifest.dump());
+    break;
+  }
+  refresh_checksums(&files);
+  return files;
+}
+
 }  // namespace
 
 LIGHT_OCR_TEST(model_bundle_accepts_complete_hashed_contract) {
@@ -211,6 +309,62 @@ LIGHT_OCR_TEST(model_bundle_accepts_tiled_v1_normalized_contract) {
     light_ocr::test::fail("result", __FILE__, __LINE__,
                           result.error().message + ": " + result.error().detail);
   }
+}
+
+LIGHT_OCR_TEST(model_bundle_accepts_locked_apple_provider_contract) {
+  auto result = ModelBundle::create(valid_apple_bundle_files());
+  if (!result) {
+    light_ocr::test::fail("result", __FILE__, __LINE__,
+                          result.error().message + ": " + result.error().detail);
+  }
+  EXPECT_EQ(result.value().schema_version(), "1.1");
+}
+
+LIGHT_OCR_TEST(model_bundle_rejects_schema_1_1_without_apple_provider) {
+  auto files = valid_bundle_files(true);
+  for (auto& file : files) {
+    if (file.path != "manifest.json") continue;
+    auto manifest = Json::parse(std::string(file.bytes->begin(), file.bytes->end()));
+    manifest["schemaVersion"] = "1.1";
+    manifest["coreCompatibility"]["minimum"] = "0.2.1";
+    file.bytes = bytes(manifest.dump());
+    break;
+  }
+  refresh_checksums(&files);
+  auto result = ModelBundle::create(std::move(files));
+  EXPECT_FALSE(result);
+  EXPECT_EQ(result.error().code, ErrorCode::invalid_model_bundle);
+}
+
+LIGHT_OCR_TEST(model_bundle_rejects_unknown_apple_device_family) {
+  auto files = valid_apple_bundle_files();
+  for (auto& file : files) {
+    if (file.path != "manifest.json") continue;
+    auto manifest = Json::parse(std::string(file.bytes->begin(), file.bytes->end()));
+    manifest["providers"]["apple"]["qualifiedDeviceFamilies"] = {"Apple M9"};
+    file.bytes = bytes(manifest.dump());
+    break;
+  }
+  refresh_checksums(&files);
+  auto result = ModelBundle::create(std::move(files));
+  EXPECT_FALSE(result);
+  EXPECT_EQ(result.error().code, ErrorCode::invalid_model_bundle);
+}
+
+LIGHT_OCR_TEST(model_bundle_rejects_mutated_apple_runtime_width_buckets) {
+  auto files = valid_apple_bundle_files();
+  for (auto& file : files) {
+    if (file.path != "manifest.json") continue;
+    auto manifest = Json::parse(std::string(file.bytes->begin(), file.bytes->end()));
+    manifest["providers"]["apple"]["recognition"]["runtimeWidthBuckets"][0] =
+        352;
+    file.bytes = bytes(manifest.dump());
+    break;
+  }
+  refresh_checksums(&files);
+  auto result = ModelBundle::create(std::move(files));
+  EXPECT_FALSE(result);
+  EXPECT_EQ(result.error().code, ErrorCode::invalid_model_bundle);
 }
 
 LIGHT_OCR_TEST(old_normalized_bundle_rejects_tiled_engine_before_session_load) {

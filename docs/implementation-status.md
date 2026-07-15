@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
 更新时间：2026-07-15<br>
-结论：`@arcships/light-ocr@0.2.0` 已发布并提升为 npm `latest`。它包含 `tiled-v1`、schema 1.2 bundle、八张独立 ground truth、Python oracle、确定性/质量门禁，以及 Node.js 内存 JPEG/PNG 输入；四平台 Core/Node baseline、无 benchmark release preflight、六包 provenance、registry integrity 与禁网运行证据均已保存。0.1.0 及其 bounded/960 行为保持不变，bounded/960 在 0.2.0 中也仍是默认策略。
+结论：`@arcships/light-ocr@0.2.0` 已发布并提升为 npm `latest`。当前 0.2.1 源码候选已实现 Direct Core ML FP16 Apple provider、自包含模型派生物、ANE/GPU 混合路由、缓存/回退和 C++/Node 可观测性；CPU 与 bounded/960 仍是默认。M4 Max 本机全部锁定 Gate 已通过，M1/M2 双设备 workflow 已配置但尚无远端通过证据，因此还不能宣称 Apple provider 已发布。
 
 状态含义：
 
@@ -25,14 +25,14 @@
 | 无 network/shell/cwd/locale 运行依赖 | Done | sterile cwd/minimal env 与 Linux network namespace disabled 测试通过；npm release 另完成已安装 package 的禁网运行。 |
 | manifest、hash、licenses、SBOM、parity、benchmark | Done | Release commit 已重新生成并保存四平台 metadata、六个 npm tarballs 的 hashes/integrity、parity、quality 与 benchmark 证据。 |
 | N-API/npm 非本 Core milestone | Done / `0.2.0` published | raw Node-API v8、CJS/ESM、`.d.ts`、内置模型解析、四平台 prebuild、双重背压、AbortSignal 与生命周期均已完成；[npm release run 29340467784](https://github.com/arcships/light-ocr/actions/runs/29340467784) 与 [promotion run 29342178842](https://github.com/arcships/light-ocr/actions/runs/29342178842) 保存六包发布、registry 和禁网证据。 |
-| Perf-1A execution contract | Done（本地，未发布 accelerator） | provider-neutral `InferenceSession`、`EngineOptions.execution`、detector/recognizer 分 stage `EngineInfo.execution.sessions`、模型 hash/runtime/cache/fallback 诊断和 Node deep-frozen 映射已完成；当前 union 仅含 CPU，Apple/CoreML payload 与 placement qualification 仍 pending。 |
+| Perf-1A / Apple execution | Implemented locally / qualification running | provider-neutral `InferenceSession` 已加入 Objective-C++ Direct Core ML；公开 union 为 `cpu | apple`。detector 使用 FP16 range model，recognizer 使用 91-function FP16 MLProgram 完成全宽度放置审查，运行时使用锁定的 20 个加权宽度桶；interactive 为 ANE + 宽文本 GPU，strict 为 GPU，整 session CPU fallback 有稳定原因。schema 1.1 bundle、哈希锁模型、离线编译缓存、跨进程锁、LRU≤20、device/OS/qualification/逐批 route 诊断和 Node 映射均已完成。M1/M2 远端双设备 Gate 尚待运行。 |
 | Node.js JPEG/PNG 内存输入 | Done / `0.2.0` published | `recognizeEncoded(Uint8Array)` 在 engine worker 上使用固定 stb revision 解码，保持 Core raw-pixel 边界；格式、尺寸、pixels、临时内存、queue/snapshot budget、AbortSignal 与 `timingUs.decode` 均有四平台 Node 22/24 package 测试。 |
 | 高分辨率峰值内存 | Done | Release 原生独立进程本机参考：2048² 空白 `318.8 MiB ≤ 384 MiB`；xfund 密集表单 116 框 `400.5 MiB ≤ 640 MiB`。四平台 release jobs 的真实模型与 RSS gates 均通过。 |
 | Tiled 高分辨率准确模式 | Done / `0.2.0` published | 1280 tile、2048→4-pass row-major、全局 candidate ceiling、IoU/IOS greedy merge、原图 recognition、C++/Node contract、8-fixture/196-line corpus、独立 oracle、四平台 36-entry accepted baseline 与 package smoke 均已完成。 |
 
 ## 本机最终验证快照
 
-环境：macOS arm64，Apple Clang 21.0.0，CMake 4.2.1，macOS deployment target 13.3，ONNX Runtime CPU，intra/inter-op threads 均为 1。
+环境：macOS arm64 Apple M4 Max，macOS 26.5.1，Apple Clang 21.0.0，CMake 4.2.1，macOS deployment target 13.3；CPU 使用 ONNX Runtime，Apple 候选使用系统 Core ML。
 
 | 验证 | 结果 |
 | --- | --- |
@@ -46,7 +46,12 @@
 | offline contract | sterile cwd/minimal locale environment passed |
 | model archive | 已发布 `.1`：31,334,400 bytes / `74e246bf…de17`；已发布 tiled `.2`：31,334,400 bytes / `e543b93b…712f` |
 | Node-API v1 | Node.js 22.13.0；macOS arm64 Release/Werror 构建；CTest 3/3；bounded/exact 映射、真实 PP-OCRv6 API、snapshot/byteOffset、校验、symlink root、双重背压、abort、heartbeat、close/worker teardown 测试通过 |
-| Perf-1A local validation | macOS arm64 Release/Werror 构建；Release CTest 22/22（含 15 项 acceptance、2 项 canonical oracle、4 项 memory）和 Node-enabled CTest 3/3；CPU 默认结果不变，逐 session execution summary、未知 provider、FP16、device ID 和无效 fallback 组合均有 C++/Node integration 覆盖 |
+| Perf-1A local validation | macOS arm64 Release/Werror 构建；Apple Release CTest 7/7、Node 绑定 16/16、Python Apple/npm 合约 9/9；CPU 默认结果不变，逐 session execution summary、未知 provider、FP16、device ID 和无效 fallback 组合均有 C++/Node integration 覆盖 |
+| Apple model placement | detector interactive 为 190 ANE + 2 个已声明 MLCPU 操作，strict 为 192 GPU；recognition 91/91 宽度函数全部通过，宽区间 213 GPU 且无 MLCPU；detector/recognizer 包哈希 `2097bd78…7f76` / `c54a0719…5f4b`，报告 `e9d371db…c7373` |
+| Apple quality | 14 fixtures 全部通过；字符相似度 99.6484%，detection recall 100%，平均 IoU 99.5508%，平均置信度差 0.004349，critical failure 0；报告 `0c4d9865…326e` |
+| Apple performance | hello / xfund warm P50 为 8.708 / 330.837 ms，相对 CPU-fast 加速 2.287× / 2.808×，CPU time 降低 95.86% / 97.65%；canary cold cache miss 7.289 s、hit 1.285/1.282 s；warm peak RSS 最大 695.97 MiB，bundle 增量 25.42 MiB；报告 `e373a9a4…a983` |
+| Apple cache concurrency | 4 进程竞争通过；detector/recognizer 各恰好一个 miss、3 个 hit，结果哈希一致且无临时目录残留；报告 `df0e7b75…5b2c` |
+| Apple 100-page lifecycle | 同一 interactive engine 预热 2 页后连续处理 100 个 xfund 密集页；RSS baseline/final/maximum 为 743.28/721.89/745.14 MiB，growth -21.39 MiB，通过 32 MiB 工具门槛和 64 MiB acceptance；报告 `5c20fc47…6a8fb` |
 | Tiled corpus | 八张 2048² locked fixtures 共 196 行：196 TP / 0 FP / 0 FN、CER 0、duplicate line 0；独立 oracle 与原生 pass tensor、candidate source、suppression、representative、crop、decode 和 final order 对齐；side override、tile ceiling、global candidate ceiling 均返回稳定错误 |
 | Tiled qualification | [run 29336329115](https://github.com/arcships/light-ocr/actions/runs/29336329115) 四个平台采样 jobs 成功；36 个 Core/Node 22/Node 24 entries 已受审。各平台最大 Core/Node 峰值：Linux x64 639.7/715.6 MiB、Windows x64 616.1/667.5 MiB、macOS arm64 667.4/733.6 MiB、macOS x64 623.1/672.8 MiB |
 

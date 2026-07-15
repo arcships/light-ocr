@@ -17,6 +17,9 @@
 #include "detection/tiled.hpp"
 #include "geometry/geometry.hpp"
 #include "inference/backend.hpp"
+#if defined(LIGHT_OCR_HAS_COREML)
+#include "inference/coreml/backend.hpp"
+#endif
 #include "inference/onnxruntime/backend.hpp"
 #include "model/bundle_data.hpp"
 #include "preprocess/image.hpp"
@@ -37,6 +40,11 @@ using Clock = std::chrono::steady_clock;
 std::uint64_t elapsed_us(Clock::time_point begin, Clock::time_point end) {
   return static_cast<std::uint64_t>(
       std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count());
+}
+
+std::string apple_recognition_function_name(std::uint32_t width) {
+  const auto value = std::to_string(width);
+  return "w" + std::string(4 - value.size(), '0') + value;
 }
 
 template <class T>
@@ -66,13 +74,56 @@ bool valid_limits(const ResourceLimits& value, const ResourceLimits& ceiling) {
 }
 
 bool valid_execution_options(const ExecutionOptions& options) {
-  return options.provider == ExecutionProvider::cpu &&
-         options.session_fallback == SessionFallback::error &&
-         options.cpu_partition == CpuPartition::allow &&
-         !options.device_id.has_value() &&
-         options.performance_hint == PerformanceHint::latency &&
+  if (options.device_id.has_value() ||
+      options.performance_hint != PerformanceHint::latency) {
+    return false;
+  }
+  if (options.provider == ExecutionProvider::cpu) {
+    return options.session_fallback == SessionFallback::error &&
+           options.cpu_partition == CpuPartition::allow &&
+           (options.precision == Precision::automatic ||
+            options.precision == Precision::fp32);
+  }
+  return options.provider == ExecutionProvider::apple &&
+         (options.session_fallback == SessionFallback::error ||
+          options.session_fallback == SessionFallback::cpu) &&
+         (options.cpu_partition == CpuPartition::allow ||
+          options.cpu_partition == CpuPartition::forbid) &&
          (options.precision == Precision::automatic ||
-          options.precision == Precision::fp32);
+          options.precision == Precision::fp16);
+}
+
+internal::AppleModelPackage make_apple_package(
+    const internal::BundleData& bundle,
+    const internal::AppleModelConfig& model,
+    const internal::AppleProviderConfig& provider,
+    bool recognition) {
+  internal::AppleModelPackage package;
+  package.root_path = model.package_path;
+  package.package_sha256 = model.package_sha256;
+  package.input_name = model.input_name;
+  package.output_name = model.output_name;
+  package.qualification_id = provider.qualification_id;
+  package.qualified_device_families = provider.qualified_device_families;
+  const auto prefix = model.package_path + "/";
+  for (const auto& file : bundle.files) {
+    if (file.first.compare(0, prefix.size(), prefix) == 0) {
+      package.files.push_back(internal::ModelPackageFile{
+          file.first.substr(prefix.size()), file.second});
+    }
+  }
+  std::sort(package.files.begin(), package.files.end(),
+            [](const auto& left, const auto& right) {
+              return left.path < right.path;
+            });
+  if (recognition) {
+    package.recognition_width_multiple =
+        provider.recognition_width_multiple;
+    package.recognition_ane_maximum_width =
+        provider.recognition_ane_maximum_width;
+    package.maximum_cached_functions = provider.maximum_cached_functions;
+  }
+  return package;
 }
 
 class EngineImpl final : public Engine {
@@ -80,11 +131,16 @@ class EngineImpl final : public Engine {
   EngineImpl(std::shared_ptr<const internal::BundleData> bundle,
              std::unique_ptr<internal::InferenceSession> detection,
              std::unique_ptr<internal::InferenceSession> recognition,
-             EngineInfo info)
+             EngineInfo info, std::uint32_t recognition_width_multiple,
+             std::vector<std::uint32_t> recognition_width_buckets,
+             std::uint32_t maximum_backend_batch_size)
       : bundle_(std::move(bundle)),
         detection_(std::move(detection)),
         recognition_(std::move(recognition)),
-        info_(std::move(info)) {}
+        info_(std::move(info)),
+        recognition_width_multiple_(recognition_width_multiple),
+        recognition_width_buckets_(std::move(recognition_width_buckets)),
+        maximum_backend_batch_size_(maximum_backend_batch_size) {}
 
   ~EngineImpl() noexcept override { close(); }
 
@@ -127,6 +183,7 @@ class EngineImpl final : public Engine {
           info_.detection_max_side);
       if (!valid_score(score_threshold) || batch_size == 0 ||
           batch_size > info_.limits.max_recognition_batch_size ||
+          batch_size > maximum_backend_batch_size_ ||
           detection_max_side == 0 ||
           detection_max_side > info_.detection_max_side ||
           (info_.detection_strategy != DetectionStrategy::bounded &&
@@ -346,7 +403,8 @@ class EngineImpl final : public Engine {
           internal::sort_reading_order(std::move(detected.boxes), bundle_->geometry);
       auto plans_result = internal::plan_recognition_batches(
           sorted_boxes, bundle_->geometry, bundle_->recognition, batch_size,
-          info_.limits);
+          info_.limits, recognition_width_multiple_,
+          recognition_width_buckets_);
       stage_end = Clock::now();
       timing.crop_and_sort_us = elapsed_us(stage_begin, stage_end);
       if (!plans_result) {
@@ -396,7 +454,8 @@ class EngineImpl final : public Engine {
         recognition_limits.max_temporary_bytes -= crop_bytes;
         stage_begin = Clock::now();
         auto batch_result = internal::make_recognition_batch(
-            crops, plan, bundle_->recognition, recognition_limits);
+            crops, plan, bundle_->recognition, recognition_limits,
+            recognition_width_multiple_, recognition_width_buckets_);
         stage_end = Clock::now();
         timing.recognition_preprocess_us += elapsed_us(stage_begin, stage_end);
         if (!batch_result) {
@@ -404,10 +463,22 @@ class EngineImpl final : public Engine {
         }
         auto batch = std::move(batch_result).value();
         if (options.include_diagnostics) {
+          const auto width = static_cast<std::uint32_t>(batch.shape[3]);
+          const bool coreml =
+              info_.execution.recognition.runtime == "Core ML";
+          const bool gpu =
+              coreml &&
+              (info_.execution.cpu_partition == CpuPartition::forbid ||
+               width > bundle_->apple_provider->recognition_ane_maximum_width);
           recognition_batch_shapes.push_back(
               RecognitionBatchShape{static_cast<std::uint32_t>(batch.shape[0]),
                                     static_cast<std::uint32_t>(batch.shape[2]),
-                                    static_cast<std::uint32_t>(batch.shape[3])});
+                                    width,
+                                    coreml ? (gpu ? "gpu" : "ane") : "cpu",
+                                    info_.execution.recognition.model_id,
+                                    coreml
+                                        ? apple_recognition_function_name(width)
+                                        : "dynamic"});
         }
         std::vector<cv::Mat>().swap(crops);
 
@@ -491,6 +562,9 @@ class EngineImpl final : public Engine {
   std::unique_ptr<internal::InferenceSession> detection_;
   std::unique_ptr<internal::InferenceSession> recognition_;
   EngineInfo info_;
+  std::uint32_t recognition_width_multiple_ = 1;
+  std::vector<std::uint32_t> recognition_width_buckets_;
+  std::uint32_t maximum_backend_batch_size_ = 1;
   mutable std::mutex state_mutex_;
   std::condition_variable state_changed_;
   bool active_ = false;
@@ -515,7 +589,13 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
     if (!valid_execution_options(options.execution)) {
       return failure<std::unique_ptr<Engine>>(
           ErrorCode::invalid_argument,
-          "Execution options are unsupported by the bundled CPU backend");
+          "Execution options are unsupported");
+    }
+    if (options.execution.provider == ExecutionProvider::apple &&
+        !bundle.data_->apple_provider) {
+      return failure<std::unique_ptr<Engine>>(
+          ErrorCode::unsupported_capability,
+          "The model bundle does not include the Apple provider payload");
     }
     auto limits = options.reduced_limits.value_or(bundle.data_->limits);
     if (!valid_limits(limits, bundle.data_->limits)) {
@@ -528,7 +608,9 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
         bundle.data_->recognition.default_batch_size);
     if (!valid_score(score_threshold) || batch_size == 0 ||
         batch_size > limits.max_recognition_batch_size ||
-        batch_size > bundle.data_->recognition.maximum_batch_size) {
+        batch_size > bundle.data_->recognition.maximum_batch_size ||
+        (options.execution.provider == ExecutionProvider::apple &&
+         batch_size != 1)) {
       return failure<std::unique_ptr<Engine>>(ErrorCode::invalid_argument,
                                               "Engine recognition defaults are outside limits");
     }
@@ -539,6 +621,12 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
       return failure<std::unique_ptr<Engine>>(
           ErrorCode::unsupported_capability,
           "Tiled detection is unavailable in this bundle");
+    }
+    if (options.execution.provider == ExecutionProvider::apple &&
+        detection_strategy != DetectionStrategy::bounded) {
+      return failure<std::unique_ptr<Engine>>(
+          ErrorCode::invalid_argument,
+          "The Apple provider requires bounded detection");
     }
     const auto default_detection_max_side =
         detection_strategy == bundle.data_->default_detection_strategy
@@ -571,6 +659,12 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
           ErrorCode::invalid_argument,
           "Engine detection defaults are outside limits");
     }
+    if (options.execution.provider == ExecutionProvider::apple &&
+        detection_max_side > 960) {
+      return failure<std::unique_ptr<Engine>>(
+          ErrorCode::invalid_argument,
+          "The Apple detector is qualified only through side length 960");
+    }
     const auto& detection_bytes = bundle.data_->files.at(bundle.data_->detection_model_path);
     const auto& recognition_bytes = bundle.data_->files.at(bundle.data_->recognition_model_path);
     internal::InferenceSessionConfig detection_config;
@@ -588,13 +682,124 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
     auto recognition_config = detection_config;
     recognition_config.model_id = bundle.data_->recognition_model_id;
     recognition_config.model_sha256 = bundle.data_->recognition_model_sha256;
-    auto detection = internal::OnnxSession::create(
-        detection_bytes, detection_config, internal::ModelKind::detection);
-    if (!detection) return Result<std::unique_ptr<Engine>>::failure(detection.error());
-    auto recognition = internal::OnnxSession::create(
-        recognition_bytes, recognition_config, internal::ModelKind::recognition,
-        bundle.data_->recognition.characters.size() + 1);
-    if (!recognition) return Result<std::unique_ptr<Engine>>::failure(recognition.error());
+    std::unique_ptr<internal::InferenceSession> detection;
+    std::unique_ptr<internal::InferenceSession> recognition;
+    std::uint32_t recognition_width_multiple = 1;
+    std::vector<std::uint32_t> recognition_width_buckets;
+    std::uint32_t maximum_backend_batch_size =
+        bundle.data_->recognition.maximum_batch_size;
+    bool apple_device_qualified = false;
+#if defined(LIGHT_OCR_HAS_COREML)
+    const bool apple_device_available = internal::coreml_device_available();
+    apple_device_qualified =
+        apple_device_available && bundle.data_->apple_provider &&
+        internal::coreml_device_is_qualified(
+            bundle.data_->apple_provider->qualified_device_families);
+#endif
+
+    auto create_cpu_sessions = [&](bool fallback,
+                                   std::optional<std::string> fallback_reason)
+        -> std::optional<Error> {
+      auto cpu_detection_config = detection_config;
+      cpu_detection_config.provider = ExecutionProvider::cpu;
+      cpu_detection_config.session_fallback = SessionFallback::error;
+      cpu_detection_config.cpu_partition = CpuPartition::allow;
+      cpu_detection_config.precision = Precision::fp32;
+      cpu_detection_config.model_id = bundle.data_->detection_model_id;
+      cpu_detection_config.model_sha256 = bundle.data_->detection_model_sha256;
+      cpu_detection_config.shape_policy = "dynamic";
+      cpu_detection_config.apple_package.reset();
+      cpu_detection_config.requested_provider_override = fallback ? "apple" : "";
+      cpu_detection_config.session_fallback_used = fallback;
+      cpu_detection_config.fallback_reason = fallback_reason;
+      auto cpu_recognition_config = cpu_detection_config;
+      cpu_recognition_config.model_id = bundle.data_->recognition_model_id;
+      cpu_recognition_config.model_sha256 = bundle.data_->recognition_model_sha256;
+      auto cpu_detection = internal::OnnxSession::create(
+          detection_bytes, cpu_detection_config, internal::ModelKind::detection);
+      if (!cpu_detection) return cpu_detection.error();
+      auto cpu_recognition = internal::OnnxSession::create(
+          recognition_bytes, cpu_recognition_config,
+          internal::ModelKind::recognition,
+          bundle.data_->recognition.characters.size() + 1);
+      if (!cpu_recognition) return cpu_recognition.error();
+      detection = std::move(cpu_detection).value();
+      recognition = std::move(cpu_recognition).value();
+      recognition_width_multiple = 1;
+      recognition_width_buckets.clear();
+      maximum_backend_batch_size =
+          bundle.data_->recognition.maximum_batch_size;
+      return std::nullopt;
+    };
+
+    if (options.execution.provider == ExecutionProvider::cpu) {
+      const auto error = create_cpu_sessions(false, std::nullopt);
+      if (error) return Result<std::unique_ptr<Engine>>::failure(*error);
+    } else {
+#if defined(LIGHT_OCR_HAS_COREML)
+      std::optional<Error> apple_error;
+      if (apple_device_qualified) {
+        const auto& apple = *bundle.data_->apple_provider;
+        detection_config.model_id = apple.detection.model_id;
+        detection_config.model_sha256 = apple.detection.package_sha256;
+        detection_config.shape_policy = apple.detection.shape_policy;
+        detection_config.apple_package = make_apple_package(
+            *bundle.data_, apple.detection, apple, false);
+        recognition_config.model_id = apple.recognition.model_id;
+        recognition_config.model_sha256 = apple.recognition.package_sha256;
+        recognition_config.shape_policy = apple.recognition.shape_policy;
+        recognition_config.apple_package = make_apple_package(
+            *bundle.data_, apple.recognition, apple, true);
+        auto apple_detection = internal::CoreMlSession::create(
+            detection_config, internal::ModelKind::detection);
+        if (!apple_detection) {
+          apple_error = apple_detection.error();
+        } else {
+          auto apple_recognition = internal::CoreMlSession::create(
+              recognition_config, internal::ModelKind::recognition);
+          if (!apple_recognition) {
+            apple_error = apple_recognition.error();
+          } else {
+            detection = std::move(apple_detection).value();
+            recognition = std::move(apple_recognition).value();
+            recognition_width_multiple = apple.recognition_width_multiple;
+            recognition_width_buckets =
+                apple.recognition_runtime_width_buckets;
+            maximum_backend_batch_size = 1;
+          }
+        }
+      } else {
+        apple_error = Error{ErrorCode::unsupported_capability,
+                            "The Apple provider is unavailable on this device",
+                            {}};
+      }
+      if (apple_error) {
+        if (options.execution.session_fallback != SessionFallback::cpu) {
+          return Result<std::unique_ptr<Engine>>::failure(*apple_error);
+        }
+        const auto fallback_reason =
+            apple_device_qualified
+                ? "apple_initialization_failed"
+                : apple_device_available ? "apple_device_unqualified"
+                                         : "apple_device_unavailable";
+        const auto fallback_error = create_cpu_sessions(true, fallback_reason);
+        if (fallback_error) {
+          return Result<std::unique_ptr<Engine>>::failure(*fallback_error);
+        }
+      }
+#else
+      if (options.execution.session_fallback != SessionFallback::cpu) {
+        return failure<std::unique_ptr<Engine>>(
+            ErrorCode::unsupported_capability,
+            "The Apple provider is unavailable in this build");
+      }
+      const auto fallback_error = create_cpu_sessions(
+          true, "apple_provider_not_built");
+      if (fallback_error) {
+        return Result<std::unique_ptr<Engine>>::failure(*fallback_error);
+      }
+#endif
+    }
 
     EngineInfo info;
     info.core_version = LIGHT_OCR_VERSION;
@@ -602,9 +807,12 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
     info.model_bundle_schema_version = bundle.data_->schema_version;
     info.normalized_config_schema_version =
         bundle.data_->normalized_config_schema_version;
-    info.backend = detection.value()->execution_info().runtime + " " +
-                   detection.value()->execution_info().runtime_version;
-    info.execution_provider = "CPUExecutionProvider";
+    info.backend = detection->execution_info().runtime + " " +
+                   detection->execution_info().runtime_version;
+    info.execution_provider =
+        detection->execution_info().runtime == "Core ML"
+            ? "CoreML"
+            : "CPUExecutionProvider";
     info.execution.requested_provider = options.execution.provider;
     info.execution.session_fallback = options.execution.session_fallback;
     info.execution.cpu_partition = options.execution.cpu_partition;
@@ -613,8 +821,12 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
     info.execution.requested_precision = options.execution.precision;
     info.execution.provider_capabilities = {
         ProviderCapabilityInfo{"cpu", true, true}};
-    info.execution.detection = detection.value()->execution_info();
-    info.execution.recognition = recognition.value()->execution_info();
+    if (bundle.data_->apple_provider) {
+      info.execution.provider_capabilities.push_back(
+          ProviderCapabilityInfo{"apple", true, apple_device_qualified});
+    }
+    info.execution.detection = detection->execution_info();
+    info.execution.recognition = recognition->execution_info();
     info.capabilities = bundle.data_->capabilities;
     info.limits = limits;
     info.intra_op_threads = options.intra_op_threads;
@@ -631,9 +843,14 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
     }
     info.default_recognition_score_threshold = score_threshold;
     info.default_recognition_batch_size = batch_size;
+    auto runtime_bundle =
+        std::make_shared<internal::BundleData>(*bundle.data_);
+    runtime_bundle->files.clear();
     return Result<std::unique_ptr<Engine>>::success(std::unique_ptr<Engine>(new EngineImpl(
-        std::move(bundle.data_), std::move(detection).value(), std::move(recognition).value(),
-        std::move(info))));
+        std::move(runtime_bundle), std::move(detection), std::move(recognition),
+        std::move(info), recognition_width_multiple,
+        std::move(recognition_width_buckets),
+        maximum_backend_batch_size)));
   } catch (const std::exception& exception) {
     return failure<std::unique_ptr<Engine>>(ErrorCode::runtime_initialization_failed,
                                             "Unexpected engine initialization failure",

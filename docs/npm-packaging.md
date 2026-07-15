@@ -1,13 +1,19 @@
 # @arcships/light-ocr npm Package Design
 
-状态：六包设计与 `0.2.0` lockstep 发布已完成；[发布证据](releases/npm-0.2.0.md)<br>
-更新时间：2026-07-14<br>
+状态：六包设计与 `0.2.0` lockstep 发布已完成；0.2.1 Apple superset bundle release candidate 已接入同一流程<br>
+更新时间：2026-07-15<br>
 Authority：npm 包名、包拆分、依赖关系、内置模型、版本与发布门槛<br>
 Node API：[napi-design.md](napi-design.md)<br>
 Model contract：[model-bundle.md](model-bundle.md)<br>
 Decision：[decisions.md](decisions.md) D105
 
 0.2.0 继续使用本文六包 lockstep 规则，并强校验 schema 1.2、`tiled-v1`、新 bundle ID、minimum package version，以及 native package 中 JPEG/PNG decoder 的 license/SBOM identity。额外的类型、四平台基线和发布证据见 [Tiled Detection 技术设计与验收规格](tiled-design-and-acceptance.md)。这些增量不改变已发布 `0.1.0` 的不可变包内容。
+
+0.2.1 候选不增加第七个包或第二个安装入口。model package 改为
+`ppocrv6-small-apple-20260715.1` 自包含 superset：所有平台继续使用其中的
+ONNX CPU payload，只有通过 allow-list 的 macOS arm64 才能显式请求 Core ML。
+release workflow 在 macOS 以哈希锁 Python 3.12 工具链派生固定 Core ML 工件，
+Linux assemble job 只消费该 artifact；运行时和 postinstall 都不转换或下载模型。
 
 ## 1. 用户契约
 
@@ -42,7 +48,7 @@ const engine = await createEngine();
 | 包 | 类型 | 内容 | 安装关系 |
 | --- | --- | --- | --- |
 | `@arcships/light-ocr` | facade | CJS、ESM、TypeScript types、平台与模型解析器 | 用户直接安装 |
-| `@arcships/light-ocr-model-ppocrv6-small` | model | 完整 `ppocrv6-small-onnx-20260714.2` bundle、模型 license、可解析的 manifest subpath | facade 的普通 dependency |
+| `@arcships/light-ocr-model-ppocrv6-small` | model | 0.2.0 为 CPU bundle；0.2.1 候选为包含同一 ONNX payload 与 Core ML FP16 工件的 `ppocrv6-small-apple-20260715.1`、模型 license、可解析 manifest | facade 的普通 dependency |
 | `@arcships/light-ocr-darwin-arm64` | native | arm64 `.node`、ONNX Runtime dylib、licenses、SBOM、hashes | facade 的 optional dependency |
 | `@arcships/light-ocr-darwin-x64` | native | x64 `.node`、ONNX Runtime dylib、licenses、SBOM、hashes | facade 的 optional dependency |
 | `@arcships/light-ocr-win32-x64` | native | x64 `.node`、`onnxruntime.dll`、licenses、SBOM、hashes | facade 的 optional dependency |

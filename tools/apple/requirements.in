@@ -1,0 +1,6 @@
+coremltools==9.0
+numpy==2.5.1
+onnx==1.18.0
+onnx2torch==1.5.15
+onnxruntime @ https://files.pythonhosted.org/packages/4d/de/9162872c6e502e9ac8c99a98a8738b2fab408123d11de55022ac4f92562a/onnxruntime-1.22.0-cp312-cp312-macosx_13_0_universal2.whl
+torch==2.7.0

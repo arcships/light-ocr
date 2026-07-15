@@ -8,10 +8,31 @@
 #include <utility>
 #include <vector>
 
+#include "light_ocr/core.hpp"
 #include "light_ocr/error.hpp"
 #include "light_ocr/types.hpp"
 
 namespace light_ocr::internal {
+
+enum class ModelKind { detection, recognition };
+
+struct ModelPackageFile {
+  std::string path;
+  SharedBytes bytes;
+};
+
+struct AppleModelPackage {
+  std::string root_path;
+  std::string package_sha256;
+  std::string input_name;
+  std::string output_name;
+  std::string qualification_id;
+  std::vector<std::string> qualified_device_families;
+  std::vector<ModelPackageFile> files;
+  std::uint32_t recognition_width_multiple = 1;
+  std::uint32_t recognition_ane_maximum_width = 0;
+  std::uint32_t maximum_cached_functions = 1;
+};
 
 struct InferenceSessionConfig {
   std::uint32_t intra_op_threads = 1;
@@ -25,6 +46,10 @@ struct InferenceSessionConfig {
   std::string model_id;
   std::string model_sha256;
   std::string shape_policy;
+  std::optional<AppleModelPackage> apple_package;
+  std::string requested_provider_override;
+  bool session_fallback_used = false;
+  std::optional<std::string> fallback_reason;
 };
 
 class TensorOutput {

@@ -1,11 +1,11 @@
 # light-ocr Native C++ API
 
-Status: Core 0.2.0 tiled source contract published with `@arcships/light-ocr@0.2.0`<br>
+Status: Core 0.2.0 tiled contract published；0.2.1 Apple provider source candidate implemented and under qualification<br>
 Authority: public C++ source contract, ownership, lifecycle, errors, and compatibility  
 Requirements: [requirements.md](requirements.md)  
 Architecture: [architecture.md](architecture.md)
 
-The declarations below track the current source tree. Version 0.2.0 publishes the additive `DetectionStrategy::tiled` contract; bounded/960 remains the default and 0.1.0 retains only bounded/upstream detection.
+The declarations below track the current source tree. Version 0.2.0 publishes the additive `DetectionStrategy::tiled` contract; the 0.2.1 candidate adds an opt-in Apple provider without changing the CPU/bounded default.
 
 ## 1. Scope
 
@@ -194,6 +194,9 @@ struct RecognitionBatchShape {
   std::uint32_t batch_size = 0;
   std::uint32_t height = 0;
   std::uint32_t width = 0;
+  std::string compute_unit;
+  std::string model_id;
+  std::string shape_bucket;
 };
 
 struct DetectionPassShape {
@@ -286,7 +289,7 @@ struct DetectionOptions {
   std::optional<std::uint32_t> max_side;
 };
 
-enum class ExecutionProvider { cpu };
+enum class ExecutionProvider { cpu, apple };
 enum class SessionFallback { error, cpu };
 enum class CpuPartition { allow, forbid };
 enum class PerformanceHint { latency, throughput };
@@ -325,8 +328,10 @@ struct RecognizeOptions {
 Rules:
 
 - Thread counts are positive and fixed at creation.
-- The current release accepts only the default CPU execution policy. Explicit `fp32` is equivalent to `auto`; accelerator provider names, `fp16`, `device_id`, `cpuPartition=forbid`, `sessionFallback=cpu`, and the unqualified throughput hint fail with `invalid_argument` instead of being ignored.
-- Provider-specific values are added only after their self-contained release payload and qualification Gate are accepted. Runtime failures do not retry on CPU.
+- CPU remains the default. It accepts `auto`/`fp32`, requires `cpuPartition=allow`, `sessionFallback=error`, and uses the existing ONNX Runtime path.
+- The Apple provider accepts `auto`/`fp16`, bounded detection no larger than 960, recognition batch 1, and latency mode. `cpuPartition=allow` selects the qualified FP16 ANE path plus the width-based FP16 GPU route; `cpuPartition=forbid` selects the all-GPU strict path used for qualification.
+- `sessionFallback=cpu` permits one explicit whole-session fallback only when the Apple build, device family, or Core ML initialization is unavailable. The chosen CPU sessions report `session_fallback=true` and one of the stable reasons `apple_provider_not_built`, `apple_device_unavailable`, `apple_device_unqualified`, or `apple_initialization_failed`. Inference-time failures never retry on CPU.
+- Apple execution requires a schema 1.1 bundle containing the hash-locked provider payload. Unsupported device IDs, throughput mode, precision/provider combinations, detection strategies, and batch sizes fail instead of being ignored.
 - Score thresholds are finite and in `[0, 1]`.
 - Batch sizes are positive and no larger than the effective limit.
 - `bounded` defaults to side 960; its side is a positive 32 multiple no larger than the effective detection ceiling.
@@ -374,6 +379,8 @@ struct SessionExecutionInfo {
   std::string requested_provider;
   std::vector<std::string> actual_provider_chain;
   std::string device;
+  std::string device_family;
+  std::string operating_system;
   std::string precision;
   std::string shape_policy;
   std::string model_id;
@@ -382,6 +389,7 @@ struct SessionExecutionInfo {
   std::string runtime_version;
   std::string provider_version;
   std::string model_cache_status;
+  std::string qualification_id;
   bool session_fallback = false;
   std::optional<std::string> fallback_reason;
 };
@@ -422,7 +430,7 @@ struct EngineInfo {
 }  // namespace light_ocr
 ```
 
-`info` is an immutable creation snapshot. The returned reference remains valid until the engine object is destroyed, including after `close`. `provider_capabilities` distinguishes a provider included in the package from one available on the current device; each session then records what was actually configured. An ORT provider chain is configuration evidence, not proof of per-node device placement. Accelerator qualification records compute-plan/profiling evidence separately.
+`info` is an immutable creation snapshot. The returned reference remains valid until the engine object is destroyed, including after `close`. `provider_capabilities` distinguishes a provider included in the package from one qualified on the current device; each session then records what was actually configured. `RecognitionBatchShape` adds the per-request model/function bucket and ANE/GPU/CPU route. A configured provider chain is not itself placement proof: the Apple release gate separately checks every Core ML function with Compute Plan evidence and binds the result through `qualification_id`.
 
 ## 9. Engine API
 

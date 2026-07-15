@@ -109,9 +109,9 @@ Conversion and normalization are separate functions so tensor input can be compa
 
 Location: `src/inference/`
 
-The internal `InferenceSession` boundary accepts a float vector and shape, validates storage size with checked arithmetic, and returns a lifetime-owning validated float tensor view. `OnnxSession` implements that boundary with the bundled ONNX Runtime CPU Execution Provider; future qualified backends implement the same contract. No backend type appears in a public header.
+The internal `InferenceSession` boundary accepts a float vector and shape, validates storage size with checked arithmetic, and returns a lifetime-owning validated float tensor view. `OnnxSession` implements that boundary with the bundled ONNX Runtime CPU Execution Provider. On Apple builds, `CoreMlSession` implements the same boundary with system Core ML, zero-copy Float32 inputs, checked Float16/strided output conversion, lazy multifunction loading and a bounded compiled-model cache. No backend type appears in a public header.
 
-The interface owns no OCR algorithm. Each session exposes immutable execution metadata separately for detector and recognizer, including requested/actual provider chain, model hash, precision, shape policy, runtime/cache, and fallback status. Provider-chain configuration is not treated as proof of per-node accelerator placement.
+The interface owns no OCR algorithm. Each session exposes immutable execution metadata separately for detector and recognizer, including requested/actual provider chain, device family/OS, model hash, precision, shape policy, runtime/cache, qualification ID, and fallback status. Recognition diagnostics add the per-call model function and compute unit. Provider-chain configuration is not treated as proof of per-node accelerator placement; the release tool independently checks every Core ML function's Compute Plan.
 
 ### 3.6 Detection postprocessing
 

@@ -209,6 +209,30 @@ LIGHT_OCR_TEST(recognition_batches_restore_input_indices) {
   EXPECT_EQ(batch.value().shape[3], 480);
 }
 
+LIGHT_OCR_TEST(recognition_batches_apply_and_validate_runtime_width_buckets) {
+  const auto config = recognition_config();
+  internal::GeometryConfig geometry;
+  geometry.tall_line_ratio = 1.5f;
+  const std::vector<Quad> boxes{rectangle(416, 48)};
+  const std::vector<std::uint32_t> buckets{320, 480, 3200};
+  auto plans = internal::plan_recognition_batches(
+      boxes, geometry, config, 1, ResourceLimits{}, 32, buckets);
+  EXPECT_TRUE(plans);
+  EXPECT_EQ(plans.value()[0].samples[0].tensor_width, 480u);
+  std::vector<cv::Mat> crops{
+      cv::Mat(48, 416, CV_8UC3, cv::Scalar(0, 0, 0))};
+  auto batch = internal::make_recognition_batch(
+      crops, plans.value()[0], config, ResourceLimits{}, 32, buckets);
+  EXPECT_TRUE(batch);
+  EXPECT_EQ(batch.value().shape[3], 480);
+
+  const std::vector<std::uint32_t> unsorted{480, 320, 3200};
+  auto invalid = internal::plan_recognition_batches(
+      boxes, geometry, config, 1, ResourceLimits{}, 32, unsorted);
+  EXPECT_FALSE(invalid);
+  EXPECT_EQ(invalid.error().code, ErrorCode::invalid_argument);
+}
+
 LIGHT_OCR_TEST(recognition_batches_reject_invalid_batch_and_memory_limit) {
   std::vector<cv::Mat> crops{cv::Mat(48, 320, CV_8UC3, cv::Scalar(0, 0, 0))};
   const auto config = recognition_config();

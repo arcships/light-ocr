@@ -1,6 +1,6 @@
 # light-ocr Model Bundle
 
-Status: schema 1.2 / `tiled-v1` bundle published in npm `0.2.0`; schema 1.1 remains the immutable `0.1.0` bundle<br>
+Status: normalized schema 1.2 / `tiled-v1` published in npm `0.2.0`; manifest schema 1.1 Apple provider candidate implemented for 0.2.1<br>
 Authority: model identity, bundle schema, normalized configuration, integrity, and licensing  
 Requirements: [requirements.md](requirements.md)
 
@@ -15,6 +15,11 @@ detection: PP-OCRv6_small_det_onnx
 recognition: PP-OCRv6_small_rec_onnx
 text-line orientation: unavailable
 ```
+
+The 0.2.1 Apple candidate is a self-contained superset named
+`ppocrv6-small-apple-20260715.1`. It preserves the same ONNX CPU payload and
+normalized configuration while adding hash-locked FP16 Core ML packages and a
+qualified-device allow-list.
 
 PP-OCRv6 tiny is a future independent bundle. PP-OCRv6 medium is architecture-compatible but is not a release target until an official ONNX artifact is pinned and validated.
 
@@ -80,6 +85,20 @@ ppocrv6-small-onnx-20260714.2/
   SHA256SUMS
 ```
 
+The Apple bundle additionally contains:
+
+```text
+apple/
+  detector-fp16.mlpackage/
+  recognizer-fp16.mlpackage/
+  provenance.json
+```
+
+The recognizer is one 91-function MLProgram (`w0320` through `w3200`, step 32),
+not 91 resident sessions. The runtime rounds up to one of 20 locked weighted
+width buckets and lazily keeps at most 20 selected functions; the detector
+accepts the bounded 32–960 range.
+
 `ModelBundle::create` receives the complete directory as immutable in-memory files. It requires every payload named by `manifest.json`, including normalized config, dictionary, both ONNX/YAML pairs, licenses and notice; `SHA256SUMS` is the one permitted external checksum file. Recognition never parses YAML.
 
 ## 5. Integrity model
@@ -97,7 +116,7 @@ Runtime bundle validation verifies:
 - Path normalization and uniqueness.
 - Required files.
 - Complete `SHA256SUMS` coverage, including `manifest.json`.
-- Exact manifest schema `1.0` and Core compatibility.
+- Manifest schema `1.0` for CPU-only bundles or `1.1` for the explicit Apple provider payload, plus Core compatibility.
 - Every manifest payload hash.
 - Model ID and configuration agreement.
 - Tensor contract and dictionary identity.
@@ -157,7 +176,31 @@ A hash mismatch returns `model_integrity_failed`. A structurally invalid but cor
 }
 ```
 
-The real manifest lists every payload file. Core `0.1.x` and `0.2.0` accept manifest schema `1.0` exactly; normalized configuration evolves independently. A future manifest schema revision requires an explicit Core compatibility decision instead of being silently accepted.
+The real manifest lists every payload file. Core `0.1.x` and `0.2.0` accept manifest schema `1.0`; the 0.2.1 source accepts schema `1.1` only when the complete, versioned Apple provider object below validates. Normalized configuration evolves independently. Any other manifest schema revision is rejected instead of being silently accepted.
+
+### 6.1 Apple provider extension
+
+Schema 1.1 adds a top-level `providers.apple` object. Its release contract fixes:
+
+- `minimumMacOS: "15.0"`, `architecture: "arm64"`, a non-empty qualified
+  Apple Silicon family list, and `qualificationId: "apple-fp16-mixed-20260715.1"`;
+- detector package/model/hash/tensor/shape identities, interactive ANE and
+  strict GPU policies, plus the maximum qualified MLCPU operation envelope;
+- recognizer package identity, 32-pixel width multiple, ANE maximum width 1600,
+  `w%04u` function mapping, all 91 qualified widths, the locked 20 runtime
+  width buckets, and an LRU ceiling of 20 functions;
+- every `.mlpackage` member in the normal manifest inventory and a package-level
+  inventory hash, so changing either protobuf or weights invalidates the bundle.
+- conversion removes the volatile Core ML conversion date, deterministically
+  serializes every model protobuf, and replaces package entry UUIDs with stable
+  UUIDv5 identifiers before checking the locked package hashes.
+
+`qualifiedMLCPUOperations` is a maximum reviewed envelope, not a requirement
+that every shape use every listed CPU operation. Qualification rejects unknown
+or excess MLCPU operations, missing ANE placement below the boundary, any CPU
+operation on the strict GPU route, incomplete width coverage, or argmax parity
+changes. A device family not present in `qualifiedDeviceFamilies` cannot start
+Core ML; only an explicit session-level CPU fallback may continue.
 
 ## 7. Normalized configuration
 

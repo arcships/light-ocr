@@ -7,7 +7,11 @@ if(APPLE AND (NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET OR
     "Minimum macOS deployment target" FORCE)
 endif()
 
-project(light_ocr VERSION 0.2.0 LANGUAGES CXX)
+project(light_ocr VERSION 0.2.1 LANGUAGES CXX)
+
+if(APPLE)
+  enable_language(OBJCXX)
+endif()
 
 include(CTest)
 include(GNUInstallDirs)
@@ -73,6 +77,9 @@ add_library(light_ocr_core STATIC
   src/result/result.cpp
   src/util/sha256.cpp
 )
+if(APPLE)
+  target_sources(light_ocr_core PRIVATE src/inference/coreml/backend.mm)
+endif()
 add_library(light_ocr::core ALIAS light_ocr_core)
 
 target_include_directories(light_ocr_core
@@ -92,6 +99,17 @@ target_link_libraries(light_ocr_core
     light_ocr::clipper
     Threads::Threads
 )
+
+if(APPLE)
+  find_library(LIGHT_OCR_COREML_FRAMEWORK CoreML REQUIRED)
+  find_library(LIGHT_OCR_FOUNDATION_FRAMEWORK Foundation REQUIRED)
+  target_link_libraries(light_ocr_core PRIVATE
+    "${LIGHT_OCR_COREML_FRAMEWORK}"
+    "${LIGHT_OCR_FOUNDATION_FRAMEWORK}")
+  target_compile_options(light_ocr_core PRIVATE
+    $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
+  target_compile_definitions(light_ocr_core PRIVATE LIGHT_OCR_HAS_COREML=1)
+endif()
 
 target_compile_definitions(light_ocr_core PRIVATE LIGHT_OCR_VERSION="${PROJECT_VERSION}")
 
@@ -128,7 +146,8 @@ if(LIGHT_OCR_BUILD_TOOLS)
 
   add_executable(light_ocr_leak_check tools/leak_check/main.cpp tools/common/bundle_files.cpp)
   target_link_libraries(light_ocr_leak_check PRIVATE light_ocr::core nlohmann_json::nlohmann_json)
-  target_include_directories(light_ocr_leak_check PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tools)
+  target_include_directories(light_ocr_leak_check PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/tools)
   light_ocr_stage_onnxruntime(light_ocr_leak_check)
 
   add_executable(light_ocr_stage_probe tools/stage_probe/main.cpp tools/common/bundle_files.cpp)
@@ -172,6 +191,25 @@ if(LIGHT_OCR_BUILD_TESTS)
   light_ocr_stage_onnxruntime(light_ocr_integration_tests)
   add_test(NAME light_ocr_integration_tests COMMAND light_ocr_integration_tests)
   set_tests_properties(light_ocr_integration_tests PROPERTIES SKIP_RETURN_CODE 77)
+  if(APPLE)
+    add_executable(light_ocr_apple_integration_tests
+      tests/integration/apple.cpp tools/common/bundle_files.cpp)
+    target_link_libraries(light_ocr_apple_integration_tests PRIVATE
+      light_ocr::core nlohmann_json::nlohmann_json opencv_core opencv_imgproc
+      Threads::Threads)
+    target_include_directories(light_ocr_apple_integration_tests PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/tools)
+    light_ocr_stage_onnxruntime(light_ocr_apple_integration_tests)
+    add_test(NAME light_ocr_apple_integration_tests
+      COMMAND light_ocr_apple_integration_tests)
+    set_tests_properties(light_ocr_apple_integration_tests PROPERTIES
+      SKIP_RETURN_CODE 77 LABELS "acceptance;apple" TIMEOUT 180)
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-apple-20260715.1/manifest.json")
+      set_tests_properties(light_ocr_apple_integration_tests PROPERTIES
+        ENVIRONMENT
+          "LIGHT_OCR_APPLE_MODEL_BUNDLE=${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-apple-20260715.1;LIGHT_OCR_APPLE_TEST_PIXELS=${CMAKE_CURRENT_SOURCE_DIR}/corpus/fixtures/generated-hello-123/pixels.bin")
+    endif()
+  endif()
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-onnx-20260714.2/manifest.json")
     set_tests_properties(light_ocr_integration_tests PROPERTIES
       ENVIRONMENT "LIGHT_OCR_MODEL_BUNDLE=${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-onnx-20260714.2")

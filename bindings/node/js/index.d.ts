@@ -3,7 +3,7 @@
 export type PixelFormat = 'gray8' | 'rgb8' | 'bgr8' | 'rgba8';
 export type DetectionStrategy = 'bounded' | 'tiled' | 'upstreamExact';
 export type BuiltInModel = 'ppocrv6-small';
-export type ExecutionProvider = 'cpu';
+export type ExecutionProvider = 'cpu' | 'apple';
 export type SessionFallback = 'error' | 'cpu';
 export type CpuPartition = 'allow' | 'forbid';
 export type PerformanceHint = 'latency' | 'throughput';
@@ -83,6 +83,9 @@ export interface RecognitionBatchShape {
   readonly batchSize: number;
   readonly height: number;
   readonly width: number;
+  readonly computeUnit: 'cpu' | 'ane' | 'gpu';
+  readonly modelId: string;
+  readonly shapeBucket: string;
 }
 export interface DetectionPassShape {
   readonly tileOrdinal: number;
@@ -146,6 +149,8 @@ export interface SessionExecutionInfo {
   readonly requestedProvider: string;
   readonly actualProviderChain: readonly string[];
   readonly device: string;
+  readonly deviceFamily: string;
+  readonly operatingSystem: string;
   readonly precision: string;
   readonly shapePolicy: string;
   readonly modelId: string;
@@ -154,6 +159,7 @@ export interface SessionExecutionInfo {
   readonly runtimeVersion: string;
   readonly providerVersion: string;
   readonly modelCacheStatus: string;
+  readonly qualificationId: string;
   readonly sessionFallback: boolean;
   readonly fallbackReason?: string;
 }
