@@ -1,6 +1,6 @@
 # light-ocr Native C++ API
 
-Status: Core 0.2.0 tiled contract published；0.2.1 Apple provider source candidate implemented and under qualification<br>
+Status: Core 0.2.0 tiled contract published；0.2.1 Apple provider source implemented and locally qualified for M4<br>
 Authority: public C++ source contract, ownership, lifecycle, errors, and compatibility  
 Requirements: [requirements.md](requirements.md)  
 Architecture: [architecture.md](architecture.md)

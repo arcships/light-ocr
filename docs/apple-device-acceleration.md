@@ -1,12 +1,12 @@
 # Apple Device 加速技术方案
 
-状态：Implemented candidate；M4 Max 本地实现、放置、质量、性能、缓存和 100 页生命周期 Gate 已通过，M1/M2 远端资格尚待通过；不代表已经发布
+状态：Implemented and locally qualified；M4 Max 的实现、放置、质量、性能、缓存、100 页生命周期和未资格设备 CPU fallback Gate 已通过；不代表已经发布
 
 更新时间：2026-07-15
 
 范围：以 macOS Apple Silicon 为当前交付目标；iPhone/iPad 只保留架构兼容性，不在当前 Tier 1 平台承诺内
 
-实施状态：Direct Objective-C++ Core ML bridge、schema 1.1 capability manifest、哈希锁 FP16 模型派生、自包含 npm 模型包、ANE/GPU 混合路由、严格 GPU 模式、离线编译缓存、跨进程锁、20 个加权宽度桶的有界函数缓存、设备资格与显式 CPU fallback、C++/Node API 和资格工具均已实现。默认仍为 ONNX Runtime CPU；Apple 必须显式请求并由 bundle 中的设备族 allow-list 放行。正式发布仍取决于本节 Gate 和双设备 CI 证据。
+实施状态：Direct Objective-C++ Core ML bridge、schema 1.1 capability manifest、哈希锁 FP16 模型派生、自包含 npm 模型包、ANE/GPU 混合路由、严格 GPU 模式、离线编译缓存、跨进程锁、20 个加权宽度桶的有界函数缓存、设备资格与显式 CPU fallback、C++/Node API 和资格工具均已实现。默认仍为 ONNX Runtime CPU；Apple 必须显式请求并由 bundle 中的设备族 allow-list 放行。当前 accepted allow-list 只包含真实 M4 Max 上通过完整 Gate 的 `Apple M4`；M1–M3 不宣称加速并稳定回退 CPU。
 
 关联 Roadmap：[Perf-0–Perf-4](roadmap.md#7-perf-0perf-4--性能与宿主加速线)
 
@@ -91,27 +91,27 @@ flowchart TD
 
 设备为 Apple M4 Max。完整文档 workload 是同一份 15 页参考 PDF，SHA-256 为 `d9be780fe4674e16ca78a09e1513dff0665ac02cbbbbc56f80381d8f0f5e12c4`，200 DPI 渲染为 1700×2200 页面。以下数据是 spike 证据，不是发布性能承诺。
 
-该 SHA 对应的 PDF 不在仓库、git history 或当前工作区可访问的本机文件中，因此旧 15 页数据目前只能作为历史 spike，不能被本次实现冒充为可复跑的正式证据。当前自动化 Gate 使用提交前锁定的 `generated-hello-123` 与 `paddleocr-xfund-form` 两个 workload、完整 14-fixture 质量语料和 100 次生命周期；恢复上述 PDF 后还必须补跑同一 SHA 的 15 页 scoreboard。
+该 SHA 对应的 PDF 不在仓库、git history 或当前工作区可访问的本机文件中，因此旧 15 页数据只能作为历史 spike，不能被本次实现冒充为可复跑的正式证据，也不作为当前 M4 provider 的完成或发布门槛。正式 Gate 使用提交前锁定的 `generated-hello-123` 与 `paddleocr-xfund-form` 两个 workload、完整 14-fixture 质量语料和 100 次生命周期；未来恢复该 PDF 时可补跑同一 SHA 的历史 scoreboard。
 
 #### FP16 混合生产候选的锁定 Gate
 
-2026-07-15 的 M4 Max 本机报告使用 acceptance SHA-256 `97b99d6e…f57d6`，得到：
+2026-07-15 的 M4 Max 本机报告使用 acceptance SHA-256 `b3fe8423…5460`，得到：
 
 | 验收面 | 本机结果 | 锁定门槛 |
 | --- | ---: | ---: |
 | Core ML placement | detector 通过；recognition 91/91 函数通过 | 覆盖完整，无未声明设备回退 |
 | 字符相似度 | 99.6484% | ≥99.5% |
 | detection recall / 平均 IoU | 100% / 99.5508% | ≥99.5% / ≥98% |
-| `generated-hello-123` warm P50 | 8.708 ms，相对 CPU 2.287× | ≥1.5× |
-| `paddleocr-xfund-form` warm P50 | 330.837 ms，相对 CPU 2.808× | ≥1.5× |
-| 两 workload CPU time 降幅 | 95.86% / 97.65% | ≥80% |
-| canary cold start | cache miss 7.289 s；hit 1.285/1.282 s | miss ≤30 s；hit ≤3 s |
-| warm peak RSS | 最大 695.97 MiB | ≤768 MiB |
+| `generated-hello-123` warm P50 | 8.599 ms，相对 CPU 2.300× | ≥1.5× |
+| `paddleocr-xfund-form` warm P50 | 331.011 ms，相对 CPU 2.851× | ≥1.5× |
+| 两 workload CPU time 降幅 | 95.91% / 97.67% | ≥80% |
+| canary cold start | cache miss 7.219 s；hit 1.275/1.278 s | miss ≤30 s；hit ≤3 s |
+| warm peak RSS | 最大 692.14 MiB | ≤768 MiB |
 | Apple bundle 增量 | 25.42 MiB | ≤32 MiB |
 | 四进程缓存竞争 | 通过，无残留临时目录 | 只允许每阶段一个 miss |
-| 同 engine 100 页 RSS 增长 | -21.39 MiB，测量最大 745.14 MiB | ≤64 MiB（工具实际执行 ≤32 MiB） |
+| 同 engine 100 页 RSS 增长 | -27.47 MiB，测量最大 888.09 MiB | ≤64 MiB（工具实际执行 ≤32 MiB） |
 
-密集表单的首次整页耗时另行保留：cache miss 54.487 s，hit 12.834/12.784 s；其中包含 113 行 OCR 和 14 个 Core ML 函数的按需装载，不纳入固定 canary 的 provider cold-start ceiling。确定性派生的 detector/recognizer 包哈希分别为 `2097bd78…7f76` 与 `c54a0719…5f4b`；模型放置、质量、性能、缓存和生命周期报告哈希分别为 `e9d371db…c7373`、`0c4d9865…326e`、`e373a9a4…a983`、`df0e7b75…5b2c` 和 `5c20fc47…6a8fb`。
+密集表单的首次整页耗时另行保留：cache miss 53.846 s，hit 12.677/12.677 s；其中包含 113 行 OCR 和 14 个 Core ML 函数的按需装载，不纳入固定 canary 的 provider cold-start ceiling。确定性派生的 detector/recognizer 包哈希分别为 `2097bd78…7f76` 与 `c54a0719…5f4b`；`.2` acceptance 下的模型放置、质量、性能、缓存、生命周期和未资格设备回退报告哈希分别为 `f9b4cfdb…d983`、`79d5b9f6…6ae1`、`cecf7607…cd8d`、`8356c20c…2f64`、`f695157a…6195` 和 `2e72ab7e…d823`。
 
 #### CPU 与 FP16 GPU
 
@@ -352,13 +352,13 @@ Apple provider 继承 Roadmap Provider Gate，并增加交互式 CPU 目标：
 - 公共 contract 100% 通过；FP16/W8A8 的质量容差在查看最终 benchmark 前锁定；
 - reference PDF 不允许出现预注册的关键文本漏检；
 - 固定启动 canary 的 cold start、warm RSS、包增量和缓存行为通过预注册 ceiling；其他 workload 仍报告首次整页耗时；
-- 至少在两台目标设备上复核，其中 W8A8 必须覆盖计划宣称支持的硬件代际。
+- 每个进入 allow-list 的设备族必须至少在一台真实目标设备上完成全套复核；当前只发布资格内的 `Apple M4`。W8A8 若未来启用，必须覆盖计划宣称支持的每个硬件代际。
 
 ## 12. 分阶段落地
 
 ### Phase A — 固化证据和决策
 
-状态：除缺失的旧 15 页 PDF 重跑外已完成。Direct Core ML、shape contract、质量/性能/RSS/cache 阈值和 D111 addendum 已锁定。
+状态：已完成。Direct Core ML、shape contract、质量/性能/RSS/cache 阈值和 D111 addendum 已锁定；缺失的旧 15 页 PDF 只保留为历史 spike 复跑项。
 
 - 统一 CPU/CoreML 的 15 页 PDF benchmark harness。
 - 固定测试 corpus、质量指标和最简 scoreboard。
@@ -369,7 +369,7 @@ Apple provider 继承 Roadmap Provider Gate，并增加交互式 CPU 目标：
 
 ### Phase B — FP16 Apple interactive preview
 
-状态：实现完成，M4 Max 本机 Gate 已通过，M1/M2 双设备 Gate 待远端验收。
+状态：实现完成，M4 Max 本机全套 Gate 已通过；M1–M3 未进入 allow-list，按合同稳定回退 CPU。
 
 - Detector、常规 recognition 优先 FP16 ANE。
 - ANE-unqualified recognition shape 使用 FP16 GPU。
@@ -391,23 +391,23 @@ Apple provider 继承 Roadmap Provider Gate，并增加交互式 CPU 目标：
 
 ### Phase D — 稳定自包含分发
 
-状态：代码与 workflow 已实现；npm release 会在 macOS 从哈希锁工具链派生 Core ML 工件，并把 Apple superset bundle 与四平台 native package 组装为原有六包入口。正式发布仍需双设备 candidate 被接受。
+状态：代码与发布流程已实现；npm release 会在 macOS 从哈希锁工具链派生 Core ML 工件，并把 Apple superset bundle 与四平台 native package 组装为原有六包入口。重型模型派生、placement 和性能资格只在真实本机运行，不进入 CI；CI 保持跨平台编译、契约与轻量单测。
 
 - 将通过 Gate 的 Apple runtime/provider、模型派生物、SBOM、licenses、provenance 和签名纳入由主 facade 自动取得的 Darwin native release set，不新增用户安装入口。
 - 固化 device/OS/model compatibility manifest 和故障语义。
-- 在未安装任何额外 provider/runtime 的干净目标机上，通过两个目标设备、正式 corpus、禁网安装和 release qualification。
+- 在未安装任何额外 provider/runtime 的干净目标机上，对每个拟加入 allow-list 的设备族运行正式 corpus、禁网安装和 release qualification。
 
 退出条件：用户仅安装 `@arcships/light-ocr` 即可运行；从 `engine.info()` 和 qualification report 可以证明实际执行路径，且稳定 CPU fallback 保持可用。
 
 ## 13. 已落地决策与剩余外部证据
 
 1. 正式 backend 候选为 Direct Core ML；ORT 1.22 CoreML EP 在禁止 CPU fallback 时不能完整放置当前 graph，保留为未来对照而非产品路径。
-2. FP16 只对 manifest 明列且独立通过资格的 Apple Silicon family 启用；当前本机包只列 M4，M1/M2 必须由双设备 CI 产生证据后才能加入发布 allow-list。W8A8 仍不发布。
+2. FP16 只对 manifest 明列且在真实本机独立通过资格的 Apple Silicon family 启用；当前包只列 M4。M1–M3 必须取得对应真实设备并完成同一套本地 Gate 后才能加入 allow-list；CI 虚拟 M1 不暴露 GPU/Neural Engine，不能作为加速证据。W8A8 仍不发布。
 3. Detector 使用 32–960 的受限 range MLProgram；interactive 使用资格内 ANE/MLCPU envelope，strict 使用全 GPU。
 4. Recognition 使用 320–3200、步长 32 的 91-function MLProgram 做全量资格审查；运行时向上取整到锁定的 20 个加权 bucket，≤1600 走 ANE envelope，>1600 走 GPU，LRU≤20。
 5. 随包携带源 `.mlpackage`，首次运行离线编译并以 package/OS/device identity 缓存；不分发跨 OS 的预编译 `.mlmodelc`。
 6. 质量、两 workload speedup、CPU-time 降幅、canary 的 3 次 cold start、30 次 warm、RSS、同 engine 100 页生命周期和 32 MiB 包增量阈值由 `tools/apple/acceptance.json` 锁定。
-7. 剩余外部证据只有：M1/M2 workflow 的真实通过报告，以及重新取得 SHA `d9be…12c4` 的旧 15 页 PDF 后补跑文档 scoreboard。两者没有完成前，状态保持 candidate。
+7. M4 的 placement、质量、两 workload 性能、CPU-time、cache、RSS、100 页生命周期和未资格设备 CPU fallback 报告已完成并由 accepted provider baseline 锁定。旧 SHA `d9be…12c4` PDF 仅是无法复跑的历史 scoreboard，不阻塞当前 M4 实现；新增设备族时必须重新执行本地资格流程并审阅新 baseline。
 
 ## 14. 关联工作
 

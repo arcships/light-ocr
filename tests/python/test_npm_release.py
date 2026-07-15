@@ -107,7 +107,7 @@ class NpmReleaseTests(unittest.TestCase):
                         "apple": {
                             "schemaVersion": "1.0",
                             "architecture": "arm64",
-                            "qualifiedDeviceFamilies": ["Apple M1", "Apple M2"],
+                            "qualifiedDeviceFamilies": ["Apple M4"],
                         }
                     },
                 }) + "\n", "utf-8"

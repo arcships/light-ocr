@@ -219,22 +219,11 @@ gh workflow run tiled-qualification.yml --ref main -f run_benchmark=true
 
 benchmark 结果是独立资格审查证据，不是每次发布的重复步骤。需要建立或更新 accepted baseline 时，仍须人工 review 并作为源码提交；脚本不会自动接受当前值。`promote_latest` 默认为 `false`，需要在 registry evidence 人工核对后显式选择。
 
-Apple provider 另使用显式双设备资格 workflow；它在标准 `macos-15`
-(M1) 与 arm64 larger `macos-15-xlarge` (M2) 上消费同一模型 artifact，逐一运行
-91-function placement、5 个哨兵宽度 tensor parity、14-fixture 质量、两 workload 性能/CPU-time、并发空缓存、
-cold start/RSS 和 100 次生命周期 Gate：
+Apple provider 的模型派生、91-function placement、tensor parity、14-fixture 质量、两 workload 性能/CPU-time、并发空缓存、cold start/RSS 和 100 次生命周期 Gate 只在真实 Apple Silicon 本机执行，不进入 GitHub Actions。标准 hosted macOS runner 是虚拟 M1，不暴露可用于资格审查的 GPU/Neural Engine；普通 CI 只保留跨平台编译、契约和轻量单测。
 
-首次引入 workflow 的 PR 会在相关 Apple/runtime 路径变化时自动运行，避免
-`workflow_dispatch` 只能从默认分支发现 workflow 的循环依赖。合并后可显式重跑：
+本地资格目录必须先用 `tools/apple/capture_identity.py` 记录真实设备身份，再依次运行 `qualify_models.py`、`quality_gate.py`、`cache_concurrency_gate.py`、`performance_gate.py`、`light_ocr_leak_check` 和 `fallback_gate.py`。完整命令及阈值以 [Apple Device 加速技术方案](apple-device-acceleration.md) 和 `tools/apple/acceptance.json` 为准。每个拟加入 allow-list 的设备族都必须单独保留五份正向报告；`fallback_gate.py` 通过临时排除当前设备族，证明 `apple_device_unqualified` 会稳定切到 ONNX Runtime CPU。
 
-```bash
-gh workflow run apple-qualification.yml \
-  --ref main \
-  -f run_qualification=true
-```
-
-`collect` 只输出 candidate；它会验证模型、质量、性能、缓存和生命周期报告哈希，但仍必须审阅设备身份、报告内容和门槛。审阅后用
-`tools/apple/accept_qualification.py` 生成并提交 `contracts/apple-provider-baselines.json`；npm release 会校验该文件的自身哈希、acceptance、模型身份与至少两个设备族，并只从这个 accepted contract 生成发布 bundle allow-list。
+`tools/apple/collect_qualification.py` 只从本地真机报告输出 candidate；它会验证设备身份、模型、质量、性能、缓存和生命周期报告自哈希。审阅后用 `tools/apple/accept_qualification.py` 生成并提交 `contracts/apple-provider-baselines.json`。npm release 会校验该文件的自身哈希、acceptance、模型身份与至少一个真实资格设备族，并只从 accepted contract 生成发布 bundle allow-list；当前只包含 `Apple M4`。
 
 `.github/workflows/npm-promote.yml` 只负责给已经发布且完整性已验证的 release set 更新 dist-tag。它必须引用原 `npm release` run 保存的 `light-ocr-npm-<version>` artifact，逐包复核 registry integrity，并按 model/native 依赖优先、facade 最后的顺序更新；不会重新构建、测试或发布 tarball。该 workflow 用于人工分阶段 promotion，以及 npm metadata 最终一致性导致主发布 job 在 tag 校验阶段中断后的安全恢复。
 

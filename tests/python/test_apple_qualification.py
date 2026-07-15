@@ -9,6 +9,7 @@ from unittest import mock
 from tools.apple import (
     accept_qualification,
     collect_qualification,
+    fallback_gate,
     package_bundle,
     performance_gate,
 )
@@ -42,7 +43,7 @@ class AppleQualificationCollectorTests(unittest.TestCase):
             },
         }
 
-    def test_collects_two_distinct_devices_with_identical_models(self) -> None:
+    def test_collects_a_locally_qualified_device(self) -> None:
         with tempfile.TemporaryDirectory() as work:
             root = Path(work)
             acceptance = {
@@ -51,6 +52,8 @@ class AppleQualificationCollectorTests(unittest.TestCase):
                     "artifactId": "artifact",
                     "detectionPackageSha256": "det",
                     "recognitionPackageSha256": "rec",
+                    "detectionCpuSha256": "cpu-det",
+                    "recognitionCpuSha256": "cpu-rec",
                 },
                 "routing": {
                     "recognitionWidthMultiple": 32,
@@ -65,14 +68,16 @@ class AppleQualificationCollectorTests(unittest.TestCase):
                     "coldStartWorkloadId": "generated-hello-123",
                     "maximumResidentGrowthAfter100PagesBytes": 64,
                 },
-                "compatibility": {"minimumQualifiedDevices": 2},
+                "compatibility": {
+                    "minimumQualifiedDevices": 1,
+                },
             }
             acceptance_path = root / "acceptance.json"
             self.write_json(acceptance_path, acceptance)
             acceptance_hash = collect_qualification.hashlib.sha256(
                 acceptance_path.read_bytes()
             ).hexdigest()
-            for identifier, family in (("m1", "Apple M1"), ("m2", "Apple M2")):
+            for identifier, family in (("m4", "Apple M4"),):
                 directory = root / "reports" / identifier
                 self.write_json(directory / "identity.json", {
                     "expectedDeviceFamily": family,
@@ -142,7 +147,7 @@ class AppleQualificationCollectorTests(unittest.TestCase):
                 self.assertEqual(collect_qualification.main(), 0)
             candidate = json.loads(output.read_text("utf-8"))
             self.assertEqual(candidate["status"], "candidate")
-            self.assertEqual(candidate["qualifiedDeviceFamilies"], ["Apple M1", "Apple M2"])
+            self.assertEqual(candidate["qualifiedDeviceFamilies"], ["Apple M4"])
             self.assertEqual(candidate["modelPackageSha256"], {
                 "detection": "det", "recognition": "rec"
             })
@@ -164,6 +169,28 @@ class AppleQualificationCollectorTests(unittest.TestCase):
                 [{"execution": execution}], "apple-test", ("det", "rec"), "test"
             )
 
+    def test_validates_the_locked_unqualified_device_fallback(self) -> None:
+        execution = {"requestedProvider": "apple"}
+        for stage, model_hash in (("detection", "cpu-det"),
+                                  ("recognition", "cpu-rec")):
+            execution[stage] = {
+                "requestedProvider": "apple",
+                "actualProviderChain": ["CPUExecutionProvider"],
+                "device": "cpu",
+                "precision": "fp32",
+                "modelSha256": model_hash,
+                "sessionFallback": True,
+                "fallbackReason": "apple_device_unqualified",
+            }
+        fallback_gate.validate_cpu_fallback(
+            {"execution": execution}, ("cpu-det", "cpu-rec")
+        )
+        execution["recognition"]["sessionFallback"] = False
+        with self.assertRaisesRegex(RuntimeError, "locked CPU fallback path"):
+            fallback_gate.validate_cpu_fallback(
+                {"execution": execution}, ("cpu-det", "cpu-rec")
+            )
+
     def test_accepts_and_validates_a_reviewed_provider_baseline(self) -> None:
         acceptance = {
             "qualificationId": "apple-test",
@@ -171,8 +198,12 @@ class AppleQualificationCollectorTests(unittest.TestCase):
                 "artifactId": "artifact",
                 "detectionPackageSha256": "d" * 64,
                 "recognitionPackageSha256": "r" * 64,
+                "detectionCpuSha256": "c" * 64,
+                "recognitionCpuSha256": "e" * 64,
             },
-            "compatibility": {"minimumQualifiedDevices": 2},
+            "compatibility": {
+                "minimumQualifiedDevices": 1,
+            },
         }
         acceptance_bytes = json.dumps(acceptance).encode("utf-8")
         acceptance_sha256 = collect_qualification.hashlib.sha256(
@@ -189,10 +220,9 @@ class AppleQualificationCollectorTests(unittest.TestCase):
                 "detection": "d" * 64,
                 "recognition": "r" * 64,
             },
-            "qualifiedDeviceFamilies": ["Apple M1", "Apple M2"],
+            "qualifiedDeviceFamilies": ["Apple M4"],
             "devices": [
-                {"deviceFamily": "Apple M1"},
-                {"deviceFamily": "Apple M2"},
+                {"deviceFamily": "Apple M4"},
             ],
         }
         candidate["reportSha256"] = collect_qualification.report_hash(candidate)
@@ -214,7 +244,7 @@ class AppleQualificationCollectorTests(unittest.TestCase):
                 package_bundle.accepted_device_families(
                     accepted_path, acceptance, acceptance_sha256
                 ),
-                ["Apple M1", "Apple M2"],
+                ["Apple M4"],
             )
 
     def test_rejects_tampered_accepted_provider_baseline(self) -> None:

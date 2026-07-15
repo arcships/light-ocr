@@ -1,10 +1,12 @@
 {
-  "schemaVersion": "1.0",
-  "qualificationId": "apple-fp16-mixed-20260715.1",
+  "schemaVersion": "1.1",
+  "qualificationId": "apple-fp16-mixed-20260715.2",
   "models": {
     "artifactId": "apple-fp16-20260715.1",
     "detectionPackageSha256": "2097bd785947c6bc239bfcb27599362c48ec78bab72f439583e41a585b727f76",
-    "recognitionPackageSha256": "c54a0719cbde2d93e65eb40dd01fff5b78373b5aaaaa648fee614d3ef3615f4b"
+    "recognitionPackageSha256": "c54a0719cbde2d93e65eb40dd01fff5b78373b5aaaaa648fee614d3ef3615f4b",
+    "detectionCpuSha256": "d73e0058b7a8086bbd57f3d10b8bcd4ff95363f67e06e2762b5e814fe9c9410e",
+    "recognitionCpuSha256": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634"
   },
   "routing": {
     "recognitionWidthMultiple": 32,
@@ -49,6 +51,6 @@
   "compatibility": {
     "minimumMacOS": "15.0",
     "architectures": ["arm64"],
-    "minimumQualifiedDevices": 2
+    "minimumQualifiedDevices": 1
   }
 }

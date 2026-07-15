@@ -1,6 +1,6 @@
 # light-ocr Model Bundle
 
-Status: normalized schema 1.2 / `tiled-v1` published in npm `0.2.0`; manifest schema 1.1 Apple provider candidate implemented for 0.2.1<br>
+Status: normalized schema 1.2 / `tiled-v1` published in npm `0.2.0`; manifest schema 1.1 Apple provider implemented and locally qualified for M4 in 0.2.1 source<br>
 Authority: model identity, bundle schema, normalized configuration, integrity, and licensing  
 Requirements: [requirements.md](requirements.md)
 
@@ -183,7 +183,7 @@ The real manifest lists every payload file. Core `0.1.x` and `0.2.0` accept mani
 Schema 1.1 adds a top-level `providers.apple` object. Its release contract fixes:
 
 - `minimumMacOS: "15.0"`, `architecture: "arm64"`, a non-empty qualified
-  Apple Silicon family list, and `qualificationId: "apple-fp16-mixed-20260715.1"`;
+  Apple Silicon family list, and `qualificationId: "apple-fp16-mixed-20260715.2"`;
 - detector package/model/hash/tensor/shape identities, interactive ANE and
   strict GPU policies, plus the maximum qualified MLCPU operation envelope;
 - recognizer package identity, 32-pixel width multiple, ANE maximum width 1600,

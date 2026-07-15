@@ -314,7 +314,7 @@ def main() -> int:
     parser.add_argument("--ane-maximum-width", type=int, default=1600)
     parser.add_argument(
         "--qualification-id",
-        default="apple-fp16-mixed-20260715.1",
+        default="apple-fp16-mixed-20260715.2",
     )
     parser.add_argument("--widths", help="Comma-separated development subset")
     parser.add_argument("--jobs", type=int, default=1,

@@ -265,7 +265,7 @@ def assemble(arguments: argparse.Namespace) -> None:
             apple_provider.get("schemaVersion") != "1.0" or
             apple_provider.get("architecture") != "arm64" or
             not isinstance(qualified_families, list) or
-            len(qualified_families) < 2 or
+            len(qualified_families) < 1 or
             len(qualified_families) != len(set(qualified_families)) or
             any(family not in {"Apple M1", "Apple M2", "Apple M3", "Apple M4"}
                 for family in qualified_families)):
