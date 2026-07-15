@@ -176,6 +176,21 @@ Facade 只按固定映射加载 package：
 
 未知组合以 `unsupported_platform` 拒绝 `createEngine()`。已支持组合但 native package 缺失时，以 `package_load_failed` 拒绝，并提示重新安装且不要使用 `--omit=optional`；不能静默源码编译或在线下载二进制。开发环境仍可显式设置 `LIGHT_OCR_NODE_BINARY`，但 published README 不把它当作生产配置。
 
+### 5.1 未来硬件加速的分发约束
+
+未来 CoreML、DirectML、OpenVINO、TensorRT、VitisAI、QNN 或其他 provider 不得改变本节的用户契约：正常用户仍只运行 `npm install @arcships/light-ocr`，不能被要求另装或配置 ONNX Runtime、Windows ML framework runtime、CUDA、TensorRT、OpenVINO、Ryzen AI/VitisAI、QNN SDK、Python 或编译工具链。正常操作系统和硬件 driver 是唯一允许的系统前置条件。
+
+加速 payload 遵守以下规则：
+
+- facade 继续按 OS/CPU 自动选择 native platform package；provider 探测和选择发生在 native package 内部。
+- runtime、EP/plugin、provider-specific model/context、license、SBOM 和 compatibility manifest 必须随同一 exact-version release set 取得。
+- npm 不支持按 Intel/NVIDIA/AMD GPU vendor 筛选 optional dependency。一个厂商 payload 如果进入默认 Windows package，所有 Windows x64 安装都会承担其下载和磁盘成本，因此必须独立通过用户加权收益与 package-size Gate。
+- provider payload 可以物理包含在 native tarball，也可以由 native package 依赖内部、同版本、同平台 shard；两种形式都必须在一次顶层安装中自动完成，内部 shard 不成为用户安装入口。
+- 禁止 install/postinstall 按硬件下载 runtime、现场编译 provider、调用厂商安装器，或从 PATH、注册表和全局 SDK 目录借用未锁定 DLL。
+- 发布 Gate 必须在未安装厂商 SDK/runtime 的干净目标系统上，仅使用 npm tarball 和正常硬件 driver 完成离线安装、engine 创建和真实推理。
+
+因此“一个公共入口、完全离线、较小 Windows package、同时获得所有厂商最优性能”不能被当作无成本组合。默认 native package 只接收通过收益、质量、体积、许可和维护 Gate 的 provider；没有通过时保留稳定 CPU/广覆盖 backend，而不是把依赖安装责任交给用户。该规则不改变已发布 `0.2.0` 的六包内容，只约束后续加速 release set。
+
 ## 6. 公共 API 与默认解析
 
 目标 TypeScript API 是：
