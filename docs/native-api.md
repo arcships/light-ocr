@@ -286,6 +286,21 @@ struct DetectionOptions {
   std::optional<std::uint32_t> max_side;
 };
 
+enum class ExecutionProvider { cpu };
+enum class SessionFallback { error, cpu };
+enum class CpuPartition { allow, forbid };
+enum class PerformanceHint { latency, throughput };
+enum class Precision { automatic, fp32, fp16 };
+
+struct ExecutionOptions {
+  ExecutionProvider provider = ExecutionProvider::cpu;
+  SessionFallback session_fallback = SessionFallback::error;
+  CpuPartition cpu_partition = CpuPartition::allow;
+  std::optional<std::uint32_t> device_id;
+  PerformanceHint performance_hint = PerformanceHint::latency;
+  Precision precision = Precision::automatic;
+};
+
 struct EngineOptions {
   std::uint32_t intra_op_threads = 1;
   std::uint32_t inter_op_threads = 1;
@@ -293,6 +308,7 @@ struct EngineOptions {
   std::optional<std::uint32_t> recognition_batch_size;
   std::optional<ResourceLimits> reduced_limits;
   DetectionOptions detection;
+  ExecutionOptions execution;
 };
 
 struct RecognizeOptions {
@@ -309,6 +325,8 @@ struct RecognizeOptions {
 Rules:
 
 - Thread counts are positive and fixed at creation.
+- The current release accepts only the default CPU execution policy. Explicit `fp32` is equivalent to `auto`; accelerator provider names, `fp16`, `device_id`, `cpuPartition=forbid`, `sessionFallback=cpu`, and the unqualified throughput hint fail with `invalid_argument` instead of being ignored.
+- Provider-specific values are added only after their self-contained release payload and qualification Gate are accepted. Runtime failures do not retry on CPU.
 - Score thresholds are finite and in `[0, 1]`.
 - Batch sizes are positive and no larger than the effective limit.
 - `bounded` defaults to side 960; its side is a positive 32 multiple no larger than the effective detection ceiling.
@@ -346,13 +364,49 @@ struct TiledDetectionInfo {
   float merge_ios_threshold = 0;
 };
 
+struct ProviderCapabilityInfo {
+  std::string provider;
+  bool package_included = false;
+  bool device_available = false;
+};
+
+struct SessionExecutionInfo {
+  std::string requested_provider;
+  std::vector<std::string> actual_provider_chain;
+  std::string device;
+  std::string precision;
+  std::string shape_policy;
+  std::string model_id;
+  std::string model_sha256;
+  std::string runtime;
+  std::string runtime_version;
+  std::string provider_version;
+  std::string model_cache_status;
+  bool session_fallback = false;
+  std::optional<std::string> fallback_reason;
+};
+
+struct ExecutionInfo {
+  ExecutionProvider requested_provider;
+  SessionFallback session_fallback;
+  CpuPartition cpu_partition;
+  std::optional<std::uint32_t> device_id;
+  PerformanceHint performance_hint;
+  Precision requested_precision;
+  std::vector<ProviderCapabilityInfo> provider_capabilities;
+  SessionExecutionInfo detection;
+  SessionExecutionInfo recognition;
+};
+
 struct EngineInfo {
   std::string core_version;
   std::string model_bundle_id;
   std::string model_bundle_schema_version;
   std::string normalized_config_schema_version;
   std::string backend;
+  // Compatibility aggregate. Prefer execution.detection/recognition.
   std::string execution_provider;
+  ExecutionInfo execution;
   Capabilities capabilities;
   ConcurrencyMode concurrency_mode;
   ResourceLimits limits;
@@ -368,7 +422,7 @@ struct EngineInfo {
 }  // namespace light_ocr
 ```
 
-`info` is an immutable creation snapshot. The returned reference remains valid until the engine object is destroyed, including after `close`.
+`info` is an immutable creation snapshot. The returned reference remains valid until the engine object is destroyed, including after `close`. `provider_capabilities` distinguishes a provider included in the package from one available on the current device; each session then records what was actually configured. An ORT provider chain is configuration evidence, not proof of per-node device placement. Accelerator qualification records compute-plan/profiling evidence separately.
 
 ## 9. Engine API
 
@@ -409,8 +463,8 @@ The concrete implementation is hidden behind the factory.
 
 1. Validates engine options.
 2. Revalidates the bundle compatibility contract.
-3. Creates the ORT environment relationship.
-4. Creates detection and recognition sessions.
+3. Selects the bundled inference backend from the validated execution policy.
+4. Creates detection and recognition sessions independently.
 5. Validates session inputs and outputs.
 6. Publishes a Ready engine.
 

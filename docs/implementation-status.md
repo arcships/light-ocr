@@ -1,6 +1,6 @@
 # C++ Core 与 Node-API 实施状态
 
-更新时间：2026-07-14  
+更新时间：2026-07-15<br>
 结论：`@arcships/light-ocr@0.2.0` 已发布并提升为 npm `latest`。它包含 `tiled-v1`、schema 1.2 bundle、八张独立 ground truth、Python oracle、确定性/质量门禁，以及 Node.js 内存 JPEG/PNG 输入；四平台 Core/Node baseline、无 benchmark release preflight、六包 provenance、registry integrity 与禁网运行证据均已保存。0.1.0 及其 bounded/960 行为保持不变，bounded/960 在 0.2.0 中也仍是默认策略。
 
 状态含义：
@@ -25,6 +25,7 @@
 | 无 network/shell/cwd/locale 运行依赖 | Done | sterile cwd/minimal env 与 Linux network namespace disabled 测试通过；npm release 另完成已安装 package 的禁网运行。 |
 | manifest、hash、licenses、SBOM、parity、benchmark | Done | Release commit 已重新生成并保存四平台 metadata、六个 npm tarballs 的 hashes/integrity、parity、quality 与 benchmark 证据。 |
 | N-API/npm 非本 Core milestone | Done / `0.2.0` published | raw Node-API v8、CJS/ESM、`.d.ts`、内置模型解析、四平台 prebuild、双重背压、AbortSignal 与生命周期均已完成；[npm release run 29340467784](https://github.com/arcships/light-ocr/actions/runs/29340467784) 与 [promotion run 29342178842](https://github.com/arcships/light-ocr/actions/runs/29342178842) 保存六包发布、registry 和禁网证据。 |
+| Perf-1A execution contract | Done（本地，未发布 accelerator） | provider-neutral `InferenceSession`、`EngineOptions.execution`、detector/recognizer 分 stage `EngineInfo.execution.sessions`、模型 hash/runtime/cache/fallback 诊断和 Node deep-frozen 映射已完成；当前 union 仅含 CPU，Apple/CoreML payload 与 placement qualification 仍 pending。 |
 | Node.js JPEG/PNG 内存输入 | Done / `0.2.0` published | `recognizeEncoded(Uint8Array)` 在 engine worker 上使用固定 stb revision 解码，保持 Core raw-pixel 边界；格式、尺寸、pixels、临时内存、queue/snapshot budget、AbortSignal 与 `timingUs.decode` 均有四平台 Node 22/24 package 测试。 |
 | 高分辨率峰值内存 | Done | Release 原生独立进程本机参考：2048² 空白 `318.8 MiB ≤ 384 MiB`；xfund 密集表单 116 框 `400.5 MiB ≤ 640 MiB`。四平台 release jobs 的真实模型与 RSS gates 均通过。 |
 | Tiled 高分辨率准确模式 | Done / `0.2.0` published | 1280 tile、2048→4-pass row-major、全局 candidate ceiling、IoU/IOS greedy merge、原图 recognition、C++/Node contract、8-fixture/196-line corpus、独立 oracle、四平台 36-entry accepted baseline 与 package smoke 均已完成。 |
@@ -45,6 +46,7 @@
 | offline contract | sterile cwd/minimal locale environment passed |
 | model archive | 已发布 `.1`：31,334,400 bytes / `74e246bf…de17`；已发布 tiled `.2`：31,334,400 bytes / `e543b93b…712f` |
 | Node-API v1 | Node.js 22.13.0；macOS arm64 Release/Werror 构建；CTest 3/3；bounded/exact 映射、真实 PP-OCRv6 API、snapshot/byteOffset、校验、symlink root、双重背压、abort、heartbeat、close/worker teardown 测试通过 |
+| Perf-1A local validation | macOS arm64 Release/Werror 构建；Release CTest 22/22（含 15 项 acceptance、2 项 canonical oracle、4 项 memory）和 Node-enabled CTest 3/3；CPU 默认结果不变，逐 session execution summary、未知 provider、FP16、device ID 和无效 fallback 组合均有 C++/Node integration 覆盖 |
 | Tiled corpus | 八张 2048² locked fixtures 共 196 行：196 TP / 0 FP / 0 FN、CER 0、duplicate line 0；独立 oracle 与原生 pass tensor、candidate source、suppression、representative、crop、decode 和 final order 对齐；side override、tile ceiling、global candidate ceiling 均返回稳定错误 |
 | Tiled qualification | [run 29336329115](https://github.com/arcships/light-ocr/actions/runs/29336329115) 四个平台采样 jobs 成功；36 个 Core/Node 22/Node 24 entries 已受审。各平台最大 Core/Node 峰值：Linux x64 639.7/715.6 MiB、Windows x64 616.1/667.5 MiB、macOS arm64 667.4/733.6 MiB、macOS x64 623.1/672.8 MiB |
 

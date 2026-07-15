@@ -6,6 +6,8 @@
 
 范围：以 macOS Apple Silicon 为当前交付目标；iPhone/iPad 只保留架构兼容性，不在当前 Tier 1 平台承诺内
 
+实施状态：Perf-1A 基础已完成。Core 通过 provider-neutral `InferenceSession` 运行 detector/recognizer，公共 `execution` 策略和逐 stage `EngineInfo.execution.sessions` 已建立；默认仍为 ONNX Runtime CPU。Direct CoreML bridge、Apple capability manifest、FP16 模型派生物和资格审查工具尚未实现，不能请求或宣称 Apple 加速。
+
 关联 Roadmap：[Perf-0–Perf-4](roadmap.md#7-perf-0perf-4--性能与宿主加速线)
 
 ## 1. 结论

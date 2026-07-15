@@ -16,6 +16,7 @@
 #include "detection/db_postprocess.hpp"
 #include "detection/tiled.hpp"
 #include "geometry/geometry.hpp"
+#include "inference/backend.hpp"
 #include "inference/onnxruntime/backend.hpp"
 #include "model/bundle_data.hpp"
 #include "preprocess/image.hpp"
@@ -64,11 +65,22 @@ bool valid_limits(const ResourceLimits& value, const ResourceLimits& ceiling) {
          value.max_concurrent_calls == 1;
 }
 
+bool valid_execution_options(const ExecutionOptions& options) {
+  return options.provider == ExecutionProvider::cpu &&
+         options.session_fallback == SessionFallback::error &&
+         options.cpu_partition == CpuPartition::allow &&
+         !options.device_id.has_value() &&
+         options.performance_hint == PerformanceHint::latency &&
+         (options.precision == Precision::automatic ||
+          options.precision == Precision::fp32);
+}
+
 class EngineImpl final : public Engine {
  public:
   EngineImpl(std::shared_ptr<const internal::BundleData> bundle,
-             std::unique_ptr<internal::OnnxSession> detection,
-             std::unique_ptr<internal::OnnxSession> recognition, EngineInfo info)
+             std::unique_ptr<internal::InferenceSession> detection,
+             std::unique_ptr<internal::InferenceSession> recognition,
+             EngineInfo info)
       : bundle_(std::move(bundle)),
         detection_(std::move(detection)),
         recognition_(std::move(recognition)),
@@ -476,8 +488,8 @@ class EngineImpl final : public Engine {
 
  private:
   std::shared_ptr<const internal::BundleData> bundle_;
-  std::unique_ptr<internal::OnnxSession> detection_;
-  std::unique_ptr<internal::OnnxSession> recognition_;
+  std::unique_ptr<internal::InferenceSession> detection_;
+  std::unique_ptr<internal::InferenceSession> recognition_;
   EngineInfo info_;
   mutable std::mutex state_mutex_;
   std::condition_variable state_changed_;
@@ -499,6 +511,11 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
     if (options.intra_op_threads == 0 || options.inter_op_threads == 0) {
       return failure<std::unique_ptr<Engine>>(ErrorCode::invalid_argument,
                                               "ONNX Runtime thread counts must be positive");
+    }
+    if (!valid_execution_options(options.execution)) {
+      return failure<std::unique_ptr<Engine>>(
+          ErrorCode::invalid_argument,
+          "Execution options are unsupported by the bundled CPU backend");
     }
     auto limits = options.reduced_limits.value_or(bundle.data_->limits);
     if (!valid_limits(limits, bundle.data_->limits)) {
@@ -556,13 +573,27 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
     }
     const auto& detection_bytes = bundle.data_->files.at(bundle.data_->detection_model_path);
     const auto& recognition_bytes = bundle.data_->files.at(bundle.data_->recognition_model_path);
+    internal::InferenceSessionConfig detection_config;
+    detection_config.intra_op_threads = options.intra_op_threads;
+    detection_config.inter_op_threads = options.inter_op_threads;
+    detection_config.provider = options.execution.provider;
+    detection_config.session_fallback = options.execution.session_fallback;
+    detection_config.cpu_partition = options.execution.cpu_partition;
+    detection_config.device_id = options.execution.device_id;
+    detection_config.performance_hint = options.execution.performance_hint;
+    detection_config.precision = options.execution.precision;
+    detection_config.model_id = bundle.data_->detection_model_id;
+    detection_config.model_sha256 = bundle.data_->detection_model_sha256;
+    detection_config.shape_policy = "dynamic";
+    auto recognition_config = detection_config;
+    recognition_config.model_id = bundle.data_->recognition_model_id;
+    recognition_config.model_sha256 = bundle.data_->recognition_model_sha256;
     auto detection = internal::OnnxSession::create(
-        detection_bytes, options.intra_op_threads, options.inter_op_threads,
-        internal::ModelKind::detection);
+        detection_bytes, detection_config, internal::ModelKind::detection);
     if (!detection) return Result<std::unique_ptr<Engine>>::failure(detection.error());
     auto recognition = internal::OnnxSession::create(
-        recognition_bytes, options.intra_op_threads, options.inter_op_threads,
-        internal::ModelKind::recognition, bundle.data_->recognition.characters.size() + 1);
+        recognition_bytes, recognition_config, internal::ModelKind::recognition,
+        bundle.data_->recognition.characters.size() + 1);
     if (!recognition) return Result<std::unique_ptr<Engine>>::failure(recognition.error());
 
     EngineInfo info;
@@ -571,8 +602,19 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
     info.model_bundle_schema_version = bundle.data_->schema_version;
     info.normalized_config_schema_version =
         bundle.data_->normalized_config_schema_version;
-    info.backend = "ONNX Runtime 1.22.0";
+    info.backend = detection.value()->execution_info().runtime + " " +
+                   detection.value()->execution_info().runtime_version;
     info.execution_provider = "CPUExecutionProvider";
+    info.execution.requested_provider = options.execution.provider;
+    info.execution.session_fallback = options.execution.session_fallback;
+    info.execution.cpu_partition = options.execution.cpu_partition;
+    info.execution.device_id = options.execution.device_id;
+    info.execution.performance_hint = options.execution.performance_hint;
+    info.execution.requested_precision = options.execution.precision;
+    info.execution.provider_capabilities = {
+        ProviderCapabilityInfo{"cpu", true, true}};
+    info.execution.detection = detection.value()->execution_info();
+    info.execution.recognition = recognition.value()->execution_info();
     info.capabilities = bundle.data_->capabilities;
     info.limits = limits;
     info.intra_op_threads = options.intra_op_threads;

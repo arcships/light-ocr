@@ -28,7 +28,7 @@ flowchart TB
     Request["Request context"]
     Image["Image validation and conversion"]
     DetPre["Detection preprocess"]
-    Backend["ONNX Runtime boundary"]
+    Backend["Provider-neutral inference boundary"]
     DetPost["DB postprocess"]
     Geometry["Geometry and polygon operations"]
     Crop["Sort and perspective crop"]
@@ -109,9 +109,9 @@ Conversion and normalization are separate functions so tensor input can be compa
 
 Location: `src/inference/`
 
-The internal `OnnxSession` boundary accepts a float vector and shape, validates storage size with checked arithmetic, invokes ONNX Runtime CPU Execution Provider, and copies a validated float tensor result into Core-owned storage. No backend type appears in a public header.
+The internal `InferenceSession` boundary accepts a float vector and shape, validates storage size with checked arithmetic, and returns a lifetime-owning validated float tensor view. `OnnxSession` implements that boundary with the bundled ONNX Runtime CPU Execution Provider; future qualified backends implement the same contract. No backend type appears in a public header.
 
-The interface owns no OCR algorithm. Session input and output names are discovered at creation, then checked against the bundle contract.
+The interface owns no OCR algorithm. Each session exposes immutable execution metadata separately for detector and recognizer, including requested/actual provider chain, model hash, precision, shape policy, runtime/cache, and fallback status. Provider-chain configuration is not treated as proof of per-node accelerator placement.
 
 ### 3.6 Detection postprocessing
 
@@ -187,7 +187,7 @@ One recognition call executes:
 7. Run DB postprocessing and restore coordinates.
 8. Sort boxes and create lightweight recognition batch plans from box geometry.
 9. Crop and normalize only the current recognition batch.
-10. Run recognition inference and decode directly from the owning ORT output view.
+10. Run recognition inference and decode directly from the owning backend output view.
 11. Release the current crop/input/output, then continue; restore original line order by index.
 12. Filter, assemble diagnostics, and validate the public result.
 13. Release request memory and admission.

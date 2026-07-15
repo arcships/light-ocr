@@ -68,7 +68,11 @@ struct BundleData {
   std::string schema_version;
   std::string normalized_config_schema_version;
   std::string detection_model_path;
+  std::string detection_model_id;
+  std::string detection_model_sha256;
   std::string recognition_model_path;
+  std::string recognition_model_id;
+  std::string recognition_model_sha256;
   std::unordered_map<std::string, SharedBytes> files;
   DetectionConfig detection;
   std::optional<TiledDetectionConfig> tiled_detection;

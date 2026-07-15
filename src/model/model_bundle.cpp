@@ -601,12 +601,14 @@ std::shared_ptr<const internal::BundleData> parse_bundle(std::vector<BundleFile>
   const auto& models = manifest.at("models");
   const auto& detection_model = models.at("detection");
   const auto& recognition_model = models.at("recognition");
-  if (required<std::string>(detection_model, "id", "models.detection") !=
-      "PP-OCRv6_small_det_onnx") {
+  const auto detection_model_id =
+      required<std::string>(detection_model, "id", "models.detection");
+  const auto recognition_model_id =
+      required<std::string>(recognition_model, "id", "models.recognition");
+  if (detection_model_id != "PP-OCRv6_small_det_onnx") {
     unsupported_model("Unsupported detection model");
   }
-  if (required<std::string>(recognition_model, "id", "models.recognition") !=
-      "PP-OCRv6_small_rec_onnx") {
+  if (recognition_model_id != "PP-OCRv6_small_rec_onnx") {
     unsupported_model("Unsupported recognition model");
   }
   require(required<std::string>(detection_model, "sourceRevision", "models.detection") ==
@@ -650,6 +652,13 @@ std::shared_ptr<const internal::BundleData> parse_bundle(std::vector<BundleFile>
   file_at(files, "LICENSES/MODEL-NOTICE.md");
 
   validate_file_inventory(manifest, files);
+  const auto& file_inventory = manifest.at("files");
+  const auto detection_model_sha256 = required<std::string>(
+      file_inventory.at(detection_model_path), "sha256",
+      "files." + detection_model_path);
+  const auto recognition_model_sha256 = required<std::string>(
+      file_inventory.at(recognition_model_path), "sha256",
+      "files." + recognition_model_path);
   const auto normalized_path =
       required<std::string>(manifest, "normalizedConfigPath", "manifest");
   require(is_normalized_path(normalized_path), "Normalized configuration path is invalid",
@@ -668,7 +677,11 @@ std::shared_ptr<const internal::BundleData> parse_bundle(std::vector<BundleFile>
   data->schema_version = schema_version;
   data->normalized_config_schema_version = normalized_schema;
   data->detection_model_path = detection_model_path;
+  data->detection_model_id = detection_model_id;
+  data->detection_model_sha256 = detection_model_sha256;
   data->recognition_model_path = recognition_model_path;
+  data->recognition_model_id = recognition_model_id;
+  data->recognition_model_sha256 = recognition_model_sha256;
   data->files = std::move(files);
   data->detection = parse_detection(normalized, normalized_schema);
   data->tiled_detection =

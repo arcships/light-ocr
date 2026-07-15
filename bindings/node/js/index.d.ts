@@ -3,10 +3,25 @@
 export type PixelFormat = 'gray8' | 'rgb8' | 'bgr8' | 'rgba8';
 export type DetectionStrategy = 'bounded' | 'tiled' | 'upstreamExact';
 export type BuiltInModel = 'ppocrv6-small';
+export type ExecutionProvider = 'cpu';
+export type SessionFallback = 'error' | 'cpu';
+export type CpuPartition = 'allow' | 'forbid';
+export type PerformanceHint = 'latency' | 'throughput';
+export type Precision = 'auto' | 'fp32' | 'fp16';
 
 export interface DetectionOptions {
   readonly strategy?: DetectionStrategy;
   readonly maxSide?: number;
+}
+
+export interface ExecutionOptions {
+  /** Only providers shipped and qualified by this release appear in this union. */
+  readonly provider?: ExecutionProvider;
+  readonly sessionFallback?: SessionFallback;
+  readonly cpuPartition?: CpuPartition;
+  readonly deviceId?: number;
+  readonly performanceHint?: PerformanceHint;
+  readonly precision?: Precision;
 }
 
 export interface RawImage {
@@ -43,6 +58,7 @@ export interface CreateEngineOptions {
   readonly queueCapacity?: number;
   readonly maxPendingInputBytes?: number;
   readonly detection?: DetectionOptions;
+  readonly execution?: ExecutionOptions;
 }
 
 export interface RecognizeOptions {
@@ -121,13 +137,48 @@ export interface TiledDetectionInfo {
   readonly mergeIouThreshold: 0.5;
   readonly mergeIosThreshold: 0.8;
 }
+export interface ProviderCapabilityInfo {
+  readonly provider: string;
+  readonly packageIncluded: boolean;
+  readonly deviceAvailable: boolean;
+}
+export interface SessionExecutionInfo {
+  readonly requestedProvider: string;
+  readonly actualProviderChain: readonly string[];
+  readonly device: string;
+  readonly precision: string;
+  readonly shapePolicy: string;
+  readonly modelId: string;
+  readonly modelSha256: string;
+  readonly runtime: string;
+  readonly runtimeVersion: string;
+  readonly providerVersion: string;
+  readonly modelCacheStatus: string;
+  readonly sessionFallback: boolean;
+  readonly fallbackReason?: string;
+}
+export interface ExecutionInfo {
+  readonly requestedProvider: ExecutionProvider;
+  readonly sessionFallback: SessionFallback;
+  readonly cpuPartition: CpuPartition;
+  readonly deviceId?: number;
+  readonly performanceHint: PerformanceHint;
+  readonly requestedPrecision: Precision;
+  readonly providerCapabilities: readonly ProviderCapabilityInfo[];
+  readonly sessions: {
+    readonly detection: SessionExecutionInfo;
+    readonly recognition: SessionExecutionInfo;
+  };
+}
 export interface EngineInfo {
   readonly coreVersion: string;
   readonly modelBundleId: string;
   readonly modelBundleSchemaVersion: string;
   readonly normalizedConfigSchemaVersion: string;
   readonly backend: string;
+  /** @deprecated Use execution.sessions for stage-specific provider details. */
   readonly executionProvider: string;
+  readonly execution: ExecutionInfo;
   readonly capabilities: {
     readonly detection: boolean;
     readonly recognition: boolean;

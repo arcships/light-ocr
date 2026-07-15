@@ -343,11 +343,20 @@ class StageProbe {
     const auto& data = *bundle.data_;
     const auto& detection_bytes = data.files.at(data.detection_model_path);
     const auto& recognition_bytes = data.files.at(data.recognition_model_path);
-    auto detection_session =
-        checked(OnnxSession::create(detection_bytes, 1, 1, ModelKind::detection),
-                "detection session");
+    InferenceSessionConfig detection_config;
+    detection_config.model_id = data.detection_model_id;
+    detection_config.model_sha256 = data.detection_model_sha256;
+    detection_config.shape_policy = "dynamic";
+    auto recognition_config = detection_config;
+    recognition_config.model_id = data.recognition_model_id;
+    recognition_config.model_sha256 = data.recognition_model_sha256;
+    auto detection_session = checked(
+        OnnxSession::create(detection_bytes, detection_config,
+                            ModelKind::detection),
+        "detection session");
     auto recognition_session = checked(
-        OnnxSession::create(recognition_bytes, 1, 1, ModelKind::recognition,
+        OnnxSession::create(recognition_bytes, recognition_config,
+                            ModelKind::recognition,
                             data.recognition.characters.size() + 1),
         "recognition session");
     auto validated = checked(validate_and_convert_image(image, data.limits), "image");

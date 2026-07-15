@@ -126,6 +126,13 @@ Decision: The public entry is `@arcships/light-ocr`. It has one exact-version no
 Reason: Users should perform one npm installation and then create an engine without a second model acquisition step, while avoiding four duplicated copies of the same model across native packages.<br>
 Consequence: Six packages release in lockstep. The facade is published last, after the model and native packages pass sterile tarball installation. A separate model-free flavor, multiple model selection, runtime updating and non-npm model mirrors are not v1 completion requirements.
 
+### D111 — Freeze a provider-neutral execution contract before enabling accelerators
+
+Status: Accepted for Perf-1A; CPU implementation complete, provider qualification pending<br>
+Decision: `EngineOptions.execution` owns the stable provider policy. The default remains `cpu` with `sessionFallback=error`, `cpuPartition=allow`, `performanceHint=latency`, and `precision=auto`. A release exposes only providers that are bundled and have passed the Provider Gate; therefore the current TypeScript `ExecutionProvider` union contains only `cpu`. Unsupported provider, device, precision, partition, fallback, or performance combinations return `invalid_argument` rather than being ignored. `EngineInfo.execution.sessions` reports detection and recognition independently, including requested provider, actual configured provider chain, device, effective precision, shape policy, model identity/hash, runtime/provider version, cache status, and session fallback. The legacy aggregate `executionProvider` remains as a compatibility field while callers migrate.<br>
+Reason: Apple ANE/GPU routing and other accelerators require per-stage selection and truthful fallback evidence. Freezing the neutral contract first lets backends vary without duplicating the OCR pipeline or describing provider registration as device placement.<br>
+Consequence: The Core owns a backend-neutral `InferenceSession` boundary and the ONNX Runtime CPU session is its first implementation. CoreML, DirectML, OpenVINO, CUDA, QNN, `auto`, CPU partition prohibition, and throughput profiles remain unavailable until a provider-specific D111 addendum locks descriptors, distribution, qualification devices, and Gate ceilings. Runtime inference errors never trigger an undeclared CPU retry.
+
 ## 3. Deferred decisions
 
 ### D102 — Public native SDK and ABI policy
@@ -136,7 +143,7 @@ Deferred items: C ABI, shared-library naming, symbol versioning, long-term ABI c
 ### D103 — Additional model capabilities
 
 Status: Deferred  
-Deferred items: PP-OCRv6 tiny/medium, orientation models, document preprocessing, layout, table, formula, and accelerator Execution Providers.
+Deferred items: PP-OCRv6 tiny/medium, orientation models, document preprocessing, layout, table, formula, and shipping accelerator Execution Providers. The provider-neutral Perf-1A contract is accepted by D111; it does not publish an accelerator.
 
 Each is a separately versioned capability or bundle and requires its own compatibility and resource policy.
 

@@ -1,6 +1,6 @@
 # light-ocr Node-API adapter
 
-状态：`@arcships/light-ocr@0.2.0` 已发布；tiled detection 和内存 JPEG/PNG 输入可用。macOS arm64/x64、Linux x64 glibc、Windows x64 的 Node.js 22/24 package matrix、真实 PP-OCRv6 和禁网运行均已通过。
+状态：`@arcships/light-ocr@0.2.0` 已发布；当前源码已加入尚未发布的 Perf-1A execution contract。tiled detection 和内存 JPEG/PNG 输入可用，默认推理仍为 CPU。
 
 推荐直接安装公开 package：
 
@@ -21,6 +21,7 @@ npm install @arcships/light-ocr
 - 支持 `AbortSignal` 协作式取消：queued 请求会从队列移除；running 请求立即拒绝 public Promise，但 Core 会安全运行到返回并丢弃结果。
 - native addon 只接收现有绝对 bundle 目录。当前源码开发调用显式传 `bundlePath`；发布后的 facade 默认使用随 npm 安装的 model package 路径。
 - 产品 engine 默认报告 `detectionStrategy: 'bounded'`、`detectionMaxSide: 960` 和 `defaultRecognitionBatchSize: 1`。0.2.0 可通过 `detection: {strategy: 'tiled'}` 显式选择 `tiled-v1`；`upstreamExact` 只用于上游对照，单次 `recognize({detectionMaxSide})` 只能继续降低 bounded engine 的 side。
+- `createEngine({execution})` 和 `engine.info.execution.sessions` 已提供 provider-neutral 策略与 detector/recognizer 分阶段执行摘要。当前只接受 CPU/FP32；CoreML 等名称尚未进入公开 union，不能据 provider 注册推断设备 placement。
 
 不支持 WebP、GIF、PDF、EXIF orientation 自动旋转、zero-copy/transfer、运行中 inference 硬中断、Electron 或 Bun。详细契约见 [Node-API 设计](../../docs/napi-design.md)。
 
@@ -65,7 +66,12 @@ node --test --test-concurrency=1 bindings/node/test/adapter.test.cjs
 ```js
 const { createEngine, OcrError } = require('@arcships/light-ocr');
 
-const engine = await createEngine({ queueCapacity: 4 });
+const engine = await createEngine({
+  queueCapacity: 4,
+  execution: { provider: 'cpu', precision: 'auto' },
+});
+
+console.log(engine.info.execution.sessions.detection.actualProviderChain);
 ```
 
 当前源码开发用法仍需显式 bundle：
