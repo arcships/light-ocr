@@ -1,5 +1,7 @@
 # light-ocr Roadmap
 
+![light-ocr Roadmap 像素风宣传图](assets/light-ocr-roadmap.png)
+
 - 状态：Draft
 - 更新时间：2026-07-15
 - 适用范围：`0.2.x` 之后至 `1.0` 的产品与工程演进
