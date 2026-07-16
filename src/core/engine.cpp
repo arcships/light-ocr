@@ -696,8 +696,8 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
         bundle.data_->recognition.maximum_batch_size;
     bool apple_device_available = false;
     bool apple_device_validated = false;
-    bool apple_device_allowed = false;
 #if defined(LIGHT_OCR_HAS_COREML)
+    bool apple_device_allowed = false;
     apple_device_available = internal::coreml_device_available();
     apple_device_validated =
         apple_device_available && bundle.data_->apple_provider &&
