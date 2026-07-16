@@ -346,12 +346,81 @@ DetectionOptions parse_detection_options(napi_env env, napi_value value) {
   return parsed;
 }
 
+ExecutionProvider parse_execution_provider(napi_env env, napi_value value) {
+  const auto provider = get_string(env, value, "execution.provider");
+  if (provider == "cpu") return ExecutionProvider::cpu;
+  if (provider == "apple") return ExecutionProvider::apple;
+  throw AddonFailure("invalid_argument",
+                     "execution.provider must be cpu or apple");
+}
+
+SessionFallback parse_session_fallback(napi_env env, napi_value value) {
+  const auto fallback = get_string(env, value, "execution.sessionFallback");
+  if (fallback == "error") return SessionFallback::error;
+  if (fallback == "cpu") return SessionFallback::cpu;
+  throw AddonFailure("invalid_argument",
+                     "execution.sessionFallback must be error or cpu");
+}
+
+CpuPartition parse_cpu_partition(napi_env env, napi_value value) {
+  const auto partition = get_string(env, value, "execution.cpuPartition");
+  if (partition == "allow") return CpuPartition::allow;
+  if (partition == "forbid") return CpuPartition::forbid;
+  throw AddonFailure("invalid_argument",
+                     "execution.cpuPartition must be allow or forbid");
+}
+
+PerformanceHint parse_performance_hint(napi_env env, napi_value value) {
+  const auto hint = get_string(env, value, "execution.performanceHint");
+  if (hint == "latency") return PerformanceHint::latency;
+  if (hint == "throughput") return PerformanceHint::throughput;
+  throw AddonFailure("invalid_argument",
+                     "execution.performanceHint must be latency or throughput");
+}
+
+Precision parse_precision(napi_env env, napi_value value) {
+  const auto precision = get_string(env, value, "execution.precision");
+  if (precision == "auto") return Precision::automatic;
+  if (precision == "fp32") return Precision::fp32;
+  if (precision == "fp16") return Precision::fp16;
+  throw AddonFailure("invalid_argument",
+                     "execution.precision must be auto, fp32, or fp16");
+}
+
+ExecutionOptions parse_execution_options(napi_env env, napi_value value) {
+  require_object(env, value, "execution");
+  const std::unordered_set<std::string> allowed{
+      "provider", "sessionFallback", "cpuPartition", "deviceId",
+      "performanceHint", "precision"};
+  reject_unknown_properties(env, value, allowed, "execution");
+  ExecutionOptions parsed;
+  if (const auto option = optional_named(env, value, "provider")) {
+    parsed.provider = parse_execution_provider(env, *option);
+  }
+  if (const auto option = optional_named(env, value, "sessionFallback")) {
+    parsed.session_fallback = parse_session_fallback(env, *option);
+  }
+  if (const auto option = optional_named(env, value, "cpuPartition")) {
+    parsed.cpu_partition = parse_cpu_partition(env, *option);
+  }
+  if (const auto option = optional_named(env, value, "deviceId")) {
+    parsed.device_id = get_u32(env, *option, "execution.deviceId");
+  }
+  if (const auto option = optional_named(env, value, "performanceHint")) {
+    parsed.performance_hint = parse_performance_hint(env, *option);
+  }
+  if (const auto option = optional_named(env, value, "precision")) {
+    parsed.precision = parse_precision(env, *option);
+  }
+  return parsed;
+}
+
 ParsedCreateOptions parse_create_options(napi_env env, napi_value value) {
   require_object(env, value, "createEngine options");
   const std::unordered_set<std::string> allowed{
       "bundlePath",          "intraOpThreads",   "interOpThreads",
       "recognitionScoreThreshold", "recognitionBatchSize", "reducedLimits",
-      "queueCapacity",       "maxPendingInputBytes", "detection"};
+      "queueCapacity",       "maxPendingInputBytes", "detection", "execution"};
   reject_unknown_properties(env, value, allowed, "createEngine options");
   if (!has_own(env, value, "bundlePath")) {
     throw AddonFailure("invalid_argument", "bundlePath is required");
@@ -384,6 +453,9 @@ ParsedCreateOptions parse_create_options(napi_env env, napi_value value) {
   }
   if (const auto option = optional_named(env, value, "detection")) {
     parsed.core.detection = parse_detection_options(env, *option);
+  }
+  if (const auto option = optional_named(env, value, "execution")) {
+    parsed.core.execution = parse_execution_options(env, *option);
   }
   if (const auto option = optional_named(env, value, "queueCapacity")) {
     parsed.queue_capacity = get_u32(env, *option, "queueCapacity", 1);
@@ -1114,6 +1186,11 @@ napi_value create_diagnostics(napi_env env, const Diagnostics& diagnostics) {
     set_named(env, entry, "batchSize", uint32_value(env, shape.batch_size));
     set_named(env, entry, "height", uint32_value(env, shape.height));
     set_named(env, entry, "width", uint32_value(env, shape.width));
+    set_named(env, entry, "computeUnit",
+              string_value(env, shape.compute_unit));
+    set_named(env, entry, "modelId", string_value(env, shape.model_id));
+    set_named(env, entry, "shapeBucket",
+              string_value(env, shape.shape_bucket));
     check(env,
           napi_set_element(env, batch_shapes, static_cast<std::uint32_t>(index),
                            entry),
@@ -1166,6 +1243,125 @@ napi_value create_resource_limits(napi_env env, const ResourceLimits& limits) {
   return object;
 }
 
+const char* execution_provider_string(ExecutionProvider provider) {
+  return provider == ExecutionProvider::apple ? "apple" : "cpu";
+}
+
+const char* session_fallback_string(SessionFallback fallback) {
+  return fallback == SessionFallback::cpu ? "cpu" : "error";
+}
+
+const char* cpu_partition_string(CpuPartition partition) {
+  return partition == CpuPartition::forbid ? "forbid" : "allow";
+}
+
+const char* performance_hint_string(PerformanceHint hint) {
+  return hint == PerformanceHint::throughput ? "throughput" : "latency";
+}
+
+const char* precision_string(Precision precision) {
+  if (precision == Precision::fp32) return "fp32";
+  if (precision == Precision::fp16) return "fp16";
+  return "auto";
+}
+
+napi_value create_session_execution_info(napi_env env,
+                                         const SessionExecutionInfo& info) {
+  napi_value object = nullptr;
+  check(env, napi_create_object(env, &object), "create session execution info");
+  set_named(env, object, "requestedProvider",
+            string_value(env, info.requested_provider));
+  napi_value providers = nullptr;
+  check(env,
+        napi_create_array_with_length(env, info.actual_provider_chain.size(),
+                                      &providers),
+        "create actual provider chain");
+  for (std::size_t index = 0; index < info.actual_provider_chain.size(); ++index) {
+    check(env,
+          napi_set_element(env, providers, static_cast<std::uint32_t>(index),
+                           string_value(env, info.actual_provider_chain[index])),
+          "set actual provider chain entry");
+  }
+  set_named(env, object, "actualProviderChain", providers);
+  set_named(env, object, "device", string_value(env, info.device));
+  set_named(env, object, "deviceFamily",
+            string_value(env, info.device_family));
+  set_named(env, object, "operatingSystem",
+            string_value(env, info.operating_system));
+  set_named(env, object, "precision", string_value(env, info.precision));
+  set_named(env, object, "shapePolicy", string_value(env, info.shape_policy));
+  set_named(env, object, "modelId", string_value(env, info.model_id));
+  set_named(env, object, "modelSha256", string_value(env, info.model_sha256));
+  set_named(env, object, "runtime", string_value(env, info.runtime));
+  set_named(env, object, "runtimeVersion",
+            string_value(env, info.runtime_version));
+  set_named(env, object, "providerVersion",
+            string_value(env, info.provider_version));
+  set_named(env, object, "modelCacheStatus",
+            string_value(env, info.model_cache_status));
+  set_named(env, object, "qualificationId",
+            string_value(env, info.qualification_id));
+  set_named(env, object, "deviceValidated",
+            boolean_value(env, info.device_validated));
+  set_named(env, object, "sessionFallback",
+            boolean_value(env, info.session_fallback));
+  if (info.fallback_reason) {
+    set_named(env, object, "fallbackReason",
+              string_value(env, *info.fallback_reason));
+  }
+  return object;
+}
+
+napi_value create_execution_info(napi_env env, const ExecutionInfo& info) {
+  napi_value object = nullptr;
+  check(env, napi_create_object(env, &object), "create execution info");
+  set_named(env, object, "requestedProvider",
+            string_value(env, execution_provider_string(info.requested_provider)));
+  set_named(env, object, "sessionFallback",
+            string_value(env, session_fallback_string(info.session_fallback)));
+  set_named(env, object, "cpuPartition",
+            string_value(env, cpu_partition_string(info.cpu_partition)));
+  if (info.device_id) {
+    set_named(env, object, "deviceId", uint32_value(env, *info.device_id));
+  }
+  set_named(env, object, "performanceHint",
+            string_value(env, performance_hint_string(info.performance_hint)));
+  set_named(env, object, "requestedPrecision",
+            string_value(env, precision_string(info.requested_precision)));
+
+  napi_value capabilities = nullptr;
+  check(env,
+        napi_create_array_with_length(env, info.provider_capabilities.size(),
+                                      &capabilities),
+        "create provider capabilities");
+  for (std::size_t index = 0; index < info.provider_capabilities.size(); ++index) {
+    const auto& capability = info.provider_capabilities[index];
+    napi_value entry = nullptr;
+    check(env, napi_create_object(env, &entry), "create provider capability");
+    set_named(env, entry, "provider", string_value(env, capability.provider));
+    set_named(env, entry, "packageIncluded",
+              boolean_value(env, capability.package_included));
+    set_named(env, entry, "deviceAvailable",
+              boolean_value(env, capability.device_available));
+    set_named(env, entry, "deviceValidated",
+              boolean_value(env, capability.device_validated));
+    check(env,
+          napi_set_element(env, capabilities, static_cast<std::uint32_t>(index),
+                           entry),
+          "set provider capability");
+  }
+  set_named(env, object, "providerCapabilities", capabilities);
+
+  napi_value sessions = nullptr;
+  check(env, napi_create_object(env, &sessions), "create execution sessions");
+  set_named(env, sessions, "detection",
+            create_session_execution_info(env, info.detection));
+  set_named(env, sessions, "recognition",
+            create_session_execution_info(env, info.recognition));
+  set_named(env, object, "sessions", sessions);
+  return object;
+}
+
 napi_value create_engine_info(napi_env env, const EngineState& engine) {
   const auto& info = engine.info;
   napi_value object = nullptr;
@@ -1178,6 +1374,7 @@ napi_value create_engine_info(napi_env env, const EngineState& engine) {
             string_value(env, info.normalized_config_schema_version));
   set_named(env, object, "backend", string_value(env, info.backend));
   set_named(env, object, "executionProvider", string_value(env, info.execution_provider));
+  set_named(env, object, "execution", create_execution_info(env, info.execution));
   napi_value capabilities = nullptr;
   check(env, napi_create_object(env, &capabilities), "create capabilities");
   set_named(env, capabilities, "detection", boolean_value(env, info.capabilities.detection));

@@ -126,6 +126,13 @@ Decision: The public entry is `@arcships/light-ocr`. It has one exact-version no
 Reason: Users should perform one npm installation and then create an engine without a second model acquisition step, while avoiding four duplicated copies of the same model across native packages.<br>
 Consequence: Six packages release in lockstep. The facade is published last, after the model and native packages pass sterile tarball installation. A separate model-free flavor, multiple model selection, runtime updating and non-npm model mirrors are not v1 completion requirements.
 
+### D111 — Freeze a provider-neutral execution contract before enabling accelerators
+
+Status: Accepted for Perf-1A；Apple provider implementation complete locally with open macOS compatibility<br>
+Decision: `EngineOptions.execution` owns the stable provider policy. The default remains `cpu` with `sessionFallback=error`, `cpuPartition=allow`, `performanceHint=latency`, and `precision=auto`. The 0.2.1 source union adds `apple`: Direct Core ML FP16 routes Apple Silicon detector and recognition widths through the ANE/MLCPU envelope, sends recognition widths above 1600 to FP16 GPU, and uses all-GPU execution when CPU partitions are forbidden. Production schema 1.1 payloads require macOS 15, batch 1, bounded/960 detection and `devicePolicy=open-macos`; arm64 and x86_64 are accepted. Intel Mac has no ANE and therefore uses Core ML CPU+GPU with `cpuPartition=allow`; strict GPU policy remains Apple-Silicon-only. `validatedDeviceFamilies` and public `deviceValidated` distinguish reviewed M4 evidence from experimental compatibility without blocking M1–M3, later Apple Silicon, or Intel users. `sessionFallback=cpu` is a whole-session creation fallback with a stable reason; runtime inference never retries. Unsupported provider, precision, partition, fallback, or performance combinations return `invalid_argument` rather than being ignored. `EngineInfo.execution.sessions` reports detection and recognition independently, including requested provider, configured chain, device family/OS, device validation status, effective precision, shape policy, model identity/hash, runtime/provider version, cache status, qualification ID, and fallback. Per-call recognition diagnostics add function bucket and compute unit. The legacy aggregate `executionProvider` remains as a compatibility field while callers migrate. Qualification applies the cache-aware 3/30-second provider cold-start ceiling to the locked `generated-hello-123` canary; larger workloads retain their full first-page time as a separate observation because it also includes content-dependent detection and function loading.<br>
+Reason: Apple ANE/GPU routing and other accelerators require per-stage selection and truthful fallback evidence. Freezing the neutral contract first lets backends vary without duplicating the OCR pipeline or describing provider registration as device placement.<br>
+Consequence: The Core owns a backend-neutral `InferenceSession` boundary with ONNX Runtime CPU and Objective-C++ Direct Core ML implementations. The Apple model package is a self-contained superset of the CPU bundle; compiled models are cached offline by package hash + OS build + hardware identity under a cross-process lock. All 91 recognition functions have reviewed M4 placement evidence, while runtime inputs round up to 20 locked weighted width buckets under an LRU ceiling of 20. Other Macs can run early and report failures; their performance is not advertised until community or maintainer evidence is reviewed. DirectML, OpenVINO, CUDA, QNN, provider `auto`, and throughput profiles remain unavailable.
+
 ## 3. Deferred decisions
 
 ### D102 — Public native SDK and ABI policy
@@ -136,7 +143,7 @@ Deferred items: C ABI, shared-library naming, symbol versioning, long-term ABI c
 ### D103 — Additional model capabilities
 
 Status: Deferred  
-Deferred items: PP-OCRv6 tiny/medium, orientation models, document preprocessing, layout, table, formula, and accelerator Execution Providers.
+Deferred items: PP-OCRv6 tiny/medium, orientation models, document preprocessing, layout, table, formula, and shipping accelerator Execution Providers. The provider-neutral Perf-1A contract is accepted by D111; it does not publish an accelerator.
 
 Each is a separately versioned capability or bundle and requires its own compatibility and resource policy.
 

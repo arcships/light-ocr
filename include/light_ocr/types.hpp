@@ -13,6 +13,16 @@ enum class PixelFormat { gray8, rgb8, bgr8, rgba8 };
 
 enum class DetectionStrategy { bounded, tiled, upstream_exact };
 
+enum class ExecutionProvider { cpu, apple };
+
+enum class SessionFallback { error, cpu };
+
+enum class CpuPartition { allow, forbid };
+
+enum class PerformanceHint { latency, throughput };
+
+enum class Precision { automatic, fp32, fp16 };
+
 struct ImageView {
   const std::uint8_t* data = nullptr;
   std::size_t size = 0;
@@ -53,6 +63,9 @@ struct RecognitionBatchShape {
   std::uint32_t batch_size = 0;
   std::uint32_t height = 0;
   std::uint32_t width = 0;
+  std::string compute_unit;
+  std::string model_id;
+  std::string shape_bucket;
 };
 
 struct DetectionPassShape {
@@ -121,6 +134,15 @@ struct DetectionOptions {
   std::optional<std::uint32_t> max_side;
 };
 
+struct ExecutionOptions {
+  ExecutionProvider provider = ExecutionProvider::cpu;
+  SessionFallback session_fallback = SessionFallback::error;
+  CpuPartition cpu_partition = CpuPartition::allow;
+  std::optional<std::uint32_t> device_id;
+  PerformanceHint performance_hint = PerformanceHint::latency;
+  Precision precision = Precision::automatic;
+};
+
 struct EngineOptions {
   std::uint32_t intra_op_threads = 1;
   std::uint32_t inter_op_threads = 1;
@@ -128,6 +150,7 @@ struct EngineOptions {
   std::optional<std::uint32_t> recognition_batch_size;
   std::optional<ResourceLimits> reduced_limits;
   DetectionOptions detection;
+  ExecutionOptions execution;
 };
 
 struct RecognizeOptions {
@@ -156,6 +179,45 @@ struct TiledDetectionInfo {
   float merge_ios_threshold = 0;
 };
 
+struct ProviderCapabilityInfo {
+  std::string provider;
+  bool package_included = false;
+  bool device_available = false;
+  bool device_validated = false;
+};
+
+struct SessionExecutionInfo {
+  std::string requested_provider;
+  std::vector<std::string> actual_provider_chain;
+  std::string device;
+  std::string device_family;
+  std::string operating_system;
+  std::string precision;
+  std::string shape_policy;
+  std::string model_id;
+  std::string model_sha256;
+  std::string runtime;
+  std::string runtime_version;
+  std::string provider_version;
+  std::string model_cache_status;
+  std::string qualification_id;
+  bool device_validated = false;
+  bool session_fallback = false;
+  std::optional<std::string> fallback_reason;
+};
+
+struct ExecutionInfo {
+  ExecutionProvider requested_provider = ExecutionProvider::cpu;
+  SessionFallback session_fallback = SessionFallback::error;
+  CpuPartition cpu_partition = CpuPartition::allow;
+  std::optional<std::uint32_t> device_id;
+  PerformanceHint performance_hint = PerformanceHint::latency;
+  Precision requested_precision = Precision::automatic;
+  std::vector<ProviderCapabilityInfo> provider_capabilities;
+  SessionExecutionInfo detection;
+  SessionExecutionInfo recognition;
+};
+
 struct EngineInfo {
   std::string core_version;
   std::string model_bundle_id;
@@ -163,6 +225,7 @@ struct EngineInfo {
   std::string normalized_config_schema_version;
   std::string backend;
   std::string execution_provider;
+  ExecutionInfo execution;
   Capabilities capabilities;
   ConcurrencyMode concurrency_mode = ConcurrencyMode::serialized_reject_when_busy;
   ResourceLimits limits;

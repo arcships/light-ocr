@@ -7,7 +7,8 @@ const { loadNative } = require('./load-native.cjs');
 
 const DEFAULT_MODEL = 'ppocrv6-small';
 const MODEL_PACKAGE = '@arcships/light-ocr-model-ppocrv6-small';
-const EXPECTED_BUNDLE_ID = 'ppocrv6-small-onnx-20260714.2';
+const CPU_BUNDLE_ID = 'ppocrv6-small-onnx-20260714.2';
+const APPLE_BUNDLE_ID = 'ppocrv6-small-apple-20260715.1';
 
 class OcrError extends Error {
   constructor(code, message, detail) {
@@ -49,7 +50,7 @@ function abortReason(signal) {
     : signal.reason;
 }
 
-function resolveBuiltInBundle(model) {
+function resolveBuiltInBundle(model, requireApple) {
   if (model !== DEFAULT_MODEL) {
     throw new OcrError(
       'invalid_argument',
@@ -76,11 +77,14 @@ function resolveBuiltInBundle(model) {
       cause instanceof Error ? cause.message : String(cause),
     );
   }
-  if (manifest.bundleId !== EXPECTED_BUNDLE_ID) {
+  const compatibleBundleIds = requireApple
+    ? [APPLE_BUNDLE_ID]
+    : [CPU_BUNDLE_ID, APPLE_BUNDLE_ID];
+  if (!compatibleBundleIds.includes(manifest.bundleId)) {
     throw new OcrError(
       'package_load_failed',
       'The installed model package is incompatible with this light-ocr release',
-      `expected ${EXPECTED_BUNDLE_ID}, received ${String(manifest.bundleId)}`,
+      `expected ${compatibleBundleIds.join(' or ')}, received ${String(manifest.bundleId)}`,
     );
   }
   return path.dirname(manifestPath);
@@ -101,7 +105,8 @@ function resolveCreateOptions(options) {
   }
   if (hasBundlePath) return options;
   const model = hasModel ? options.model : DEFAULT_MODEL;
-  const resolved = { ...options, bundlePath: resolveBuiltInBundle(model) };
+  const requireApple = options.execution?.provider === 'apple';
+  const resolved = { ...options, bundlePath: resolveBuiltInBundle(model, requireApple) };
   delete resolved.model;
   return resolved;
 }

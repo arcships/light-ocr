@@ -19,7 +19,7 @@ async function main() {
 
   const engine = await cjs.createEngine();
   try {
-    assert.equal(engine.info.modelBundleId, 'ppocrv6-small-onnx-20260714.2');
+    assert.equal(engine.info.modelBundleId, 'ppocrv6-small-apple-20260715.1');
     assert.equal(engine.info.detectionStrategy, 'bounded');
     assert.equal(engine.info.detectionMaxSide, 960);
     assert.equal(engine.info.defaultRecognitionBatchSize, 1);
@@ -33,6 +33,31 @@ async function main() {
     assert.deepEqual(result.lines.map((line) => line.text), ['HELLO 123']);
   } finally {
     await engine.close();
+  }
+
+  const apple = await cjs.createEngine({
+    execution: {
+      provider: 'apple',
+      precision: 'fp16',
+      sessionFallback: 'cpu',
+    },
+  });
+  try {
+    assert.equal(apple.info.execution.requestedProvider, 'apple');
+    const detection = apple.info.execution.sessions.detection;
+    if (apple.info.executionProvider === 'CoreML') {
+      assert.equal(detection.sessionFallback, false);
+      assert.match(detection.qualificationId, /^apple-/);
+    } else {
+      assert.equal(apple.info.executionProvider, 'CPUExecutionProvider');
+      assert.equal(detection.sessionFallback, true);
+      assert.match(
+        detection.fallbackReason,
+        /^apple_(provider_not_built|device_unavailable|device_unqualified|initialization_failed)$/,
+      );
+    }
+  } finally {
+    await apple.close();
   }
 
   const tiledPixels = Buffer.alloc(2048 * 2048 * 3, 255);

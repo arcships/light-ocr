@@ -42,7 +42,8 @@ bool tensor_bytes(std::uint64_t elements, std::uint64_t* bytes) {
 Result<RecognitionSample> make_recognition_sample(
     std::size_t input_index, std::uint32_t crop_width,
     std::uint32_t crop_height, const RecognitionConfig& config,
-    const ResourceLimits& limits) {
+    const ResourceLimits& limits, std::uint32_t tensor_width_multiple,
+    const std::vector<std::uint32_t>& tensor_width_buckets) {
   if (crop_width == 0 || crop_height == 0) {
     return failure<RecognitionSample>(ErrorCode::postprocess_failed,
                                       "Recognition crop is empty");
@@ -53,6 +54,42 @@ Result<RecognitionSample> make_recognition_sample(
       static_cast<double>(config.height) * std::max(base_ratio, ratio));
   tensor_width = std::max(config.minimum_tensor_width,
                           std::min(config.maximum_tensor_width, tensor_width));
+  if (tensor_width_multiple == 0 ||
+      tensor_width_multiple > config.maximum_tensor_width ||
+      config.maximum_tensor_width % tensor_width_multiple != 0) {
+    return failure<RecognitionSample>(ErrorCode::invalid_argument,
+                                      "Recognition width multiple is invalid");
+  }
+  tensor_width = std::min(
+      config.maximum_tensor_width,
+      round_multiple_up(tensor_width, tensor_width_multiple));
+  if (!tensor_width_buckets.empty()) {
+    const bool valid_buckets =
+        std::is_sorted(tensor_width_buckets.begin(), tensor_width_buckets.end()) &&
+        std::adjacent_find(tensor_width_buckets.begin(),
+                           tensor_width_buckets.end()) ==
+            tensor_width_buckets.end() &&
+        tensor_width_buckets.front() >= config.minimum_tensor_width &&
+        tensor_width_buckets.back() == config.maximum_tensor_width &&
+        std::all_of(tensor_width_buckets.begin(), tensor_width_buckets.end(),
+                    [&](std::uint32_t width) {
+                      return width <= config.maximum_tensor_width &&
+                             width % tensor_width_multiple == 0;
+                    });
+    if (!valid_buckets) {
+      return failure<RecognitionSample>(
+          ErrorCode::invalid_argument,
+          "Recognition width bucket contract is invalid");
+    }
+    const auto bucket = std::lower_bound(
+        tensor_width_buckets.begin(), tensor_width_buckets.end(), tensor_width);
+    if (bucket == tensor_width_buckets.end()) {
+      return failure<RecognitionSample>(
+          ErrorCode::resource_limit_exceeded,
+          "Recognition width has no qualified bucket");
+    }
+    tensor_width = *bucket;
+  }
   const auto content_width = std::min(
       tensor_width, static_cast<std::uint32_t>(std::ceil(config.height * ratio)));
   if (tensor_width > limits.max_recognition_width || content_width == 0) {
@@ -202,7 +239,8 @@ Result<DetectionInput> make_detection_input(const cv::Mat& bgr,
 Result<std::vector<RecognitionBatchPlan>> plan_recognition_batches(
     const std::vector<Quad>& boxes, const GeometryConfig& geometry,
     const RecognitionConfig& config, std::uint32_t batch_size,
-    const ResourceLimits& limits) {
+    const ResourceLimits& limits, std::uint32_t tensor_width_multiple,
+    const std::vector<std::uint32_t>& tensor_width_buckets) {
   try {
     if (batch_size == 0 || batch_size > config.maximum_batch_size ||
         batch_size > limits.max_recognition_batch_size) {
@@ -220,7 +258,8 @@ Result<std::vector<RecognitionBatchPlan>> plan_recognition_batches(
       }
       const auto shape = std::move(shape_result).value();
       auto sample_result = make_recognition_sample(
-          index, shape.output_width(), shape.output_height(), config, limits);
+          index, shape.output_width(), shape.output_height(), config, limits,
+          tensor_width_multiple, tensor_width_buckets);
       if (!sample_result) {
         return Result<std::vector<RecognitionBatchPlan>>::failure(
             sample_result.error());
@@ -253,7 +292,9 @@ Result<std::vector<RecognitionBatchPlan>> plan_recognition_batches(
 
 Result<RecognitionBatch> make_recognition_batch(
     const std::vector<cv::Mat>& crops, const RecognitionBatchPlan& plan,
-    const RecognitionConfig& config, const ResourceLimits& limits) {
+    const RecognitionConfig& config, const ResourceLimits& limits,
+    std::uint32_t tensor_width_multiple,
+    const std::vector<std::uint32_t>& tensor_width_buckets) {
   try {
     const auto count = plan.samples.size();
     if (count == 0 || count != crops.size() ||
@@ -275,7 +316,8 @@ Result<RecognitionBatch> make_recognition_batch(
       auto actual_result = make_recognition_sample(
           plan.samples[index].input_index,
           static_cast<std::uint32_t>(crop.cols),
-          static_cast<std::uint32_t>(crop.rows), config, limits);
+          static_cast<std::uint32_t>(crop.rows), config, limits,
+          tensor_width_multiple, tensor_width_buckets);
       if (!actual_result) {
         return Result<RecognitionBatch>::failure(actual_result.error());
       }

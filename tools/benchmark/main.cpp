@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <ctime>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -57,6 +58,34 @@ std::string stable_result_hash(const light_ocr::OcrResult& result) {
       reinterpret_cast<const std::uint8_t*>(canonical.data()), canonical.size());
 }
 
+const char* provider_name(light_ocr::ExecutionProvider provider) {
+  return provider == light_ocr::ExecutionProvider::apple ? "apple" : "cpu";
+}
+
+nlohmann::json session_execution_json(
+    const light_ocr::SessionExecutionInfo& info) {
+  nlohmann::json result = {
+      {"requestedProvider", info.requested_provider},
+      {"actualProviderChain", info.actual_provider_chain},
+      {"device", info.device},
+      {"deviceFamily", info.device_family},
+      {"operatingSystem", info.operating_system},
+      {"precision", info.precision},
+      {"shapePolicy", info.shape_policy},
+      {"modelId", info.model_id},
+      {"modelSha256", info.model_sha256},
+      {"runtime", info.runtime},
+      {"runtimeVersion", info.runtime_version},
+      {"providerVersion", info.provider_version},
+      {"modelCacheStatus", info.model_cache_status},
+      {"qualificationId", info.qualification_id},
+      {"deviceValidated", info.device_validated},
+      {"sessionFallback", info.session_fallback},
+  };
+  if (info.fallback_reason) result["fallbackReason"] = *info.fallback_reason;
+  return result;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -79,6 +108,13 @@ int main(int argc, char** argv) {
     auto pixels = light_ocr::tools::read_binary_file(arguments.pixels);
     const light_ocr::ImageView image{pixels.data(), pixels.size(), arguments.width,
                                      arguments.height, arguments.stride, arguments.format};
+    const auto first_prediction_begin = std::chrono::steady_clock::now();
+    auto first_prediction = engine.value()->recognize(image);
+    const auto first_prediction_end = std::chrono::steady_clock::now();
+    if (!first_prediction) {
+      throw std::runtime_error(first_prediction.error().message + ": " +
+                               first_prediction.error().detail);
+    }
     for (std::uint32_t index = 0; index < arguments.warmup; ++index) {
       auto result = engine.value()->recognize(image);
       if (!result) throw std::runtime_error(result.error().message + ": " + result.error().detail);
@@ -108,6 +144,7 @@ int main(int argc, char** argv) {
     recognize_options.include_diagnostics = true;
     for (auto& samples : stages) samples.reserve(arguments.iterations);
 
+    const auto process_cpu_begin = std::clock();
     for (std::uint32_t index = 0; index < arguments.iterations; ++index) {
       const auto begin = std::chrono::steady_clock::now();
       auto result = engine.value()->recognize(image, recognize_options);
@@ -143,6 +180,12 @@ int main(int argc, char** argv) {
       stages[8].push_back(timing.recognition_postprocess_us);
       resident.push_back(light_ocr::tools::resident_memory_bytes());
     }
+    const auto process_cpu_end = std::clock();
+    const auto process_cpu_us = static_cast<std::uint64_t>(
+        (static_cast<double>(process_cpu_end - process_cpu_begin) * 1'000'000.0) /
+        static_cast<double>(CLOCKS_PER_SEC));
+    std::uint64_t measured_wall_us = 0;
+    for (const auto value : wall) measured_wall_us += value;
 
     constexpr std::array<std::string_view, 9> stage_names = {
         "inputValidation", "detectionPreprocess", "detectionInference",
@@ -169,8 +212,14 @@ int main(int argc, char** argv) {
                                         ? "tiled"
                                         : "upstreamExact";
     nlohmann::json recognition_shapes = nlohmann::json::array();
+    nlohmann::json recognition_routes = nlohmann::json::array();
     for (const auto& shape : recognition_batch_shapes) {
       recognition_shapes.push_back({shape.batch_size, 3, shape.height, shape.width});
+      recognition_routes.push_back({
+          {"tensorShape", {shape.batch_size, 3, shape.height, shape.width}},
+          {"computeUnit", shape.compute_unit},
+          {"modelId", shape.model_id},
+          {"shapeBucket", shape.shape_bucket}});
     }
     nlohmann::json pass_report = nlohmann::json::array();
     for (const auto& pass : detection_passes) {
@@ -187,11 +236,19 @@ int main(int argc, char** argv) {
         {"modelBundleId", model_bundle_id}, {"modelBundleBytes", model_bundle_bytes},
         {"profile", arguments.profile},
         {"runtime", {{"coreVersion", engine_info.core_version},
+                     {"backend", engine_info.backend},
                      {"normalizedConfigSchemaVersion",
                       engine_info.normalized_config_schema_version},
                      {"detectionStrategy", detection_strategy},
                      {"detectionMaxSide", engine_info.detection_max_side},
                      {"recognitionBatchSize", engine_info.default_recognition_batch_size}}},
+        {"execution",
+         {{"requestedProvider",
+           provider_name(engine_info.execution.requested_provider)},
+          {"detection",
+           session_execution_json(engine_info.execution.detection)},
+          {"recognition",
+           session_execution_json(engine_info.execution.recognition)}}},
         {"result", {{"acceptedBoxes", accepted_boxes},
                     {"acceptedLines", accepted_lines},
                     {"stableSha256", result_hashes.front()},
@@ -201,10 +258,19 @@ int main(int argc, char** argv) {
                     {"detectionPasses", std::move(pass_report)},
                     {"detectionInputShape", {1, 3, detection_input_height,
                                               detection_input_width}},
-                    {"recognitionBatchShapes", std::move(recognition_shapes)}}},
+                    {"recognitionBatchShapes", std::move(recognition_shapes)},
+                    {"recognitionRoutes", std::move(recognition_routes)}}},
         {"loadUs", elapsed_us(load_begin, load_end)},
         {"engineInitializationUs", elapsed_us(initialize_begin, initialize_end)},
+        {"firstPredictionUs",
+         elapsed_us(first_prediction_begin, first_prediction_end)},
         {"warmup", arguments.warmup}, {"iterations", arguments.iterations},
+        {"processCpuUs", process_cpu_us},
+        {"averageProcessCpuCores",
+         measured_wall_us == 0
+             ? 0.0
+             : static_cast<double>(process_cpu_us) /
+                   static_cast<double>(measured_wall_us)},
         {"latencyUs", distribution(std::move(wall))},
         {"reportedTotalUs", distribution(std::move(total))},
         {"inferenceOnlyUs", distribution(std::move(inference_only))},

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/arcships/light-ocr/contracts/apple-provider-baselines.schema.json",
+  "title": "light-ocr Apple provider qualification baselines",
+  "type": "object",
+  "required": [
+    "schema",
+    "status",
+    "qualificationId",
+    "generatedFromCommit",
+    "acceptanceSha256",
+    "modelArtifactId",
+    "modelPackageSha256",
+    "qualifiedDeviceFamilies",
+    "devices",
+    "reportSha256"
+  ],
+  "properties": {
+    "schema": { "const": "light-ocr-apple-provider-baselines/1.0" },
+    "status": { "enum": ["candidate", "accepted"] },
+    "qualificationId": { "type": "string", "minLength": 1 },
+    "generatedFromCommit": { "type": "string", "minLength": 7 },
+    "approvedByCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "candidateReportSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "acceptanceSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "modelArtifactId": { "type": "string", "minLength": 1 },
+    "modelPackageSha256": {
+      "type": "object",
+      "required": ["detection", "recognition"],
+      "properties": {
+        "detection": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "recognition": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "qualifiedDeviceFamilies": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["Apple M1", "Apple M2", "Apple M3", "Apple M4"] }
+    },
+    "devices": { "type": "array", "minItems": 1, "items": { "type": "object" } },
+    "reportSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "accepted" } } },
+      "then": { "required": ["approvedByCommit", "candidateReportSha256"] }
+    }
+  ],
+  "additionalProperties": false
+}

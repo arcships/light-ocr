@@ -1,11 +1,11 @@
 # light-ocr Native C++ API
 
-Status: Core 0.2.0 tiled source contract published with `@arcships/light-ocr@0.2.0`<br>
+Status: Core 0.2.0 tiled contract published；0.2.1 Apple provider source implemented and locally qualified for M4<br>
 Authority: public C++ source contract, ownership, lifecycle, errors, and compatibility  
 Requirements: [requirements.md](requirements.md)  
 Architecture: [architecture.md](architecture.md)
 
-The declarations below track the current source tree. Version 0.2.0 publishes the additive `DetectionStrategy::tiled` contract; bounded/960 remains the default and 0.1.0 retains only bounded/upstream detection.
+The declarations below track the current source tree. Version 0.2.0 publishes the additive `DetectionStrategy::tiled` contract; the 0.2.1 candidate adds an opt-in Apple provider without changing the CPU/bounded default.
 
 ## 1. Scope
 
@@ -194,6 +194,9 @@ struct RecognitionBatchShape {
   std::uint32_t batch_size = 0;
   std::uint32_t height = 0;
   std::uint32_t width = 0;
+  std::string compute_unit;
+  std::string model_id;
+  std::string shape_bucket;
 };
 
 struct DetectionPassShape {
@@ -286,6 +289,21 @@ struct DetectionOptions {
   std::optional<std::uint32_t> max_side;
 };
 
+enum class ExecutionProvider { cpu, apple };
+enum class SessionFallback { error, cpu };
+enum class CpuPartition { allow, forbid };
+enum class PerformanceHint { latency, throughput };
+enum class Precision { automatic, fp32, fp16 };
+
+struct ExecutionOptions {
+  ExecutionProvider provider = ExecutionProvider::cpu;
+  SessionFallback session_fallback = SessionFallback::error;
+  CpuPartition cpu_partition = CpuPartition::allow;
+  std::optional<std::uint32_t> device_id;
+  PerformanceHint performance_hint = PerformanceHint::latency;
+  Precision precision = Precision::automatic;
+};
+
 struct EngineOptions {
   std::uint32_t intra_op_threads = 1;
   std::uint32_t inter_op_threads = 1;
@@ -293,6 +311,7 @@ struct EngineOptions {
   std::optional<std::uint32_t> recognition_batch_size;
   std::optional<ResourceLimits> reduced_limits;
   DetectionOptions detection;
+  ExecutionOptions execution;
 };
 
 struct RecognizeOptions {
@@ -309,6 +328,10 @@ struct RecognizeOptions {
 Rules:
 
 - Thread counts are positive and fixed at creation.
+- CPU remains the default. It accepts `auto`/`fp32`, requires `cpuPartition=allow`, `sessionFallback=error`, and uses the existing ONNX Runtime path.
+- The Apple provider accepts `auto`/`fp16`, bounded detection no larger than 960, recognition batch 1, and latency mode. Production bundles use open macOS compatibility: Apple Silicon with `cpuPartition=allow` selects FP16 ANE plus the width-based FP16 GPU route, while Intel Mac selects Core ML CPU+GPU. `cpuPartition=forbid` selects the all-GPU strict path and is accepted only on Apple Silicon.
+- `sessionFallback=cpu` permits one explicit whole-session fallback when the Apple build, macOS version/architecture, an opt-in `validated-only` policy, or Core ML initialization prevents startup. The chosen CPU sessions report `session_fallback=true` and one of the stable reasons `apple_provider_not_built`, `apple_device_unavailable`, `apple_device_unqualified`, or `apple_initialization_failed`. Production `open-macos` bundles do not reject a Mac merely because it lacks reviewed device evidence. Inference-time failures never retry on CPU.
+- Apple execution requires a schema 1.1 bundle containing the hash-locked provider payload. Unsupported device IDs, throughput mode, precision/provider combinations, detection strategies, and batch sizes fail instead of being ignored.
 - Score thresholds are finite and in `[0, 1]`.
 - Batch sizes are positive and no larger than the effective limit.
 - `bounded` defaults to side 960; its side is a positive 32 multiple no larger than the effective detection ceiling.
@@ -346,13 +369,54 @@ struct TiledDetectionInfo {
   float merge_ios_threshold = 0;
 };
 
+struct ProviderCapabilityInfo {
+  std::string provider;
+  bool package_included = false;
+  bool device_available = false;
+  bool device_validated = false;
+};
+
+struct SessionExecutionInfo {
+  std::string requested_provider;
+  std::vector<std::string> actual_provider_chain;
+  std::string device;
+  std::string device_family;
+  std::string operating_system;
+  std::string precision;
+  std::string shape_policy;
+  std::string model_id;
+  std::string model_sha256;
+  std::string runtime;
+  std::string runtime_version;
+  std::string provider_version;
+  std::string model_cache_status;
+  std::string qualification_id;
+  bool device_validated = false;
+  bool session_fallback = false;
+  std::optional<std::string> fallback_reason;
+};
+
+struct ExecutionInfo {
+  ExecutionProvider requested_provider;
+  SessionFallback session_fallback;
+  CpuPartition cpu_partition;
+  std::optional<std::uint32_t> device_id;
+  PerformanceHint performance_hint;
+  Precision requested_precision;
+  std::vector<ProviderCapabilityInfo> provider_capabilities;
+  SessionExecutionInfo detection;
+  SessionExecutionInfo recognition;
+};
+
 struct EngineInfo {
   std::string core_version;
   std::string model_bundle_id;
   std::string model_bundle_schema_version;
   std::string normalized_config_schema_version;
   std::string backend;
+  // Compatibility aggregate. Prefer execution.detection/recognition.
   std::string execution_provider;
+  ExecutionInfo execution;
   Capabilities capabilities;
   ConcurrencyMode concurrency_mode;
   ResourceLimits limits;
@@ -368,7 +432,7 @@ struct EngineInfo {
 }  // namespace light_ocr
 ```
 
-`info` is an immutable creation snapshot. The returned reference remains valid until the engine object is destroyed, including after `close`.
+`info` is an immutable creation snapshot. The returned reference remains valid until the engine object is destroyed, including after `close`. `provider_capabilities` separately reports package inclusion, runtime device availability, and whether the current hardware family has reviewed evidence. Each session repeats `device_validated` beside what was actually configured; `false` means the open compatibility path is experimental, not that Core ML was skipped. `RecognitionBatchShape` adds the per-request model/function bucket and ANE/GPU/CPU route. A configured provider chain is not itself placement proof: the Apple release gate separately checks every Core ML function with Compute Plan evidence and binds the result through `qualification_id`.
 
 ## 9. Engine API
 
@@ -409,8 +473,8 @@ The concrete implementation is hidden behind the factory.
 
 1. Validates engine options.
 2. Revalidates the bundle compatibility contract.
-3. Creates the ORT environment relationship.
-4. Creates detection and recognition sessions.
+3. Selects the bundled inference backend from the validated execution policy.
+4. Creates detection and recognition sessions independently.
 5. Validates session inputs and outputs.
 6. Publishes a Ready engine.
 

@@ -264,6 +264,170 @@ void validate_checksum_inventory(const std::unordered_map<std::string, SharedByt
   }
 }
 
+std::string package_inventory_sha256(
+    const std::unordered_map<std::string, SharedBytes>& files,
+    const std::string& root_path) {
+  const auto prefix = root_path + "/";
+  std::vector<std::string> paths;
+  for (const auto& file : files) {
+    if (file.first.compare(0, prefix.size(), prefix) == 0) {
+      paths.push_back(file.first);
+    }
+  }
+  require(!paths.empty(), "Core ML package contains no files", root_path);
+  std::sort(paths.begin(), paths.end());
+  std::string inventory;
+  for (const auto& path : paths) {
+    const auto relative = path.substr(prefix.size());
+    require(!relative.empty(), "Core ML package contains an invalid file path", path);
+    inventory.append(relative);
+    inventory.push_back('\0');
+    const auto& bytes = file_at(files, path);
+    inventory.append(internal::sha256_hex(bytes->data(), bytes->size()));
+    inventory.push_back('\n');
+  }
+  return internal::sha256_hex(
+      reinterpret_cast<const std::uint8_t*>(inventory.data()), inventory.size());
+}
+
+internal::AppleModelConfig parse_apple_model(
+    const Json& model, const std::string& context,
+    const std::unordered_map<std::string, SharedBytes>& files) {
+  internal::AppleModelConfig result;
+  result.model_id = required<std::string>(model, "modelId", context);
+  result.package_path = required<std::string>(model, "packagePath", context);
+  result.package_sha256 = required<std::string>(model, "packageSha256", context);
+  result.input_name = required<std::string>(model, "inputName", context);
+  result.output_name = required<std::string>(model, "outputName", context);
+  result.shape_policy = required<std::string>(model, "shapePolicy", context);
+  require(!result.model_id.empty() && result.model_id.size() <= 128,
+          "Core ML model ID is invalid", context);
+  require(is_normalized_path(result.package_path) &&
+              result.package_path.size() > std::string(".mlpackage").size() &&
+              result.package_path.compare(
+                  result.package_path.size() - std::string(".mlpackage").size(),
+                  std::string(".mlpackage").size(), ".mlpackage") == 0,
+          "Core ML package path is invalid", result.package_path);
+  require(is_sha256(result.package_sha256),
+          "Core ML package SHA-256 is invalid", result.package_path);
+  require(!result.input_name.empty() && !result.output_name.empty() &&
+              !result.shape_policy.empty(),
+          "Core ML tensor contract is incomplete", context);
+  file_at(files, result.package_path + "/Manifest.json");
+  file_at(files,
+          result.package_path + "/Data/com.apple.CoreML/model.mlmodel");
+  file_at(files,
+          result.package_path + "/Data/com.apple.CoreML/weights/weight.bin");
+  require(package_inventory_sha256(files, result.package_path) ==
+              result.package_sha256,
+          "Core ML package inventory hash does not match its declaration",
+          result.package_path);
+  return result;
+}
+
+std::optional<internal::AppleProviderConfig> parse_apple_provider(
+    const Json& manifest, const std::string& schema_version,
+    const std::unordered_map<std::string, SharedBytes>& files) {
+  if (!manifest.contains("providers")) return std::nullopt;
+  require(schema_version == "1.1",
+          "Provider payload requires manifest schema 1.1", schema_version);
+  const auto& providers = manifest.at("providers");
+  if (!providers.contains("apple")) return std::nullopt;
+  const auto& apple = providers.at("apple");
+  require_string(apple, "schemaVersion", "1.1", "providers.apple");
+  internal::AppleProviderConfig result;
+  result.minimum_macos =
+      required<std::string>(apple, "minimumMacOS", "providers.apple");
+  result.device_policy =
+      required<std::string>(apple, "devicePolicy", "providers.apple");
+  result.architectures = required<std::vector<std::string>>(
+      apple, "architectures", "providers.apple");
+  result.validated_device_families = required<std::vector<std::string>>(
+      apple, "validatedDeviceFamilies", "providers.apple");
+  result.qualification_id =
+      required<std::string>(apple, "qualificationId", "providers.apple");
+  const std::unordered_set<std::string> supported_device_families = {
+      "Apple M1", "Apple M2", "Apple M3", "Apple M4"};
+  std::unordered_set<std::string> declared_device_families;
+  for (const auto& family : result.validated_device_families) {
+    require(supported_device_families.count(family) == 1 &&
+                declared_device_families.insert(family).second,
+            "Apple provider contains an unsupported or duplicate validated family",
+            family);
+  }
+  require(result.minimum_macos == "15.0" &&
+              (result.device_policy == "open-macos" ||
+               result.device_policy == "validated-only") &&
+              result.architectures ==
+                  std::vector<std::string>{"arm64", "x86_64"} &&
+              !result.validated_device_families.empty() &&
+              result.validated_device_families.size() <= 4 &&
+              !result.qualification_id.empty() &&
+              result.qualification_id.size() <= 128,
+          "Apple provider platform contract is unsupported");
+  result.detection = parse_apple_model(
+      apple.at("detection"), "providers.apple.detection", files);
+  result.recognition = parse_apple_model(
+      apple.at("recognition"), "providers.apple.recognition", files);
+  const auto& detection = apple.at("detection");
+  require(required<std::string>(detection, "preferredComputeUnit",
+                                "providers.apple.detection") == "ane" &&
+              required<std::string>(detection, "strictComputeUnit",
+                                    "providers.apple.detection") == "gpu" &&
+              required<std::string>(detection, "intelComputeUnit",
+                                    "providers.apple.detection") == "cpu+gpu" &&
+              required<std::unordered_map<std::string, std::uint32_t>>(
+                  detection, "qualifiedMLCPUOperations",
+                  "providers.apple.detection") ==
+                  std::unordered_map<std::string, std::uint32_t>{
+                      {"ios18.relu", 1}, {"pad", 1}} &&
+              result.detection.shape_policy ==
+                  "nchw-bounded-range-32-960-v1",
+          "Apple detection routing contract is unsupported");
+  const auto& recognition = apple.at("recognition");
+  result.recognition_width_multiple = required_u32(
+      recognition, "widthMultiple", "providers.apple.recognition");
+  result.recognition_ane_maximum_width = required_u32(
+      recognition, "aneMaximumWidth", "providers.apple.recognition");
+  result.recognition_runtime_width_buckets =
+      required<std::vector<std::uint32_t>>(
+          recognition, "runtimeWidthBuckets", "providers.apple.recognition");
+  result.maximum_cached_functions = required_u32(
+      recognition, "maximumCachedFunctions", "providers.apple.recognition");
+  const std::vector<std::uint32_t> expected_runtime_width_buckets = {
+      320,  384,  480,  544,  576,  608,  704,
+      736,  832,  960,  1056, 1184, 1248, 1376,
+      1600, 1984, 2240, 2560, 2880, 3200};
+  require(result.recognition_width_multiple == 32 &&
+              result.recognition_ane_maximum_width == 1600 &&
+              result.recognition_runtime_width_buckets ==
+                  expected_runtime_width_buckets &&
+              result.maximum_cached_functions ==
+                  expected_runtime_width_buckets.size() &&
+              required<std::unordered_map<std::string, std::uint32_t>>(
+                  recognition, "qualifiedMLCPUOperations",
+                  "providers.apple.recognition") ==
+                  std::unordered_map<std::string, std::uint32_t>{
+                      {"ios18.cast", 1}, {"ios18.conv", 3},
+                      {"ios18.relu", 3}, {"pad", 3}} &&
+              required<std::string>(recognition, "functionFormat",
+                                    "providers.apple.recognition") == "w%04u" &&
+              required<std::string>(recognition, "intelComputeUnit",
+                                    "providers.apple.recognition") == "cpu+gpu" &&
+              result.recognition.shape_policy ==
+                  "nchw-static-width-multiple-32-v1",
+          "Apple recognition routing contract is unsupported");
+  const auto widths = required<std::vector<std::uint32_t>>(
+      recognition, "widths", "providers.apple.recognition");
+  std::vector<std::uint32_t> expected_widths;
+  for (std::uint32_t width = 320; width <= 3200; width += 32) {
+    expected_widths.push_back(width);
+  }
+  require(widths == expected_widths,
+          "Apple recognition function inventory is unsupported");
+  return result;
+}
+
 internal::DetectionConfig parse_detection(const Json& root,
                                           const std::string& schema_version) {
   const auto& detection = root.at("detection");
@@ -566,7 +730,8 @@ std::shared_ptr<const internal::BundleData> parse_bundle(std::vector<BundleFile>
   validate_checksum_inventory(files);
   const auto manifest = parse_json_file(files, "manifest.json", 1024 * 1024);
   const auto schema_version = required<std::string>(manifest, "schemaVersion", "manifest");
-  require(schema_version == "1.0", "Unsupported manifest schema version", schema_version);
+  require(schema_version == "1.0" || schema_version == "1.1",
+          "Unsupported manifest schema version", schema_version);
   const auto bundle_id = required<std::string>(manifest, "bundleId", "manifest");
   require(!bundle_id.empty() && bundle_id.size() <= 128, "Bundle ID is invalid");
   require(required<std::string>(manifest, "family", "manifest") == "PP-OCRv6",
@@ -601,12 +766,14 @@ std::shared_ptr<const internal::BundleData> parse_bundle(std::vector<BundleFile>
   const auto& models = manifest.at("models");
   const auto& detection_model = models.at("detection");
   const auto& recognition_model = models.at("recognition");
-  if (required<std::string>(detection_model, "id", "models.detection") !=
-      "PP-OCRv6_small_det_onnx") {
+  const auto detection_model_id =
+      required<std::string>(detection_model, "id", "models.detection");
+  const auto recognition_model_id =
+      required<std::string>(recognition_model, "id", "models.recognition");
+  if (detection_model_id != "PP-OCRv6_small_det_onnx") {
     unsupported_model("Unsupported detection model");
   }
-  if (required<std::string>(recognition_model, "id", "models.recognition") !=
-      "PP-OCRv6_small_rec_onnx") {
+  if (recognition_model_id != "PP-OCRv6_small_rec_onnx") {
     unsupported_model("Unsupported recognition model");
   }
   require(required<std::string>(detection_model, "sourceRevision", "models.detection") ==
@@ -650,6 +817,13 @@ std::shared_ptr<const internal::BundleData> parse_bundle(std::vector<BundleFile>
   file_at(files, "LICENSES/MODEL-NOTICE.md");
 
   validate_file_inventory(manifest, files);
+  const auto& file_inventory = manifest.at("files");
+  const auto detection_model_sha256 = required<std::string>(
+      file_inventory.at(detection_model_path), "sha256",
+      "files." + detection_model_path);
+  const auto recognition_model_sha256 = required<std::string>(
+      file_inventory.at(recognition_model_path), "sha256",
+      "files." + recognition_model_path);
   const auto normalized_path =
       required<std::string>(manifest, "normalizedConfigPath", "manifest");
   require(is_normalized_path(normalized_path), "Normalized configuration path is invalid",
@@ -668,7 +842,11 @@ std::shared_ptr<const internal::BundleData> parse_bundle(std::vector<BundleFile>
   data->schema_version = schema_version;
   data->normalized_config_schema_version = normalized_schema;
   data->detection_model_path = detection_model_path;
+  data->detection_model_id = detection_model_id;
+  data->detection_model_sha256 = detection_model_sha256;
   data->recognition_model_path = recognition_model_path;
+  data->recognition_model_id = recognition_model_id;
+  data->recognition_model_sha256 = recognition_model_sha256;
   data->files = std::move(files);
   data->detection = parse_detection(normalized, normalized_schema);
   data->tiled_detection =
@@ -681,6 +859,10 @@ std::shared_ptr<const internal::BundleData> parse_bundle(std::vector<BundleFile>
   data->recognition =
       parse_recognition(normalized, data->files, recognition_dictionary_path,
                         runtime_defaults);
+  data->apple_provider =
+      parse_apple_provider(manifest, schema_version, data->files);
+  require((schema_version == "1.1") == data->apple_provider.has_value(),
+          "Manifest schema 1.1 requires exactly one Apple provider payload");
   data->limits = parse_limits(normalized, normalized_schema);
   data->capabilities =
       Capabilities{true, true, false, data->tiled_detection.has_value()};

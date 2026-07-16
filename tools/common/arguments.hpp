@@ -1,10 +1,12 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <thread>
 
 #include "light_ocr/types.hpp"
 
@@ -27,6 +29,7 @@ struct Arguments {
   std::uint32_t minimum_boxes = 0;
   std::optional<std::uint32_t> maximum_boxes;
   bool diagnostics = false;
+  bool reuse_engine = false;
   std::string diagnostics_mode = "on";
 };
 
@@ -47,11 +50,27 @@ inline PixelFormat parse_format(const std::string& value) {
 
 inline EngineOptions engine_options_for_profile(const std::string& profile) {
   EngineOptions options;
-  if (profile == "upstream_exact") {
+  if (profile == "cpu_fast") {
+    options.intra_op_threads = std::max(
+        1u, std::min(12u, std::thread::hardware_concurrency()));
+  } else if (profile == "upstream_exact") {
     options.detection.strategy = DetectionStrategy::upstream_exact;
     options.recognition_batch_size = 8;
   } else if (profile == "tiled_v1") {
     options.detection.strategy = DetectionStrategy::tiled;
+  } else if (profile == "apple_interactive" ||
+             profile == "apple_strict" ||
+             profile == "apple_cpu_fallback") {
+    options.execution.provider = ExecutionProvider::apple;
+    options.execution.session_fallback =
+        profile == "apple_cpu_fallback" ? SessionFallback::cpu
+                                         : SessionFallback::error;
+    options.execution.cpu_partition =
+        profile == "apple_strict" ? CpuPartition::forbid
+                                   : CpuPartition::allow;
+    options.execution.precision = Precision::fp16;
+    options.detection.strategy = DetectionStrategy::bounded;
+    options.recognition_batch_size = 1;
   }
   return options;
 }
@@ -62,6 +81,10 @@ inline Arguments parse_arguments(int argc, char** argv, bool benchmark) {
     const std::string option = argv[index];
     if (option == "--diagnostics") {
       result.diagnostics = true;
+      continue;
+    }
+    if (option == "--reuse-engine") {
+      result.reuse_engine = true;
       continue;
     }
     if (index + 1 >= argc) throw std::runtime_error("missing value for " + option);
@@ -92,11 +115,14 @@ inline Arguments parse_arguments(int argc, char** argv, bool benchmark) {
   if (result.profile.empty()) {
     result.profile = benchmark ? "runtime_default" : "upstream_exact";
   }
-  if (result.profile != "upstream_exact" &&
+  if (result.profile != "upstream_exact" && result.profile != "cpu_fast" &&
       result.profile != "bounded_default" && result.profile != "runtime_default" &&
-      result.profile != "tiled_v1") {
+      result.profile != "tiled_v1" && result.profile != "apple_interactive" &&
+      result.profile != "apple_strict" &&
+      result.profile != "apple_cpu_fallback") {
     throw std::runtime_error(
-        "profile must be upstream_exact, bounded_default, runtime_default, or tiled_v1");
+        "profile must be upstream_exact, cpu_fast, bounded_default, runtime_default, "
+        "tiled_v1, apple_interactive, apple_strict, or apple_cpu_fallback");
   }
   if (result.diagnostics_mode != "on" && result.diagnostics_mode != "off") {
     throw std::runtime_error("diagnostics-mode must be on or off");

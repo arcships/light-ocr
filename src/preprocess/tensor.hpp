@@ -46,10 +46,13 @@ Result<DetectionInput> make_detection_input(const cv::Mat& bgr,
 Result<std::vector<RecognitionBatchPlan>> plan_recognition_batches(
     const std::vector<Quad>& boxes, const GeometryConfig& geometry,
     const RecognitionConfig& config, std::uint32_t batch_size,
-    const ResourceLimits& limits);
+    const ResourceLimits& limits, std::uint32_t tensor_width_multiple = 1,
+    const std::vector<std::uint32_t>& tensor_width_buckets = {});
 
 Result<RecognitionBatch> make_recognition_batch(
     const std::vector<cv::Mat>& crops, const RecognitionBatchPlan& plan,
-    const RecognitionConfig& config, const ResourceLimits& limits);
+    const RecognitionConfig& config, const ResourceLimits& limits,
+    std::uint32_t tensor_width_multiple = 1,
+    const std::vector<std::uint32_t>& tensor_width_buckets = {});
 
 }  // namespace light_ocr::internal

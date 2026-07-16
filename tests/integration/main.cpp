@@ -35,8 +35,14 @@ int main() {
 
     const auto corrupt_model = std::make_shared<const std::vector<std::uint8_t>>(
         std::initializer_list<std::uint8_t>{1, 2, 3});
+    light_ocr::internal::InferenceSessionConfig detection_config;
+    detection_config.model_id = "integration-detection";
+    detection_config.model_sha256 = std::string(64, '0');
+    detection_config.shape_policy = "dynamic";
+    auto recognition_config = detection_config;
+    recognition_config.model_id = "integration-recognition";
     auto corrupt_session = light_ocr::internal::OnnxSession::create(
-        corrupt_model, 1, 1, light_ocr::internal::ModelKind::detection);
+        corrupt_model, detection_config, light_ocr::internal::ModelKind::detection);
     if (corrupt_session ||
         corrupt_session.error().code != light_ocr::ErrorCode::runtime_initialization_failed) {
       std::cerr << "corrupt ONNX did not return runtime_initialization_failed\n";
@@ -44,7 +50,8 @@ int main() {
     }
 
     auto wrong_contract = light_ocr::internal::OnnxSession::create(
-        detection_model->bytes, 1, 1, light_ocr::internal::ModelKind::recognition, 1);
+        detection_model->bytes, recognition_config,
+        light_ocr::internal::ModelKind::recognition, 1);
     if (wrong_contract ||
         wrong_contract.error().code != light_ocr::ErrorCode::unsupported_model) {
       std::cerr << "incompatible model contract did not return unsupported_model\n";
@@ -52,7 +59,8 @@ int main() {
     }
 
     auto detection_session = light_ocr::internal::OnnxSession::create(
-        detection_model->bytes, 1, 1, light_ocr::internal::ModelKind::detection);
+        detection_model->bytes, detection_config,
+        light_ocr::internal::ModelKind::detection);
     if (!detection_session) {
       std::cerr << "failed to create detection session for tensor boundary tests\n";
       return 1;
@@ -88,6 +96,34 @@ int main() {
         engine.value()->info().detection_max_side != 960 ||
         engine.value()->info().default_recognition_batch_size != 1) {
       std::cerr << "product bundle did not select bounded/960 and recognition batch 1\n";
+      return 1;
+    }
+    const auto& execution = engine.value()->info().execution;
+    if (execution.requested_provider != light_ocr::ExecutionProvider::cpu ||
+        execution.session_fallback != light_ocr::SessionFallback::error ||
+        execution.cpu_partition != light_ocr::CpuPartition::allow ||
+        execution.performance_hint != light_ocr::PerformanceHint::latency ||
+        execution.requested_precision != light_ocr::Precision::automatic ||
+        execution.provider_capabilities.size() != 1 ||
+        execution.provider_capabilities.front().provider != "cpu" ||
+        !execution.provider_capabilities.front().package_included ||
+        !execution.provider_capabilities.front().device_available ||
+        !execution.provider_capabilities.front().device_validated ||
+        execution.detection.actual_provider_chain !=
+            std::vector<std::string>{"CPUExecutionProvider"} ||
+        execution.recognition.actual_provider_chain !=
+            std::vector<std::string>{"CPUExecutionProvider"} ||
+        execution.detection.model_id != "PP-OCRv6_small_det_onnx" ||
+        execution.recognition.model_id != "PP-OCRv6_small_rec_onnx" ||
+        execution.detection.model_sha256.size() != 64 ||
+        execution.recognition.model_sha256.size() != 64 ||
+        !execution.detection.device_validated ||
+        !execution.recognition.device_validated ||
+        execution.detection.precision != "fp32" ||
+        execution.recognition.shape_policy != "dynamic" ||
+        execution.detection.session_fallback ||
+        execution.detection.fallback_reason.has_value()) {
+      std::cerr << "default CPU execution summary is invalid\n";
       return 1;
     }
     const std::uint8_t tiny_pixel = 255;
@@ -276,6 +312,18 @@ int main() {
         std::move(invalid_bundle).value(), invalid_options);
     if (invalid_engine || invalid_engine.error().code != light_ocr::ErrorCode::invalid_argument) {
       std::cerr << "invalid engine options did not return invalid_argument\n";
+      return 1;
+    }
+
+    auto invalid_execution_bundle = light_ocr::ModelBundle::create(bundle_files);
+    light_ocr::EngineOptions invalid_execution_options;
+    invalid_execution_options.execution.device_id = 0;
+    auto invalid_execution_engine = light_ocr::Engine::create(
+        std::move(invalid_execution_bundle).value(), invalid_execution_options);
+    if (invalid_execution_engine ||
+        invalid_execution_engine.error().code !=
+            light_ocr::ErrorCode::invalid_argument) {
+      std::cerr << "invalid CPU execution options did not return invalid_argument\n";
       return 1;
     }
 

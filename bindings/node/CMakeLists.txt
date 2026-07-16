@@ -68,13 +68,21 @@ if(LIGHT_OCR_BUILD_TESTS)
     "${PROJECT_SOURCE_DIR}/models/generated/ppocrv6-small-onnx-20260714.2")
   if(LIGHT_OCR_NODE_EXECUTABLE AND
      EXISTS "${_light_ocr_test_bundle}/manifest.json")
+    set(_light_ocr_node_test_environment
+      "LIGHT_OCR_NODE_BINARY=$<TARGET_FILE:light_ocr_node>"
+      "LIGHT_OCR_MODEL_BUNDLE=${_light_ocr_test_bundle}")
+    set(_light_ocr_apple_test_bundle
+      "${PROJECT_SOURCE_DIR}/models/generated/ppocrv6-small-apple-20260715.1")
+    if(APPLE AND EXISTS "${_light_ocr_apple_test_bundle}/manifest.json")
+      list(APPEND _light_ocr_node_test_environment
+        "LIGHT_OCR_APPLE_MODEL_BUNDLE=${_light_ocr_apple_test_bundle}")
+    endif()
     add_test(NAME light_ocr_node_tests
       COMMAND "${LIGHT_OCR_NODE_EXECUTABLE}" --test --test-concurrency=1
         "${CMAKE_CURRENT_SOURCE_DIR}/test/adapter.test.cjs")
     set_tests_properties(light_ocr_node_tests PROPERTIES
       WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
-      ENVIRONMENT
-        "LIGHT_OCR_NODE_BINARY=$<TARGET_FILE:light_ocr_node>;LIGHT_OCR_MODEL_BUNDLE=${_light_ocr_test_bundle}"
+      ENVIRONMENT "${_light_ocr_node_test_environment}"
       LABELS "node;integration")
   else()
     message(STATUS

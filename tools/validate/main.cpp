@@ -37,12 +37,23 @@ nlohmann::json result_json(const light_ocr::OcrResult& result) {
                     {"recognitionPostprocess", result.timing.recognition_postprocess_us}}}};
   if (result.diagnostics) {
     nlohmann::json passes = nlohmann::json::array();
+    nlohmann::json recognition_shapes = nlohmann::json::array();
+    nlohmann::json recognition_routes = nlohmann::json::array();
     for (const auto& pass : result.diagnostics->detection_passes) {
       passes.push_back({{"tileOrdinal", pass.tile_ordinal},
                         {"roi", {pass.x, pass.y, pass.width, pass.height}},
                         {"tensorShape", {1, 3, pass.tensor_height, pass.tensor_width}},
                         {"contourCandidates", pass.contour_candidates},
                         {"rawCandidates", pass.raw_candidates}});
+    }
+    for (const auto& shape : result.diagnostics->recognition_batch_shapes) {
+      recognition_shapes.push_back(
+          {shape.batch_size, 3, shape.height, shape.width});
+      recognition_routes.push_back({
+          {"tensorShape", {shape.batch_size, 3, shape.height, shape.width}},
+          {"computeUnit", shape.compute_unit},
+          {"modelId", shape.model_id},
+          {"shapeBucket", shape.shape_bucket}});
     }
     output["diagnostics"] = {{"detectedCandidates", result.diagnostics->detected_candidates},
                              {"acceptedBoxes", result.diagnostics->accepted_boxes},
@@ -52,6 +63,10 @@ nlohmann::json result_json(const light_ocr::OcrResult& result) {
                              {"maxLiveDetectionPassBuffers",
                               result.diagnostics->max_live_detection_pass_buffers},
                              {"detectionPasses", std::move(passes)},
+                             {"recognitionBatchShapes",
+                              std::move(recognition_shapes)},
+                             {"recognitionRoutes",
+                              std::move(recognition_routes)},
                              {"rejectedLines", result.diagnostics->rejected_lines.size()}};
   }
   return output;
