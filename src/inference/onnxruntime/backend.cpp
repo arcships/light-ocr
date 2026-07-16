@@ -113,6 +113,7 @@ SessionExecutionInfo make_execution_info(const InferenceSessionConfig& config) {
   info.runtime_version = Ort::GetVersionString();
   info.provider_version = info.runtime_version;
   info.model_cache_status = "not_applicable";
+  info.device_validated = true;
   info.session_fallback = config.session_fallback_used;
   info.fallback_reason = config.fallback_reason;
   return info;

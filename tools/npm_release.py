@@ -258,17 +258,18 @@ def assemble(arguments: argparse.Namespace) -> None:
     normalized_config = read_json(bundle / manifest["normalizedConfigPath"])
     tiled_contract = normalized_config.get("runtimeProfiles", {}).get("tiled", {})
     apple_provider = manifest.get("providers", {}).get("apple", {})
-    qualified_families = apple_provider.get("qualifiedDeviceFamilies", [])
+    validated_families = apple_provider.get("validatedDeviceFamilies", [])
     if (manifest.get("schemaVersion") != "1.1" or
             normalized_config.get("schemaVersion") != "1.2" or
             tiled_contract.get("contractVersion") != "tiled-v1" or
-            apple_provider.get("schemaVersion") != "1.0" or
-            apple_provider.get("architecture") != "arm64" or
-            not isinstance(qualified_families, list) or
-            len(qualified_families) < 1 or
-            len(qualified_families) != len(set(qualified_families)) or
+            apple_provider.get("schemaVersion") != "1.1" or
+            apple_provider.get("devicePolicy") != "open-macos" or
+            apple_provider.get("architectures") != ["arm64", "x86_64"] or
+            not isinstance(validated_families, list) or
+            len(validated_families) < 1 or
+            len(validated_families) != len(set(validated_families)) or
             any(family not in {"Apple M1", "Apple M2", "Apple M3", "Apple M4"}
-                for family in qualified_families)):
+                for family in validated_families)):
         raise RuntimeError(
             "model bundle does not contain the tiled-v1 Apple release contract"
         )

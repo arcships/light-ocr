@@ -19,7 +19,8 @@ text-line orientation: unavailable
 The 0.2.1 Apple candidate is a self-contained superset named
 `ppocrv6-small-apple-20260715.1`. It preserves the same ONNX CPU payload and
 normalized configuration while adding hash-locked FP16 Core ML packages and a
-qualified-device allow-list.
+macOS-wide open compatibility policy. The reviewed M4 device list is evidence
+metadata, not a runtime allow-list.
 
 PP-OCRv6 tiny is a future independent bundle. PP-OCRv6 medium is architecture-compatible but is not a release target until an official ONNX artifact is pinned and validated.
 
@@ -180,12 +181,15 @@ The real manifest lists every payload file. Core `0.1.x` and `0.2.0` accept mani
 
 ### 6.1 Apple provider extension
 
-Schema 1.1 adds a top-level `providers.apple` object. Its release contract fixes:
+Schema 1.1 adds a top-level `providers.apple` object. The provider sub-contract is version 1.1 and fixes:
 
-- `minimumMacOS: "15.0"`, `architecture: "arm64"`, a non-empty qualified
-  Apple Silicon family list, and `qualificationId: "apple-fp16-mixed-20260715.2"`;
+- `minimumMacOS: "15.0"`, `devicePolicy: "open-macos"`,
+  `architectures: ["arm64", "x86_64"]`, a non-empty
+  `validatedDeviceFamilies` evidence list, and
+  `qualificationId: "apple-fp16-mixed-20260715.2"`;
 - detector package/model/hash/tensor/shape identities, interactive ANE and
-  strict GPU policies, plus the maximum qualified MLCPU operation envelope;
+  strict GPU policies, Intel CPU+GPU policy, plus the maximum reviewed MLCPU
+  operation envelope;
 - recognizer package identity, 32-pixel width multiple, ANE maximum width 1600,
   `w%04u` function mapping, all 91 qualified widths, the locked 20 runtime
   width buckets, and an LRU ceiling of 20 functions;
@@ -195,12 +199,16 @@ Schema 1.1 adds a top-level `providers.apple` object. Its release contract fixes
   serializes every model protobuf, and replaces package entry UUIDs with stable
   UUIDv5 identifiers before checking the locked package hashes.
 
-`qualifiedMLCPUOperations` is a maximum reviewed envelope, not a requirement
+`qualifiedMLCPUOperations` is a maximum reviewed envelope on the M4 evidence
+device, not a requirement
 that every shape use every listed CPU operation. Qualification rejects unknown
 or excess MLCPU operations, missing ANE placement below the boundary, any CPU
 operation on the strict GPU route, incomplete width coverage, or argmax parity
-changes. A device family not present in `qualifiedDeviceFamilies` cannot start
-Core ML; only an explicit session-level CPU fallback may continue.
+changes. `validatedDeviceFamilies` does not gate production execution:
+`open-macos` permits any listed architecture on macOS 15+, while
+`deviceValidated=false` marks hardware without reviewed evidence. The
+`validated-only` policy exists for controlled deployments and fallback testing,
+but is not used by the npm production bundle.
 
 ## 7. Normalized configuration
 

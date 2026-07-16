@@ -105,7 +105,9 @@ internal::AppleModelPackage make_apple_package(
   package.input_name = model.input_name;
   package.output_name = model.output_name;
   package.qualification_id = provider.qualification_id;
-  package.qualified_device_families = provider.qualified_device_families;
+  package.device_policy = provider.device_policy;
+  package.architectures = provider.architectures;
+  package.validated_device_families = provider.validated_device_families;
   const auto prefix = model.package_path + "/";
   for (const auto& file : bundle.files) {
     if (file.first.compare(0, prefix.size(), prefix) == 0) {
@@ -468,15 +470,17 @@ class EngineImpl final : public Engine {
           const auto width = static_cast<std::uint32_t>(batch.shape[3]);
           const bool coreml =
               info_.execution.recognition.runtime == "Core ML";
-          const bool gpu =
+          const bool ane =
               coreml &&
-              (info_.execution.cpu_partition == CpuPartition::forbid ||
-               width > bundle_->apple_provider->recognition_ane_maximum_width);
+              info_.execution.recognition.device.find("ane") !=
+                  std::string::npos &&
+              info_.execution.cpu_partition == CpuPartition::allow &&
+              width <= bundle_->apple_provider->recognition_ane_maximum_width;
           recognition_batch_shapes.push_back(
               RecognitionBatchShape{static_cast<std::uint32_t>(batch.shape[0]),
                                     static_cast<std::uint32_t>(batch.shape[2]),
                                     width,
-                                    coreml ? (gpu ? "gpu" : "ane") : "cpu",
+                                    coreml ? (ane ? "ane" : "gpu") : "cpu",
                                     info_.execution.recognition.model_id,
                                     coreml
                                         ? apple_recognition_function_name(width)
@@ -690,13 +694,21 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
     std::vector<std::uint32_t> recognition_width_buckets;
     std::uint32_t maximum_backend_batch_size =
         bundle.data_->recognition.maximum_batch_size;
-    bool apple_device_qualified = false;
+    bool apple_device_available = false;
+    bool apple_device_validated = false;
+    bool apple_device_allowed = false;
 #if defined(LIGHT_OCR_HAS_COREML)
-    const bool apple_device_available = internal::coreml_device_available();
-    apple_device_qualified =
+    apple_device_available = internal::coreml_device_available();
+    apple_device_validated =
         apple_device_available && bundle.data_->apple_provider &&
-        internal::coreml_device_is_qualified(
-            bundle.data_->apple_provider->qualified_device_families);
+        internal::coreml_device_is_validated(
+            bundle.data_->apple_provider->validated_device_families);
+    apple_device_allowed =
+        apple_device_available && bundle.data_->apple_provider &&
+        internal::coreml_device_is_allowed(
+            bundle.data_->apple_provider->device_policy,
+            bundle.data_->apple_provider->architectures,
+            bundle.data_->apple_provider->validated_device_families);
 #endif
 
     auto create_cpu_sessions = [&](bool fallback,
@@ -740,7 +752,7 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
     } else {
 #if defined(LIGHT_OCR_HAS_COREML)
       std::optional<Error> apple_error;
-      if (apple_device_qualified) {
+      if (apple_device_allowed) {
         const auto& apple = *bundle.data_->apple_provider;
         detection_config.model_id = apple.detection.model_id;
         detection_config.model_sha256 = apple.detection.package_sha256;
@@ -780,7 +792,7 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
           return Result<std::unique_ptr<Engine>>::failure(*apple_error);
         }
         const auto fallback_reason =
-            apple_device_qualified
+            apple_device_allowed
                 ? "apple_initialization_failed"
                 : apple_device_available ? "apple_device_unqualified"
                                          : "apple_device_unavailable";
@@ -822,10 +834,11 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
     info.execution.performance_hint = options.execution.performance_hint;
     info.execution.requested_precision = options.execution.precision;
     info.execution.provider_capabilities = {
-        ProviderCapabilityInfo{"cpu", true, true}};
+        ProviderCapabilityInfo{"cpu", true, true, true}};
     if (bundle.data_->apple_provider) {
       info.execution.provider_capabilities.push_back(
-          ProviderCapabilityInfo{"apple", true, apple_device_qualified});
+          ProviderCapabilityInfo{"apple", true, apple_device_available,
+                                 apple_device_validated});
     }
     info.execution.detection = detection->execution_info();
     info.execution.recognition = recognition->execution_info();

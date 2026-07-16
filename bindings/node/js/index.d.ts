@@ -144,6 +144,8 @@ export interface ProviderCapabilityInfo {
   readonly provider: string;
   readonly packageIncluded: boolean;
   readonly deviceAvailable: boolean;
+  /** True only when this exact hardware family has reviewed qualification evidence. */
+  readonly deviceValidated: boolean;
 }
 export interface SessionExecutionInfo {
   readonly requestedProvider: string;
@@ -160,6 +162,8 @@ export interface SessionExecutionInfo {
   readonly providerVersion: string;
   readonly modelCacheStatus: string;
   readonly qualificationId: string;
+  /** False means the open macOS compatibility path is experimental on this device. */
+  readonly deviceValidated: boolean;
   readonly sessionFallback: boolean;
   readonly fallbackReason?: string;
 }

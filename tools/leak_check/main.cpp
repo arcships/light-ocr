@@ -52,6 +52,7 @@ nlohmann::json session_identity(
     const light_ocr::SessionExecutionInfo& session) {
   return {{"modelSha256", session.model_sha256},
           {"qualificationId", session.qualification_id},
+          {"deviceValidated", session.device_validated},
           {"sessionFallback", session.session_fallback}};
 }
 

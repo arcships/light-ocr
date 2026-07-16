@@ -9,8 +9,14 @@
 namespace light_ocr::internal {
 
 bool coreml_device_available() noexcept;
-bool coreml_device_is_qualified(
+bool coreml_device_has_neural_engine() noexcept;
+std::string coreml_device_architecture() noexcept;
+bool coreml_device_is_validated(
     const std::vector<std::string>& device_families) noexcept;
+bool coreml_device_is_allowed(
+    const std::string& device_policy,
+    const std::vector<std::string>& architectures,
+    const std::vector<std::string>& validated_device_families) noexcept;
 std::string coreml_device_description() noexcept;
 
 class CoreMlSession final : public InferenceSession {

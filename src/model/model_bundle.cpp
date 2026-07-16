@@ -334,28 +334,34 @@ std::optional<internal::AppleProviderConfig> parse_apple_provider(
   const auto& providers = manifest.at("providers");
   if (!providers.contains("apple")) return std::nullopt;
   const auto& apple = providers.at("apple");
-  require_string(apple, "schemaVersion", "1.0", "providers.apple");
+  require_string(apple, "schemaVersion", "1.1", "providers.apple");
   internal::AppleProviderConfig result;
   result.minimum_macos =
       required<std::string>(apple, "minimumMacOS", "providers.apple");
-  result.architecture =
-      required<std::string>(apple, "architecture", "providers.apple");
-  result.qualified_device_families = required<std::vector<std::string>>(
-      apple, "qualifiedDeviceFamilies", "providers.apple");
+  result.device_policy =
+      required<std::string>(apple, "devicePolicy", "providers.apple");
+  result.architectures = required<std::vector<std::string>>(
+      apple, "architectures", "providers.apple");
+  result.validated_device_families = required<std::vector<std::string>>(
+      apple, "validatedDeviceFamilies", "providers.apple");
   result.qualification_id =
       required<std::string>(apple, "qualificationId", "providers.apple");
   const std::unordered_set<std::string> supported_device_families = {
       "Apple M1", "Apple M2", "Apple M3", "Apple M4"};
   std::unordered_set<std::string> declared_device_families;
-  for (const auto& family : result.qualified_device_families) {
+  for (const auto& family : result.validated_device_families) {
     require(supported_device_families.count(family) == 1 &&
                 declared_device_families.insert(family).second,
-            "Apple provider contains an unsupported or duplicate device family",
+            "Apple provider contains an unsupported or duplicate validated family",
             family);
   }
-  require(result.minimum_macos == "15.0" && result.architecture == "arm64" &&
-              !result.qualified_device_families.empty() &&
-              result.qualified_device_families.size() <= 4 &&
+  require(result.minimum_macos == "15.0" &&
+              (result.device_policy == "open-macos" ||
+               result.device_policy == "validated-only") &&
+              result.architectures ==
+                  std::vector<std::string>{"arm64", "x86_64"} &&
+              !result.validated_device_families.empty() &&
+              result.validated_device_families.size() <= 4 &&
               !result.qualification_id.empty() &&
               result.qualification_id.size() <= 128,
           "Apple provider platform contract is unsupported");
@@ -368,6 +374,8 @@ std::optional<internal::AppleProviderConfig> parse_apple_provider(
                                 "providers.apple.detection") == "ane" &&
               required<std::string>(detection, "strictComputeUnit",
                                     "providers.apple.detection") == "gpu" &&
+              required<std::string>(detection, "intelComputeUnit",
+                                    "providers.apple.detection") == "cpu+gpu" &&
               required<std::unordered_map<std::string, std::uint32_t>>(
                   detection, "qualifiedMLCPUOperations",
                   "providers.apple.detection") ==
@@ -404,6 +412,8 @@ std::optional<internal::AppleProviderConfig> parse_apple_provider(
                       {"ios18.relu", 3}, {"pad", 3}} &&
               required<std::string>(recognition, "functionFormat",
                                     "providers.apple.recognition") == "w%04u" &&
+              required<std::string>(recognition, "intelComputeUnit",
+                                    "providers.apple.recognition") == "cpu+gpu" &&
               result.recognition.shape_policy ==
                   "nchw-static-width-multiple-32-v1",
           "Apple recognition routing contract is unsupported");

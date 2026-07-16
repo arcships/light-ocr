@@ -108,6 +108,7 @@ int main() {
         execution.provider_capabilities.front().provider != "cpu" ||
         !execution.provider_capabilities.front().package_included ||
         !execution.provider_capabilities.front().device_available ||
+        !execution.provider_capabilities.front().device_validated ||
         execution.detection.actual_provider_chain !=
             std::vector<std::string>{"CPUExecutionProvider"} ||
         execution.recognition.actual_provider_chain !=
@@ -116,6 +117,8 @@ int main() {
         execution.recognition.model_id != "PP-OCRv6_small_rec_onnx" ||
         execution.detection.model_sha256.size() != 64 ||
         execution.recognition.model_sha256.size() != 64 ||
+        !execution.detection.device_validated ||
+        !execution.recognition.device_validated ||
         execution.detection.precision != "fp32" ||
         execution.recognition.shape_policy != "dynamic" ||
         execution.detection.session_fallback ||

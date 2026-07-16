@@ -126,7 +126,7 @@ flowchart LR
 | G2 模型 Pareto 验证 | D107 预先锁定的 tier profile；同机安装大小、质量、延迟、RSS 报告 | 候选包至少两个 prerelease | 每个 GA 杯型通过预注册阈值，且拥有不能被 small 同时满足的清晰受众 | tiny 没有显著降低总部署成本，或 medium 没有在目标 corpus 上产生实际质量收益 |
 | G3 文档入口验证 | S3 接受/缩减；至少 30 份、100 页、5 类文档的 corpus；公开反馈或集成记录 | preview 发布后 30–60 天 | 安全/资源 gates 全绿；接受分支有至少 3 名独立用户或 2 个外部集成使用 PDF，缩减分支达到同等数量的多页 page-image/Markdown 使用证据 | 接受分支的 renderer 成本不可接受，或任一分支的用户普遍更愿意自行完成文档编排 |
 | G4 结构化价值验证 | D109 预注册 Layout/reading-order profile；至少 100 页独立标注；preview 集成反馈 | preview 发布后至少 60 天 | 质量 gates 全绿；至少 2 个外部集成证明 Layout 改善 Markdown、chunking 或字段定位 | Layout 结果没有优于 OCR-order，或模型/标注/安装成本超过使用价值 |
-| PG Provider Gate | 同机 CPU/EP 对照；simple、dense、tiled、medium 和 Layout 候选 workload；provider payload/driver inventory | 至少 3 次独立冷启动与 30 次 warm run；每个进入 allow-list 的设备族至少一台真实目标设备 | contract 100% 通过；在至少两个目标 workload 上 `CPU P50 latency / EP P50 latency ≥ 1.5`，或吞吐 ≥2× CPU；质量通过预注册容差；无隐式 session fallback；cold-start、安装大小和设备内存不超过预注册 ceiling | 只有 inference microbenchmark 加速、端到端无收益，或初始化/copy/package/质量成本抵消收益 |
+| PG Provider Gate | 同机 CPU/EP 对照；simple、dense、tiled、medium 和 Layout 候选 workload；provider payload/driver inventory | 至少 3 次独立冷启动与 30 次 warm run；每个公开性能数字对应至少一台真实目标设备 | contract 100% 通过；在至少两个目标 workload 上 `CPU P50 latency / EP P50 latency ≥ 1.5`，或吞吐 ≥2× CPU；质量通过预注册容差；无隐式 session fallback；cold-start、安装大小和设备内存不超过预注册 ceiling | 只有 inference microbenchmark 加速、端到端无收益，或初始化/copy/package/质量成本抵消收益 |
 
 阈值不得在看到最终候选结果后调整。模型质量、Layout 指标的具体数值由对应 decision 在运行正式评测前锁定；Roadmap 只规定证据类别和决策纪律。
 
@@ -554,7 +554,7 @@ interface ExecutionOptions {
 - provider/device/driver/runtime、线程、并发、batch、precision 和电源模式；
 - CER、Detection P/R/Hmean、空结果、重复行和 schema/坐标 contract。
 
-正式候选至少进行 3 次独立 cold start、30 次 warm run，并对每个进入 allow-list 的设备族使用至少一台真实目标设备复核；扩大到新的设备族时必须增加对应真机证据。设备内存无法可靠读取时必须标为 unavailable，不能用 host RSS 代替。性能改动不得放宽 bounded/tiled 资源上限或质量阈值。
+正式候选至少进行 3 次独立 cold start、30 次 warm run。开放兼容可以先于设备证据，但每个公开宣称性能或标记 `deviceValidated=true` 的设备族必须至少有一台真实目标设备复核；新增社区设备结果可逐步提升证据状态。设备内存无法可靠读取时必须标为 unavailable，不能用 host RSS 代替。性能改动不得放宽 bounded/tiled 资源上限或质量阈值。
 
 ### 7.5 Perf-1B — CPU 基线与调优
 

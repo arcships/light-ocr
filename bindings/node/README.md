@@ -1,6 +1,6 @@
 # light-ocr Node-API adapter
 
-状态：`@arcships/light-ocr@0.2.0` 已发布；当前 0.2.1 源码候选加入受资格约束的 Apple/Core ML provider。tiled detection 和内存 JPEG/PNG 输入继续可用，默认推理仍为 CPU。
+状态：`@arcships/light-ocr@0.2.0` 已发布；当前 0.2.1 源码候选加入开放 macOS 兼容的 Apple/Core ML provider。tiled detection 和内存 JPEG/PNG 输入继续可用，默认推理仍为 CPU。
 
 推荐直接安装公开 package：
 
@@ -21,7 +21,7 @@ npm install @arcships/light-ocr
 - 支持 `AbortSignal` 协作式取消：queued 请求会从队列移除；running 请求立即拒绝 public Promise，但 Core 会安全运行到返回并丢弃结果。
 - native addon 只接收现有绝对 bundle 目录。当前源码开发调用显式传 `bundlePath`；发布后的 facade 默认使用随 npm 安装的 model package 路径。
 - 产品 engine 默认报告 `detectionStrategy: 'bounded'`、`detectionMaxSide: 960` 和 `defaultRecognitionBatchSize: 1`。0.2.0 可通过 `detection: {strategy: 'tiled'}` 显式选择 `tiled-v1`；`upstreamExact` 只用于上游对照，单次 `recognize({detectionMaxSide})` 只能继续降低 bounded engine 的 side。
-- `createEngine({execution})` 接受 `cpu` 或 `apple`。Apple interactive 使用 FP16 ANE + 宽文本 FP16 GPU 混合路由，strict 使用全 GPU，显式 CPU fallback 会报告稳定原因；`engine.info.execution.sessions` 和逐批 diagnostics 提供模型、设备、缓存、qualification ID、shape bucket 与实际 compute unit。
+- `createEngine({execution})` 接受 `cpu` 或 `apple`。macOS 15+ 默认开放：Apple Silicon interactive 使用 FP16 ANE + 宽文本 FP16 GPU，strict 使用全 GPU；Intel Mac 使用 Core ML CPU+GPU 且只接受 `cpuPartition: 'allow'`。显式 CPU fallback 会报告稳定原因；`deviceValidated` 区分已有 M4 证据与其他 Mac 的实验兼容，`engine.info.execution.sessions` 和逐批 diagnostics 还提供模型、设备、缓存、qualification ID、shape bucket 与实际 compute unit。
 
 不支持 WebP、GIF、PDF、EXIF orientation 自动旋转、zero-copy/transfer、运行中 inference 硬中断、Electron 或 Bun。详细契约见 [Node-API 设计](../../docs/napi-design.md)。
 
@@ -77,6 +77,7 @@ const engine = await createEngine({
 });
 
 console.log(engine.info.execution.sessions.detection.actualProviderChain);
+console.log(engine.info.execution.sessions.detection.deviceValidated);
 ```
 
 当前源码开发用法仍需显式 bundle：

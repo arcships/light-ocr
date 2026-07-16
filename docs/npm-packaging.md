@@ -1,7 +1,7 @@
 # @arcships/light-ocr npm Package Design
 
 状态：六包设计与 `0.2.0` lockstep 发布已完成；0.2.1 Apple superset bundle release candidate 已接入同一流程<br>
-更新时间：2026-07-15<br>
+更新时间：2026-07-16<br>
 Authority：npm 包名、包拆分、依赖关系、内置模型、版本与发布门槛<br>
 Node API：[napi-design.md](napi-design.md)<br>
 Model contract：[model-bundle.md](model-bundle.md)<br>
@@ -11,7 +11,7 @@ Decision：[decisions.md](decisions.md) D105
 
 0.2.1 候选不增加第七个包或第二个安装入口。model package 改为
 `ppocrv6-small-apple-20260715.1` 自包含 superset：所有平台继续使用其中的
-ONNX CPU payload，只有通过 allow-list 的 macOS arm64 才能显式请求 Core ML。
+ONNX CPU payload；macOS 15+ arm64/x86_64 使用 `open-macos` 策略，均可显式请求 Core ML。`validatedDeviceFamilies` 只标记已有真机证据，不阻塞其他 Mac 的实验兼容。
 release workflow 在 macOS 以哈希锁 Python 3.12 工具链派生固定 Core ML 工件，
 Linux assemble job 只消费该 artifact；运行时和 postinstall 都不转换或下载模型。
 

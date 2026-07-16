@@ -1301,6 +1301,8 @@ napi_value create_session_execution_info(napi_env env,
             string_value(env, info.model_cache_status));
   set_named(env, object, "qualificationId",
             string_value(env, info.qualification_id));
+  set_named(env, object, "deviceValidated",
+            boolean_value(env, info.device_validated));
   set_named(env, object, "sessionFallback",
             boolean_value(env, info.session_fallback));
   if (info.fallback_reason) {
@@ -1341,6 +1343,8 @@ napi_value create_execution_info(napi_env env, const ExecutionInfo& info) {
               boolean_value(env, capability.package_included));
     set_named(env, entry, "deviceAvailable",
               boolean_value(env, capability.device_available));
+    set_named(env, entry, "deviceValidated",
+              boolean_value(env, capability.device_validated));
     check(env,
           napi_set_element(env, capabilities, static_cast<std::uint32_t>(index),
                            entry),

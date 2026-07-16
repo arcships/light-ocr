@@ -329,8 +329,8 @@ Rules:
 
 - Thread counts are positive and fixed at creation.
 - CPU remains the default. It accepts `auto`/`fp32`, requires `cpuPartition=allow`, `sessionFallback=error`, and uses the existing ONNX Runtime path.
-- The Apple provider accepts `auto`/`fp16`, bounded detection no larger than 960, recognition batch 1, and latency mode. `cpuPartition=allow` selects the qualified FP16 ANE path plus the width-based FP16 GPU route; `cpuPartition=forbid` selects the all-GPU strict path used for qualification.
-- `sessionFallback=cpu` permits one explicit whole-session fallback only when the Apple build, device family, or Core ML initialization is unavailable. The chosen CPU sessions report `session_fallback=true` and one of the stable reasons `apple_provider_not_built`, `apple_device_unavailable`, `apple_device_unqualified`, or `apple_initialization_failed`. Inference-time failures never retry on CPU.
+- The Apple provider accepts `auto`/`fp16`, bounded detection no larger than 960, recognition batch 1, and latency mode. Production bundles use open macOS compatibility: Apple Silicon with `cpuPartition=allow` selects FP16 ANE plus the width-based FP16 GPU route, while Intel Mac selects Core ML CPU+GPU. `cpuPartition=forbid` selects the all-GPU strict path and is accepted only on Apple Silicon.
+- `sessionFallback=cpu` permits one explicit whole-session fallback when the Apple build, macOS version/architecture, an opt-in `validated-only` policy, or Core ML initialization prevents startup. The chosen CPU sessions report `session_fallback=true` and one of the stable reasons `apple_provider_not_built`, `apple_device_unavailable`, `apple_device_unqualified`, or `apple_initialization_failed`. Production `open-macos` bundles do not reject a Mac merely because it lacks reviewed device evidence. Inference-time failures never retry on CPU.
 - Apple execution requires a schema 1.1 bundle containing the hash-locked provider payload. Unsupported device IDs, throughput mode, precision/provider combinations, detection strategies, and batch sizes fail instead of being ignored.
 - Score thresholds are finite and in `[0, 1]`.
 - Batch sizes are positive and no larger than the effective limit.
@@ -373,6 +373,7 @@ struct ProviderCapabilityInfo {
   std::string provider;
   bool package_included = false;
   bool device_available = false;
+  bool device_validated = false;
 };
 
 struct SessionExecutionInfo {
@@ -390,6 +391,7 @@ struct SessionExecutionInfo {
   std::string provider_version;
   std::string model_cache_status;
   std::string qualification_id;
+  bool device_validated = false;
   bool session_fallback = false;
   std::optional<std::string> fallback_reason;
 };
@@ -430,7 +432,7 @@ struct EngineInfo {
 }  // namespace light_ocr
 ```
 
-`info` is an immutable creation snapshot. The returned reference remains valid until the engine object is destroyed, including after `close`. `provider_capabilities` distinguishes a provider included in the package from one qualified on the current device; each session then records what was actually configured. `RecognitionBatchShape` adds the per-request model/function bucket and ANE/GPU/CPU route. A configured provider chain is not itself placement proof: the Apple release gate separately checks every Core ML function with Compute Plan evidence and binds the result through `qualification_id`.
+`info` is an immutable creation snapshot. The returned reference remains valid until the engine object is destroyed, including after `close`. `provider_capabilities` separately reports package inclusion, runtime device availability, and whether the current hardware family has reviewed evidence. Each session repeats `device_validated` beside what was actually configured; `false` means the open compatibility path is experimental, not that Core ML was skipped. `RecognitionBatchShape` adds the per-request model/function bucket and ANE/GPU/CPU route. A configured provider chain is not itself placement proof: the Apple release gate separately checks every Core ML function with Compute Plan evidence and binds the result through `qualification_id`.
 
 ## 9. Engine API
 

@@ -121,6 +121,7 @@ test('loads PP-OCRv6, snapshots pixels, maps results, and closes idempotently', 
     provider: 'cpu',
     packageIncluded: true,
     deviceAvailable: true,
+    deviceValidated: true,
   }]);
   assert.deepEqual(
     engine.info.execution.sessions.detection.actualProviderChain,
@@ -141,6 +142,7 @@ test('loads PP-OCRv6, snapshots pixels, maps results, and closes idempotently', 
   assert.match(engine.info.execution.sessions.detection.modelSha256, /^[a-f0-9]{64}$/);
   assert.equal(engine.info.execution.sessions.detection.precision, 'fp32');
   assert.equal(engine.info.execution.sessions.detection.shapePolicy, 'dynamic');
+  assert.equal(engine.info.execution.sessions.detection.deviceValidated, true);
   assert.equal(engine.info.execution.sessions.detection.sessionFallback, false);
   assert.equal(engine.info.execution.sessions.detection.fallbackReason, undefined);
   assert.ok(Object.isFrozen(engine.info));
@@ -179,7 +181,7 @@ test('loads PP-OCRv6, snapshots pixels, maps results, and closes idempotently', 
   );
 });
 
-test('exposes qualified Apple interactive and strict routing', {
+test('exposes open Apple routing and validation status', {
   skip: appleBundlePath === undefined,
 }, async () => {
   const image = loadFixture('generated-hello-123');
@@ -192,11 +194,11 @@ test('exposes qualified Apple interactive and strict routing', {
     assert.equal(interactive.info.execution.requestedProvider, 'apple');
     assert.deepEqual(
       interactive.info.execution.sessions.detection.actualProviderChain,
-      ['CoreML(MLNeuralEngine,qualified-MLCPU)'],
+      ['CoreML(MLNeuralEngine,MLCPU)'],
     );
     assert.deepEqual(
       interactive.info.execution.sessions.recognition.actualProviderChain,
-      ['CoreML(MLNeuralEngine,qualified-MLCPU)', 'CoreML(MLGPU)'],
+      ['CoreML(MLNeuralEngine,MLCPU)', 'CoreML(MLGPU)'],
     );
     assert.match(
       interactive.info.execution.sessions.detection.qualificationId,
@@ -205,6 +207,10 @@ test('exposes qualified Apple interactive and strict routing', {
     assert.match(
       interactive.info.execution.sessions.detection.deviceFamily,
       /^Apple M/,
+    );
+    assert.equal(
+      interactive.info.execution.sessions.detection.deviceValidated,
+      interactive.info.execution.sessions.detection.deviceFamily.startsWith('Apple M4'),
     );
     assert.ok(
       interactive.info.execution.sessions.detection.operatingSystem.length > 0,

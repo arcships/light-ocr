@@ -1,12 +1,12 @@
 # Apple Device 加速技术方案
 
-状态：Implemented and locally qualified；M4 Max 的实现、放置、质量、性能、缓存、100 页生命周期和未资格设备 CPU fallback Gate 已通过；不代表已经发布
+状态：Implemented with open macOS compatibility；M4 Max 的实现、放置、质量、性能、缓存和 100 页生命周期 Gate 已通过；其他 Mac 以实验兼容模式开放；不代表已经发布
 
-更新时间：2026-07-15
+更新时间：2026-07-16
 
-范围：以 macOS Apple Silicon 为当前交付目标；iPhone/iPad 只保留架构兼容性，不在当前 Tier 1 平台承诺内
+范围：以 macOS 15+ 为当前交付目标；Apple Silicon 使用 ANE/GPU 混合路由，Intel Mac 使用 CPU+GPU 路由；iPhone/iPad 不在当前 Tier 1 平台承诺内
 
-实施状态：Direct Objective-C++ Core ML bridge、schema 1.1 capability manifest、哈希锁 FP16 模型派生、自包含 npm 模型包、ANE/GPU 混合路由、严格 GPU 模式、离线编译缓存、跨进程锁、20 个加权宽度桶的有界函数缓存、设备资格与显式 CPU fallback、C++/Node API 和资格工具均已实现。默认仍为 ONNX Runtime CPU；Apple 必须显式请求并由 bundle 中的设备族 allow-list 放行。当前 accepted allow-list 只包含真实 M4 Max 上通过完整 Gate 的 `Apple M4`；M1–M3 不宣称加速并稳定回退 CPU。
+实施状态：Direct Objective-C++ Core ML bridge、schema 1.1 capability manifest、哈希锁 FP16 模型派生、自包含 npm 模型包、ANE/GPU 与 Intel CPU+GPU 路由、严格 GPU 模式、离线编译缓存、跨进程锁、20 个加权宽度桶的有界函数缓存、显式 CPU fallback、C++/Node API 和资格工具均已实现。默认仍为 ONNX Runtime CPU；Apple 必须显式请求。生产 bundle 使用 `devicePolicy: open-macos`，macOS 15+ 的 arm64/x86_64 Mac 均可尝试 Core ML；`validatedDeviceFamilies: ["Apple M4"]` 只标记已有性能证据，不再充当运行白名单。`deviceValidated` 让调用方区分 M4 实证与其他设备的实验兼容。
 
 关联 Roadmap：[Perf-0–Perf-4](roadmap.md#7-perf-0perf-4--性能与宿主加速线)
 
@@ -111,7 +111,7 @@ flowchart TD
 | 四进程缓存竞争 | 通过，无残留临时目录 | 只允许每阶段一个 miss |
 | 同 engine 100 页 RSS 增长 | -27.47 MiB，测量最大 888.09 MiB | ≤64 MiB（工具实际执行 ≤32 MiB） |
 
-密集表单的首次整页耗时另行保留：cache miss 53.846 s，hit 12.677/12.677 s；其中包含 113 行 OCR 和 14 个 Core ML 函数的按需装载，不纳入固定 canary 的 provider cold-start ceiling。确定性派生的 detector/recognizer 包哈希分别为 `2097bd78…7f76` 与 `c54a0719…5f4b`；`.2` acceptance 下的模型放置、质量、性能、缓存、生命周期和未资格设备回退报告哈希分别为 `f9b4cfdb…d983`、`79d5b9f6…6ae1`、`cecf7607…cd8d`、`8356c20c…2f64`、`f695157a…6195` 和 `2e72ab7e…d823`。
+密集表单的首次整页耗时另行保留：cache miss 53.846 s，hit 12.677/12.677 s；其中包含 113 行 OCR 和 14 个 Core ML 函数的按需装载，不纳入固定 canary 的 provider cold-start ceiling。确定性派生的 detector/recognizer 包哈希分别为 `2097bd78…7f76` 与 `c54a0719…5f4b`；`.2` acceptance 下的模型放置、质量、性能、缓存、生命周期和历史策略回退报告哈希分别为 `f9b4cfdb…d983`、`79d5b9f6…6ae1`、`cecf7607…cd8d`、`8356c20c…2f64`、`f695157a…6195` 和 `2e72ab7e…d823`。
 
 #### CPU 与 FP16 GPU
 
@@ -157,13 +157,13 @@ W8A8 的已有 quality smoke 只使用 3 页 detector 校准图和 10 个 recogn
 
 | 设备类别 | ANE | 首选模式 | W8A8 策略 | 兼容/回退 |
 | --- | --- | --- | --- | --- |
-| M4 系列及项目独立验证过的后续 Mac | 有；M4 具备 Apple 明确说明的 INT8×INT8 加速 | FP16 ANE + FP16 GPU | 质量与收益通过后，可对 ANE 子模型启用 | FP16 GPU；显式 CPU session fallback |
-| M1–M3 Mac | 有 | 先资格审查 FP16 ANE/GPU | 不承诺 W8A8 加速；必须逐代实测 | FP16 GPU 或 CPU |
-| Intel Mac | 无 | CPU baseline；CoreML FP16 GPU 仅在独立 Gate 后可选 | 不适用 ANE W8A8 | CPU |
+| M4 系列 | 有；M4 具备 Apple 明确说明的 INT8×INT8 加速 | 已验证的 FP16 ANE + FP16 GPU | 质量与收益通过后，可对 ANE 子模型启用 | `deviceValidated=true`；显式 CPU session fallback |
+| M1–M3 与后续 Apple Silicon Mac | 有 | 开放 FP16 ANE/GPU 实验兼容 | 不承诺 W8A8 加速；社区设备反馈后逐步补证据 | `deviceValidated=false`；初始化失败可显式回退 CPU |
+| Intel Mac | 无 | 开放 Core ML FP16 CPU+GPU 实验兼容；仅 `cpuPartition=allow` | 不适用 ANE W8A8 | `deviceValidated=false`；初始化失败可显式回退 CPU |
 | A17 Pro/M4 系列及项目独立验证过的后续 iPhone/iPad | 有；A17 Pro/M4 具备 Apple 明确说明的 INT8×INT8 加速 | 架构上与 Mac 相同 | 未来平台工作，当前不发布 | 平台自有 CPU/GPU 策略 |
 | 更老 iPhone/iPad | 有或无，能力不同 | 当前不在项目支持矩阵 | 不承诺 | 当前不发布 |
 
-“硬件存在”与“模型完整运行在该硬件”是两件事。每个发布设备族仍需要 model × shape × precision 的 compute-plan 和端到端证据。
+“可以运行”与“已有项目性能承诺”是两件事。开放模式让真实用户设备尽早暴露兼容问题；只有 `validatedDeviceFamilies` 中的设备族拥有项目审阅过的 model × shape × precision、质量和端到端性能证据。
 
 ## 5. 推荐运行时架构
 
@@ -323,6 +323,7 @@ Apple provider release set
 | shape policy | exact、enumerated、bucket 版本 |
 | session fallback | 是否发生以及稳定原因码 |
 | qualification ID | 对应的设备/模型/benchmark 报告版本 |
+| device validated | 当前硬件族是否包含在已审阅证据中；`false` 表示开放实验兼容 |
 
 普通运行时不必为每次调用生成昂贵 compute plan，但发布资格审查工具必须能证明每个预注册 model × shape × precision 的实际 placement。产品文案只能描述已经通过资格审查的执行路径。
 
@@ -352,7 +353,7 @@ Apple provider 继承 Roadmap Provider Gate，并增加交互式 CPU 目标：
 - 公共 contract 100% 通过；FP16/W8A8 的质量容差在查看最终 benchmark 前锁定；
 - reference PDF 不允许出现预注册的关键文本漏检；
 - 固定启动 canary 的 cold start、warm RSS、包增量和缓存行为通过预注册 ceiling；其他 workload 仍报告首次整页耗时；
-- 每个进入 allow-list 的设备族必须至少在一台真实目标设备上完成全套复核；当前只发布资格内的 `Apple M4`。W8A8 若未来启用，必须覆盖计划宣称支持的每个硬件代际。
+- `open-macos` 兼容设备无需先进入白名单即可运行，但公开性能数字只能来自 `validatedDeviceFamilies`；当前只有 `Apple M4`。W8A8 若未来启用，仍必须覆盖计划宣称支持的每个硬件代际。
 
 ## 12. 分阶段落地
 
@@ -369,7 +370,7 @@ Apple provider 继承 Roadmap Provider Gate，并增加交互式 CPU 目标：
 
 ### Phase B — FP16 Apple interactive preview
 
-状态：实现完成，M4 Max 本机全套 Gate 已通过；M1–M3 未进入 allow-list，按合同稳定回退 CPU。
+状态：实现完成，M4 Max 本机全套 Gate 已通过；macOS 15+ 的其他 Apple Silicon 以同一 ANE/GPU 路径开放，Intel Mac 以 CPU+GPU 路径开放，二者均明确报告 `deviceValidated=false`。
 
 - Detector、常规 recognition 优先 FP16 ANE。
 - ANE-unqualified recognition shape 使用 FP16 GPU。
@@ -395,19 +396,19 @@ Apple provider 继承 Roadmap Provider Gate，并增加交互式 CPU 目标：
 
 - 将通过 Gate 的 Apple runtime/provider、模型派生物、SBOM、licenses、provenance 和签名纳入由主 facade 自动取得的 Darwin native release set，不新增用户安装入口。
 - 固化 device/OS/model compatibility manifest 和故障语义。
-- 在未安装任何额外 provider/runtime 的干净目标机上，对每个拟加入 allow-list 的设备族运行正式 corpus、禁网安装和 release qualification。
+- 在社区或维护者能够取得的新设备上复跑正式 corpus；通过后只提升 `deviceValidated` 证据状态，不阻塞此前的实验兼容运行。
 
 退出条件：用户仅安装 `@arcships/light-ocr` 即可运行；从 `engine.info()` 和 qualification report 可以证明实际执行路径，且稳定 CPU fallback 保持可用。
 
 ## 13. 已落地决策与剩余外部证据
 
 1. 正式 backend 候选为 Direct Core ML；ORT 1.22 CoreML EP 在禁止 CPU fallback 时不能完整放置当前 graph，保留为未来对照而非产品路径。
-2. FP16 只对 manifest 明列且在真实本机独立通过资格的 Apple Silicon family 启用；当前包只列 M4。M1–M3 必须取得对应真实设备并完成同一套本地 Gate 后才能加入 allow-list；CI 虚拟 M1 不暴露 GPU/Neural Engine，不能作为加速证据。W8A8 仍不发布。
-3. Detector 使用 32–960 的受限 range MLProgram；interactive 使用资格内 ANE/MLCPU envelope，strict 使用全 GPU。
+2. FP16 生产 manifest 使用 `devicePolicy: open-macos` 和 `architectures: [arm64, x86_64]`。`validatedDeviceFamilies` 当前只列 M4，但仅表示性能证据；M1–M3、后续 Apple Silicon 和 Intel Mac 无需白名单即可尝试。CI 虚拟 M1 不暴露 GPU/Neural Engine，仍不能作为性能证据。W8A8 仍不发布。
+3. Detector 使用 32–960 的受限 range MLProgram；Apple Silicon interactive 使用 ANE/MLCPU envelope，strict 使用全 GPU；Intel 因无 ANE 使用 Core ML CPU+GPU，且不接受 strict `cpuPartition=forbid`。
 4. Recognition 使用 320–3200、步长 32 的 91-function MLProgram 做全量资格审查；运行时向上取整到锁定的 20 个加权 bucket，≤1600 走 ANE envelope，>1600 走 GPU，LRU≤20。
 5. 随包携带源 `.mlpackage`，首次运行离线编译并以 package/OS/device identity 缓存；不分发跨 OS 的预编译 `.mlmodelc`。
 6. 质量、两 workload speedup、CPU-time 降幅、canary 的 3 次 cold start、30 次 warm、RSS、同 engine 100 页生命周期和 32 MiB 包增量阈值由 `tools/apple/acceptance.json` 锁定。
-7. M4 的 placement、质量、两 workload 性能、CPU-time、cache、RSS、100 页生命周期和未资格设备 CPU fallback 报告已完成，并由 accepted provider baseline `5ac8e117…2788` 锁定。旧 SHA `d9be…12c4` PDF 仅是无法复跑的历史 scoreboard，不阻塞当前 M4 实现；新增设备族时必须重新执行本地资格流程并审阅新 baseline。
+7. M4 的 placement、质量、两 workload 性能、CPU-time、cache、RSS 和 100 页生命周期报告已完成，并由 accepted provider baseline `5ac8e117…2788` 锁定；原未资格设备 fallback 报告现在只证明可选 `validated-only` 策略，不代表生产 `open-macos` 会拒绝其他 Mac。旧 SHA `d9be…12c4` PDF 仅是无法复跑的历史 scoreboard。
 
 ## 14. 关联工作
 

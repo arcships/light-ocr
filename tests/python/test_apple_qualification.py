@@ -34,11 +34,13 @@ class AppleQualificationCollectorTests(unittest.TestCase):
             "detection": {
                 "modelSha256": "det",
                 "qualificationId": "apple-test",
+                "deviceValidated": True,
                 "sessionFallback": False,
             },
             "recognition": {
                 "modelSha256": "rec",
                 "qualificationId": "apple-test",
+                "deviceValidated": True,
                 "sessionFallback": False,
             },
         }
@@ -165,6 +167,14 @@ class AppleQualificationCollectorTests(unittest.TestCase):
         execution = self.apple_execution()
         execution["recognition"]["modelSha256"] = "different"
         with self.assertRaisesRegex(RuntimeError, "not bound to the locked model"):
+            collect_qualification.validate_execution_models(
+                [{"execution": execution}], "apple-test", ("det", "rec"), "test"
+            )
+
+    def test_rejects_unvalidated_execution_as_reviewed_evidence(self) -> None:
+        execution = self.apple_execution()
+        execution["recognition"]["deviceValidated"] = False
+        with self.assertRaisesRegex(RuntimeError, "validated device"):
             collect_qualification.validate_execution_models(
                 [{"execution": execution}], "apple-test", ("det", "rec"), "test"
             )

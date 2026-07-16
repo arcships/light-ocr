@@ -252,10 +252,11 @@ std::vector<BundleFile> valid_apple_bundle_files() {
       widths.push_back(width);
     }
     manifest["providers"]["apple"] = {
-        {"schemaVersion", "1.0"},
+        {"schemaVersion", "1.1"},
         {"minimumMacOS", "15.0"},
-        {"architecture", "arm64"},
-        {"qualifiedDeviceFamilies", {"Apple M4"}},
+        {"devicePolicy", "open-macos"},
+        {"architectures", {"arm64", "x86_64"}},
+        {"validatedDeviceFamilies", {"Apple M4"}},
         {"qualificationId", "apple-test-qualification"},
         {"detection",
          {{"modelId", "detector-fp16"},
@@ -266,6 +267,7 @@ std::vector<BundleFile> valid_apple_bundle_files() {
           {"shapePolicy", "nchw-bounded-range-32-960-v1"},
           {"preferredComputeUnit", "ane"},
           {"strictComputeUnit", "gpu"},
+          {"intelComputeUnit", "cpu+gpu"},
           {"qualifiedMLCPUOperations", {{"ios18.relu", 1}, {"pad", 1}}}}},
         {"recognition",
          {{"modelId", "recognizer-fp16"},
@@ -283,6 +285,7 @@ std::vector<BundleFile> valid_apple_bundle_files() {
             1056, 1184, 1248, 1376, 1600, 1984, 2240, 2560, 2880,
             3200}},
           {"maximumCachedFunctions", 20},
+          {"intelComputeUnit", "cpu+gpu"},
           {"qualifiedMLCPUOperations",
            {{"ios18.cast", 1}, {"ios18.conv", 3},
             {"ios18.relu", 3}, {"pad", 3}}}}},
@@ -336,12 +339,42 @@ LIGHT_OCR_TEST(model_bundle_rejects_schema_1_1_without_apple_provider) {
   EXPECT_EQ(result.error().code, ErrorCode::invalid_model_bundle);
 }
 
-LIGHT_OCR_TEST(model_bundle_rejects_unknown_apple_device_family) {
+LIGHT_OCR_TEST(model_bundle_rejects_unknown_validated_apple_device_family) {
   auto files = valid_apple_bundle_files();
   for (auto& file : files) {
     if (file.path != "manifest.json") continue;
     auto manifest = Json::parse(std::string(file.bytes->begin(), file.bytes->end()));
-    manifest["providers"]["apple"]["qualifiedDeviceFamilies"] = {"Apple M9"};
+    manifest["providers"]["apple"]["validatedDeviceFamilies"] = {"Apple M9"};
+    file.bytes = bytes(manifest.dump());
+    break;
+  }
+  refresh_checksums(&files);
+  auto result = ModelBundle::create(std::move(files));
+  EXPECT_FALSE(result);
+  EXPECT_EQ(result.error().code, ErrorCode::invalid_model_bundle);
+}
+
+LIGHT_OCR_TEST(model_bundle_rejects_unknown_apple_device_policy) {
+  auto files = valid_apple_bundle_files();
+  for (auto& file : files) {
+    if (file.path != "manifest.json") continue;
+    auto manifest = Json::parse(std::string(file.bytes->begin(), file.bytes->end()));
+    manifest["providers"]["apple"]["devicePolicy"] = "future-policy";
+    file.bytes = bytes(manifest.dump());
+    break;
+  }
+  refresh_checksums(&files);
+  auto result = ModelBundle::create(std::move(files));
+  EXPECT_FALSE(result);
+  EXPECT_EQ(result.error().code, ErrorCode::invalid_model_bundle);
+}
+
+LIGHT_OCR_TEST(model_bundle_rejects_incomplete_apple_architectures) {
+  auto files = valid_apple_bundle_files();
+  for (auto& file : files) {
+    if (file.path != "manifest.json") continue;
+    auto manifest = Json::parse(std::string(file.bytes->begin(), file.bytes->end()));
+    manifest["providers"]["apple"]["architectures"] = {"arm64"};
     file.bytes = bytes(manifest.dump());
     break;
   }

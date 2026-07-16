@@ -27,7 +27,9 @@ struct AppleModelPackage {
   std::string input_name;
   std::string output_name;
   std::string qualification_id;
-  std::vector<std::string> qualified_device_families;
+  std::string device_policy;
+  std::vector<std::string> architectures;
+  std::vector<std::string> validated_device_families;
   std::vector<ModelPackageFile> files;
   std::uint32_t recognition_width_multiple = 1;
   std::uint32_t recognition_ane_maximum_width = 0;

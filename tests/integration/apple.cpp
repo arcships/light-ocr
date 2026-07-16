@@ -98,8 +98,11 @@ void require_wide_recognizer(const fs::path& bundle_path) {
   package.input_name = recognition.at("inputName").get<std::string>();
   package.output_name = recognition.at("outputName").get<std::string>();
   package.qualification_id = provider.at("qualificationId").get<std::string>();
-  package.qualified_device_families =
-      provider.at("qualifiedDeviceFamilies").get<std::vector<std::string>>();
+  package.device_policy = provider.at("devicePolicy").get<std::string>();
+  package.architectures =
+      provider.at("architectures").get<std::vector<std::string>>();
+  package.validated_device_families =
+      provider.at("validatedDeviceFamilies").get<std::vector<std::string>>();
   package.recognition_width_multiple =
       recognition.at("widthMultiple").get<std::uint32_t>();
   package.recognition_ane_maximum_width =
@@ -172,6 +175,10 @@ int main() {
     auto interactive = create_engine(bundle_path, CpuPartition::allow,
                                      SessionFallback::error);
     const auto& interactive_info = interactive->info();
+    const bool has_neural_engine =
+        light_ocr::internal::coreml_device_has_neural_engine();
+    const bool expected_validated =
+        interactive_info.execution.detection.device_family.rfind("Apple M4", 0) == 0;
     require(interactive_info.execution_provider == "CoreML",
             "Interactive engine did not select Core ML");
     require(interactive_info.execution.provider_capabilities.size() == 2 &&
@@ -180,35 +187,59 @@ int main() {
                 interactive_info.execution.provider_capabilities[1]
                     .package_included &&
                 interactive_info.execution.provider_capabilities[1]
-                    .device_available,
+                    .device_available &&
+                interactive_info.execution.provider_capabilities[1]
+                    .device_validated == expected_validated,
             "Apple capability report is invalid");
     require(interactive_info.execution.detection.actual_provider_chain ==
-                std::vector<std::string>{
-                    "CoreML(MLNeuralEngine,qualified-MLCPU)"},
+                (has_neural_engine
+                     ? std::vector<std::string>{"CoreML(MLNeuralEngine,MLCPU)"}
+                     : std::vector<std::string>{"CoreML(MLCPU,MLGPU)"}),
             "Interactive detector routing is invalid");
     require(interactive_info.execution.recognition.actual_provider_chain ==
-                std::vector<std::string>{
-                    "CoreML(MLNeuralEngine,qualified-MLCPU)",
-                    "CoreML(MLGPU)"},
+                (has_neural_engine
+                     ? std::vector<std::string>{
+                           "CoreML(MLNeuralEngine,MLCPU)", "CoreML(MLGPU)"}
+                     : std::vector<std::string>{"CoreML(MLCPU,MLGPU)"}),
             "Interactive recognizer routing is invalid");
     require(!interactive_info.execution.detection.qualification_id.empty() &&
                 interactive_info.execution.detection.qualification_id ==
                     interactive_info.execution.recognition.qualification_id,
             "Apple qualification identity is missing or inconsistent");
-    require(interactive_info.execution.detection.device_family.find("Apple M") == 0 &&
+    require(interactive_info.execution.detection.device_validated ==
+                expected_validated &&
+                interactive_info.execution.recognition.device_validated ==
+                    expected_validated,
+            "Apple validation status is not observable");
+    require(!interactive_info.execution.detection.device_family.empty() &&
                 !interactive_info.execution.detection.operating_system.empty(),
             "Apple device family or operating system is not observable");
-    require_hello(interactive.get(), pixels_path, "ane");
+    require_hello(interactive.get(), pixels_path,
+                  has_neural_engine ? "ane" : "gpu");
     interactive->close();
 
-    auto strict = create_engine(bundle_path, CpuPartition::forbid,
-                                SessionFallback::error);
-    require(strict->info().execution.detection.actual_provider_chain ==
-                std::vector<std::string>{"CoreML(MLGPU)"} &&
-                strict->info().execution.recognition.actual_provider_chain ==
-                    std::vector<std::string>{"CoreML(MLGPU)"},
-            "Strict Apple profile did not select full GPU routing");
-    require_hello(strict.get(), pixels_path, "gpu");
+    if (has_neural_engine) {
+      auto strict = create_engine(bundle_path, CpuPartition::forbid,
+                                  SessionFallback::error);
+      require(strict->info().execution.detection.actual_provider_chain ==
+                  std::vector<std::string>{"CoreML(MLGPU)"} &&
+                  strict->info().execution.recognition.actual_provider_chain ==
+                      std::vector<std::string>{"CoreML(MLGPU)"},
+              "Strict Apple profile did not select full GPU routing");
+      require_hello(strict.get(), pixels_path, "gpu");
+    } else {
+      bool strict_rejected = false;
+      try {
+        auto strict = create_engine(bundle_path, CpuPartition::forbid,
+                                    SessionFallback::error);
+      } catch (const std::exception& exception) {
+        strict_rejected =
+            std::string(exception.what()).find("Intel Mac requires") !=
+            std::string::npos;
+      }
+      require(strict_rejected,
+              "Intel Mac unexpectedly accepted the strict GPU-only profile");
+    }
     return 0;
   } catch (const std::exception& exception) {
     std::cerr << exception.what() << '\n';

@@ -74,8 +74,9 @@ struct AppleModelConfig {
 
 struct AppleProviderConfig {
   std::string minimum_macos;
-  std::string architecture;
-  std::vector<std::string> qualified_device_families;
+  std::string device_policy;
+  std::vector<std::string> architectures;
+  std::vector<std::string> validated_device_families;
   std::string qualification_id;
   AppleModelConfig detection;
   AppleModelConfig recognition;

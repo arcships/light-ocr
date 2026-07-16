@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prove that an unqualified Apple family takes the stable CPU fallback path."""
+"""Prove that the opt-in validated-only policy takes the CPU fallback path."""
 
 from __future__ import annotations
 
@@ -70,13 +70,16 @@ def main() -> int:
     bundle = arguments.bundle.resolve()
     manifest = read_json(bundle / "manifest.json")
     provider = manifest.get("providers", {}).get("apple", {})
-    accelerated_families = provider.get("qualifiedDeviceFamilies", [])
+    validated_families = provider.get("validatedDeviceFamilies", [])
     if (
-        not isinstance(accelerated_families, list)
-        or not accelerated_families
-        or arguments.expected_device_family in accelerated_families
+        provider.get("devicePolicy") != "validated-only"
+        or not isinstance(validated_families, list)
+        or not validated_families
+        or arguments.expected_device_family in validated_families
     ):
-        parser.error("fallback bundle must exclude the expected device family")
+        parser.error(
+            "fallback bundle must use validated-only and exclude the expected family"
+        )
     if (
         provider.get("qualificationId") != acceptance["qualificationId"]
         or provider.get("detection", {}).get("packageSha256")
@@ -118,7 +121,7 @@ def main() -> int:
         "expectedDeviceFamily": arguments.expected_device_family,
         "passed": True,
         "bundleId": manifest["bundleId"],
-        "acceleratedDeviceFamilies": sorted(accelerated_families),
+        "validatedDeviceFamilies": sorted(validated_families),
         "models": {
             "detectionPackageSha256": models["detectionPackageSha256"],
             "recognitionPackageSha256": models["recognitionPackageSha256"],

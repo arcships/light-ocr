@@ -59,10 +59,11 @@ def validate_execution_models(
             if (
                 session.get("modelSha256") != expected_hash
                 or session.get("qualificationId") != qualification_id
+                or session.get("deviceValidated") is not True
                 or session.get("sessionFallback") is not False
             ):
                 raise RuntimeError(
-                    f"{context} {stage} execution is not bound to the locked model"
+                    f"{context} {stage} execution is not bound to the locked model and validated device"
                 )
 
 

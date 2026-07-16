@@ -79,6 +79,7 @@ nlohmann::json session_execution_json(
       {"providerVersion", info.provider_version},
       {"modelCacheStatus", info.model_cache_status},
       {"qualificationId", info.qualification_id},
+      {"deviceValidated", info.device_validated},
       {"sessionFallback", info.session_fallback},
   };
   if (info.fallback_reason) result["fallbackReason"] = *info.fallback_reason;

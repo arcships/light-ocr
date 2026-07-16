@@ -183,6 +183,7 @@ struct ProviderCapabilityInfo {
   std::string provider;
   bool package_included = false;
   bool device_available = false;
+  bool device_validated = false;
 };
 
 struct SessionExecutionInfo {
@@ -200,6 +201,7 @@ struct SessionExecutionInfo {
   std::string provider_version;
   std::string model_cache_status;
   std::string qualification_id;
+  bool device_validated = false;
   bool session_fallback = false;
   std::optional<std::string> fallback_reason;
 };

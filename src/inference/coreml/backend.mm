@@ -293,17 +293,21 @@ SessionExecutionInfo make_execution_info(
     const PreparedPackage& prepared) {
   SessionExecutionInfo info;
   info.requested_provider = "apple";
-  if (kind == ModelKind::detection) {
+  const bool has_neural_engine = coreml_device_has_neural_engine();
+  if (!has_neural_engine) {
+    info.actual_provider_chain = {"CoreML(MLCPU,MLGPU)"};
+    info.device = "cpu+gpu";
+  } else if (kind == ModelKind::detection) {
     info.actual_provider_chain = {
         config.cpu_partition == CpuPartition::forbid
             ? "CoreML(MLGPU)"
-            : "CoreML(MLNeuralEngine,qualified-MLCPU)"};
+            : "CoreML(MLNeuralEngine,MLCPU)"};
     info.device = config.cpu_partition == CpuPartition::forbid ? "gpu" : "ane";
   } else {
     info.actual_provider_chain = config.cpu_partition == CpuPartition::forbid
                                      ? std::vector<std::string>{"CoreML(MLGPU)"}
                                      : std::vector<std::string>{
-                                           "CoreML(MLNeuralEngine,qualified-MLCPU)",
+                                           "CoreML(MLNeuralEngine,MLCPU)",
                                            "CoreML(MLGPU)"};
     info.device = config.cpu_partition == CpuPartition::forbid ? "gpu" : "ane+gpu";
   }
@@ -318,6 +322,8 @@ SessionExecutionInfo make_execution_info(
   info.provider_version = info.runtime_version;
   info.model_cache_status = prepared.cache_hit ? "compiled_cache_hit" : "compiled_cache_miss";
   info.qualification_id = config.apple_package->qualification_id;
+  info.device_validated = coreml_device_is_validated(
+      config.apple_package->validated_device_families);
   return info;
 }
 
@@ -388,7 +394,8 @@ class CoreMlSession::Impl {
                 : "w" + std::string(4 - std::to_string(shape[3]).size(), '0') +
                       std::to_string(shape[3]);
         MLComputeUnits compute_units = MLComputeUnitsCPUAndGPU;
-        if (config_.cpu_partition == CpuPartition::allow &&
+        if (coreml_device_has_neural_engine() &&
+            config_.cpu_partition == CpuPartition::allow &&
             (kind_ == ModelKind::detection ||
              shape[3] <= config_.apple_package->recognition_ane_maximum_width)) {
           compute_units = MLComputeUnitsCPUAndNeuralEngine;
@@ -600,25 +607,43 @@ class CoreMlSession::Impl {
 
 bool coreml_device_available() noexcept {
   @autoreleasepool {
-#if defined(__arm64__)
     if (@available(macOS 15.0, *)) {
       return true;
     }
-#endif
     return false;
   }
 }
 
+bool coreml_device_has_neural_engine() noexcept {
+#if defined(__arm64__)
+  return true;
+#else
+  return false;
+#endif
+}
+
+std::string coreml_device_architecture() noexcept {
+#if defined(__arm64__)
+  return "arm64";
+#elif defined(__x86_64__)
+  return "x86_64";
+#else
+  return "unknown";
+#endif
+}
+
 std::string coreml_device_description() noexcept {
+  const auto fallback =
+      coreml_device_has_neural_engine() ? "Apple Silicon" : "Intel Mac";
   try {
     auto description = sysctl_string("machdep.cpu.brand_string");
-    return description.empty() ? "Apple Silicon" : description;
+    return description.empty() ? fallback : description;
   } catch (...) {
-    return "Apple Silicon";
+    return fallback;
   }
 }
 
-bool coreml_device_is_qualified(
+bool coreml_device_is_validated(
     const std::vector<std::string>& device_families) noexcept {
   try {
     const auto device = coreml_device_description();
@@ -634,6 +659,20 @@ bool coreml_device_is_qualified(
   }
 }
 
+bool coreml_device_is_allowed(
+    const std::string& device_policy,
+    const std::vector<std::string>& architectures,
+    const std::vector<std::string>& validated_device_families) noexcept {
+  if (!coreml_device_available() ||
+      std::find(architectures.begin(), architectures.end(),
+                coreml_device_architecture()) == architectures.end()) {
+    return false;
+  }
+  if (device_policy == "open-macos") return true;
+  return device_policy == "validated-only" &&
+         coreml_device_is_validated(validated_device_families);
+}
+
 CoreMlSession::CoreMlSession(std::unique_ptr<Impl> impl,
                              SessionExecutionInfo execution_info)
     : impl_(std::move(impl)), execution_info_(std::move(execution_info)) {}
@@ -646,7 +685,7 @@ Result<std::unique_ptr<CoreMlSession>> CoreMlSession::create(
     if (!coreml_device_available()) {
       return failure<std::unique_ptr<CoreMlSession>>(
           ErrorCode::unsupported_capability,
-          "The qualified Apple provider requires Apple Silicon and macOS 15");
+          "The Apple provider requires macOS 15 or newer");
     }
     if (config.provider != ExecutionProvider::apple || !config.apple_package ||
         (config.precision != Precision::automatic &&
@@ -658,11 +697,19 @@ Result<std::unique_ptr<CoreMlSession>> CoreMlSession::create(
           ErrorCode::invalid_argument,
           "Apple Core ML session options are invalid");
     }
-    if (!coreml_device_is_qualified(
-            config.apple_package->qualified_device_families)) {
+    if (!coreml_device_is_allowed(
+            config.apple_package->device_policy,
+            config.apple_package->architectures,
+            config.apple_package->validated_device_families)) {
       return failure<std::unique_ptr<CoreMlSession>>(
           ErrorCode::unsupported_capability,
-          "The Apple device family has not passed this model qualification");
+          "The Apple provider device policy does not allow this Mac");
+    }
+    if (!coreml_device_has_neural_engine() &&
+        config.cpu_partition == CpuPartition::forbid) {
+      return failure<std::unique_ptr<CoreMlSession>>(
+          ErrorCode::invalid_argument,
+          "Intel Mac requires cpuPartition=allow for Core ML CPU+GPU routing");
     }
     const auto prepared = prepare_package(*config.apple_package);
     auto info = make_execution_info(config, kind, prepared);

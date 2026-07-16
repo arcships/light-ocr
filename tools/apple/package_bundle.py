@@ -123,29 +123,35 @@ def main() -> int:
         help="Reviewed contracts/apple-provider-baselines.json used by release packaging",
     )
     parser.add_argument(
-        "--qualified-device-family",
+        "--validated-device-family",
         action="append",
-        dest="qualified_device_families",
+        dest="validated_device_families",
         choices=("Apple M1", "Apple M2", "Apple M3", "Apple M4"),
         default=None,
-        help="Qualified Core ML CPU family prefix; may be repeated",
+        help="Device family with reviewed performance evidence; may be repeated",
+    )
+    parser.add_argument(
+        "--device-policy",
+        choices=("open-macos", "validated-only"),
+        default="open-macos",
+        help="Runtime device policy; production defaults to open macOS compatibility",
     )
     arguments = parser.parse_args()
-    if arguments.qualification_report and arguments.qualified_device_families:
+    if arguments.qualification_report and arguments.validated_device_families:
         parser.error(
-            "--qualification-report and --qualified-device-family are mutually exclusive"
+            "--qualification-report and --validated-device-family are mutually exclusive"
         )
     acceptance_bytes = ACCEPTANCE.read_bytes()
     acceptance = json.loads(acceptance_bytes)
     if arguments.qualification_report:
-        qualified_device_families = accepted_device_families(
+        validated_device_families = accepted_device_families(
             arguments.qualification_report.resolve(), acceptance,
             hashlib.sha256(acceptance_bytes).hexdigest(),
         )
     else:
-        qualified_device_families = arguments.qualified_device_families or ["Apple M4"]
-    if len(qualified_device_families) != len(set(qualified_device_families)):
-        parser.error("--qualified-device-family values must be unique")
+        validated_device_families = arguments.validated_device_families or ["Apple M4"]
+    if len(validated_device_families) != len(set(validated_device_families)):
+        parser.error("--validated-device-family values must be unique")
     base = arguments.base.resolve()
     apple = arguments.apple.resolve()
     output = arguments.output.resolve()
@@ -186,16 +192,18 @@ def main() -> int:
         manifest["coreCompatibility"]["minimum"] = "0.2.1"
         manifest["providers"] = {
             "apple": {
-                "schemaVersion": "1.0",
+                "schemaVersion": "1.1",
                 "minimumMacOS": "15.0",
-                "architecture": "arm64",
-                "qualifiedDeviceFamilies": qualified_device_families,
+                "devicePolicy": arguments.device_policy,
+                "architectures": ["arm64", "x86_64"],
+                "validatedDeviceFamilies": validated_device_families,
                 "qualificationId": qualification_id,
                 "detection": {
                     **provenance["detection"],
                     "packagePath": "apple/" + provenance["detection"]["package"],
                     "preferredComputeUnit": "ane",
                     "strictComputeUnit": "gpu",
+                    "intelComputeUnit": "cpu+gpu",
                     "qualifiedMLCPUOperations": {"ios18.relu": 1, "pad": 1},
                 },
                 "recognition": {
@@ -205,6 +213,7 @@ def main() -> int:
                     "aneMaximumWidth": routing["recognitionAneMaximumWidth"],
                     "runtimeWidthBuckets": routing["recognitionRuntimeWidthBuckets"],
                     "maximumCachedFunctions": routing["maximumCachedFunctions"],
+                    "intelComputeUnit": "cpu+gpu",
                     "qualifiedMLCPUOperations": {
                         "ios18.cast": 1,
                         "ios18.conv": 3,

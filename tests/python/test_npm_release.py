@@ -105,9 +105,10 @@ class NpmReleaseTests(unittest.TestCase):
                     "normalizedConfigPath": "normalized-config.json",
                     "providers": {
                         "apple": {
-                            "schemaVersion": "1.0",
-                            "architecture": "arm64",
-                            "qualifiedDeviceFamilies": ["Apple M4"],
+                            "schemaVersion": "1.1",
+                            "devicePolicy": "open-macos",
+                            "architectures": ["arm64", "x86_64"],
+                            "validatedDeviceFamilies": ["Apple M4"],
                         }
                     },
                 }) + "\n", "utf-8"
