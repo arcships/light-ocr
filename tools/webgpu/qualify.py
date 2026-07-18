@@ -447,6 +447,7 @@ def collect_evidence(
     profiles: dict[str, dict[str, Any]],
     graphics: dict[str, Any],
     rebuilt_from_source: bool,
+    native_payload_bytes_override: int | None = None,
     required_fixtures: tuple[str, ...] = DEFAULT_FIXTURES,
 ) -> dict[str, Any]:
     gates: list[dict[str, Any]] = []
@@ -456,8 +457,14 @@ def collect_evidence(
 
     manifest_path = sdk / "artifact-manifest.json"
     descriptor_path = native / "native" / "runtime-descriptor.json"
-    native_payload_bytes = sum(
-        path.stat().st_size for path in (native / "native").rglob("*") if path.is_file()
+    native_payload_bytes = (
+        native_payload_bytes_override
+        if native_payload_bytes_override is not None
+        else sum(
+            path.stat().st_size
+            for path in (native / "native").rglob("*")
+            if path.is_file()
+        )
     )
     manifest = json.loads(manifest_path.read_text("utf-8"))
     descriptor = json.loads(descriptor_path.read_text("utf-8"))
@@ -821,9 +828,11 @@ def main() -> int:
     native = work / "native-package"
     profiles_dir = output / "profiles"
     cases_dir = output / "cases"
+    artifacts_dir = output / "artifacts"
     output.mkdir(parents=True, exist_ok=True)
     profiles_dir.mkdir(parents=True, exist_ok=True)
     cases_dir.mkdir(parents=True, exist_ok=True)
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
 
     python = sys.executable
     node = executable("node")
@@ -1166,6 +1175,14 @@ def main() -> int:
     profiles[cpp_key] = profile_summary(profiles_dir, cpp_profile_prefix)
 
     require_clean_source()
+    shutil.copy2(
+        sdk / "artifact-manifest.json",
+        artifacts_dir / "sdk-artifact-manifest.json",
+    )
+    shutil.copy2(
+        native / "native" / "runtime-descriptor.json",
+        artifacts_dir / "native-runtime-descriptor.json",
+    )
     evidence = collect_evidence(
         platform_id=platform_id,
         sdk=sdk,

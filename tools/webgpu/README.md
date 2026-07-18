@@ -129,8 +129,9 @@ payload, and then exercises:
 
 Outputs are written to
 `reports/webgpu-qualification/<platform>/qualification-report.json` with a
-sidecar SHA-256, raw cases, profiles, and command logs. A nonzero exit means at
-least one Provider Gate failed; the report is still retained.
+sidecar SHA-256, raw cases, profiles, command logs, and copied SDK/runtime
+descriptors under `artifacts/`. A nonzero exit means at least one Provider Gate
+failed; the report is still retained.
 
 The production Gate is fixed to all 14 fixtures, 3 independent cold starts and
 at least 30 measured predictions per normal case, plus 20 dedicated create/close
@@ -170,3 +171,28 @@ Do not edit the pending qualification fields from a successful exit code alone.
 Both reports must be reviewed for device identity, placement, quality,
 performance, memory, lifecycle, and supported compatibility scope before their
 hashes and artifact-set identities can enter the production lock.
+
+## Report-pair collection
+
+After copying both complete platform directories under one reports root, run the
+mechanical collector from a clean checkout of the exact qualified revision:
+
+```bash
+python3 tools/webgpu/review_reports.py \
+  --reports-root reports/webgpu-qualification \
+  --output reports/webgpu-qualification/review-candidate.json
+```
+
+The collector defaults `sourceRevision` to the current full Git revision. It
+verifies each report sidecar; re-evaluates every Gate from the embedded raw
+cases and profile summaries; requires the exact corpus, case/profile inventory,
+and revision; and checks the copied SDK manifest and schema 2 descriptor against
+the committed runtime lock, artifact-set hashes, provider inventory, ABI, and
+payload bytes. Both platforms must pass as one pair.
+
+A successful collector exit writes a hash-protected
+`manual-review-required` candidate. This is deliberately not an acceptance or a
+production-lock mutation. A maintainer must still inspect device/driver scope,
+ORT placement, allow-mode CPU partitions, CPU-s, latency distributions,
+cold-start, RSS/VRAM evidence, logs, and cross-vendor coverage before choosing a
+compatibility or release conclusion.
