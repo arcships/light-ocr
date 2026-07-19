@@ -76,12 +76,28 @@ class WebGpuSetupError final : public std::runtime_error {
 };
 
 struct WebGpuRegistrationState {
+  ~WebGpuRegistrationState() noexcept {
+    const std::lock_guard<std::mutex> lock(mutex);
+    if (!registered) return;
+    try {
+      environment().UnregisterExecutionProviderLibrary(
+          kWebGpuRegistrationName);
+      registered = false;
+    } catch (...) {
+      // Static destruction cannot report an error. Runtime sessions have
+      // already been released, so ORT still owns the remaining teardown.
+    }
+  }
+
   std::mutex mutex;
   std::filesystem::path library;
   bool registered = false;
 };
 
 WebGpuRegistrationState& webgpu_registration_state() {
+  // Construct the environment first so this state unregisters the plugin
+  // before Ort::Env is destroyed during process shutdown.
+  (void)environment();
   static WebGpuRegistrationState state;
   return state;
 }
