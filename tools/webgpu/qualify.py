@@ -616,11 +616,19 @@ def collect_evidence(
             )
         strict = cases.get(f"{fixture}:strict", {})
         strict_error = strict.get("error", {})
-        strict_accepted = (
-            strict.get("expectedRejection") is True
-            and strict_error.get("code") == "runtime_initialization_failed"
-            and isinstance(strict_error.get("message"), str)
-            and "fallback to CPU EP has been explicitly disabled" in strict_error.get("message", "")
+        strict_code = strict_error.get("code", "")
+        strict_accepted = strict.get("expectedRejection") is True and (
+            (
+                strict_code == "unsupported_capability"
+                and strict_error.get("message")
+                == "The WebGPU model requires a bounded CPU operator partition"
+            )
+            or (
+                strict_code == "runtime_initialization_failed"
+                and isinstance(strict_error.get("message"), str)
+                and "fallback to CPU EP has been explicitly disabled"
+                in strict_error.get("message", "")
+            )
         )
         gate(
             f"{fixture}-strict-fail-closed",
