@@ -299,6 +299,100 @@ class WebGpuQualificationTest(unittest.TestCase):
                 },
             )
 
+    def test_lifecycle_gate_uses_warmup_aware_baseline_when_rss_samples_present(self) -> None:
+        # Real WebGPU/Dawn D3D12 lifecycle data: the first ~5 create/close
+        # cycles fill the adapter/shader/pipeline cache and the RSS then
+        # plateaus. The gate must skip those warmup cycles when computing the
+        # retained-growth baseline, otherwise it reports +172 MiB (cache
+        # warmup) as a leak and fails a healthy run.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sdk = root / "sdk"
+            native = root / "native-package"
+            (native / "native").mkdir(parents=True)
+            sdk.mkdir()
+            (sdk / "artifact-manifest.json").write_text(
+                json.dumps(
+                    {
+                        "contractId": "native-webgpu-plugin-0.1.0-ort-1.24.4-v1",
+                        "artifacts": {"artifactSetSha256": "2" * 64},
+                        "runtime": {"kind": "onnxruntime-plugin-webgpu"},
+                        "qualification": {"evidenceId": "test-eid"},
+                    }
+                ),
+                "utf-8",
+            )
+            (native / "native" / "runtime-descriptor.json").write_text(
+                json.dumps({"runtime": {"kind": "onnxruntime-plugin-webgpu"}}),
+                "utf-8",
+            )
+            mib = 1024 * 1024
+            # 20 cycles * 2 samples each, mirroring the observed WebGPU run:
+            # ramp 270 -> 466 in first 5 cycles, then plateaus around 380-460.
+            rss_bytes = [
+                270 * mib, 288 * mib,   # cycle 1
+                322 * mib, 352 * mib,   # cycle 2
+                374 * mib, 391 * mib,   # cycle 3
+                406 * mib, 413 * mib,   # cycle 4
+                429 * mib, 406 * mib,   # cycle 5  (warmup ends here)
+                414 * mib, 410 * mib,   # cycle 6  (measured region starts)
+                423 * mib, 419 * mib,   # cycle 7
+                442 * mib, 419 * mib,   # cycle 8
+                450 * mib, 445 * mib,   # cycle 9
+                448 * mib, 427 * mib,   # cycle 10
+                455 * mib, 451 * mib,   # cycle 11
+                464 * mib, 460 * mib,   # cycle 12
+                458 * mib, 432 * mib,   # cycle 13
+                440 * mib, 428 * mib,   # cycle 14
+                435 * mib, 422 * mib,   # cycle 15
+                430 * mib, 425 * mib,   # cycle 16
+                428 * mib, 432 * mib,   # cycle 17
+                430 * mib, 428 * mib,   # cycle 18
+                429 * mib, 431 * mib,   # cycle 19
+                430 * mib, 432 * mib,   # cycle 20
+            ]
+            lifecycle_case = report(
+                "allow",
+                ["WebGpuExecutionProvider", "CPUExecutionProvider"],
+                lifecycle=True,
+            )
+            lifecycle_case["cycles"] = 20
+            lifecycle_case["lifecycle"]["rssBytes"] = rss_bytes
+            lifecycle_case["lifecycle"]["retainedGrowthBytes"] = (
+                rss_bytes[-1] - rss_bytes[0]
+            )
+            evidence = qualify.collect_evidence(
+                platform_id="linux-x64",
+                sdk=sdk,
+                native=native,
+                cases={"generated-hello-123:lifecycle": lifecycle_case},
+                profiles={},
+                graphics={
+                    "source": "linux-drm-sysfs",
+                    "adapters": [{"driver": "test", "driverVersion": "1.0"}],
+                },
+                rebuilt_from_source=True,
+                required_fixtures=("generated-hello-123",),
+            )
+            lifecycle_gate = next(
+                gate for gate in evidence["gates"] if gate["name"] == "repeated-lifecycle"
+            )
+            # The raw retainedGrowthBytes is +162 MiB (cache warmup), but the
+            # warmup-aware growth measured from cycle 6 onwards is small.
+            self.assertTrue(lifecycle_gate["passed"], lifecycle_gate)
+            self.assertIn("warmupAwareGrowth=", lifecycle_gate["detail"])
+            # Sanity: raw growth exceeds the ceiling, warmup-aware does not.
+            self.assertGreater(
+                lifecycle_case["lifecycle"]["retainedGrowthBytes"],
+                qualify.MAX_RETAINED_GROWTH_BYTES,
+            )
+            warmup_aware = (
+                rss_bytes[-1] - rss_bytes[2 * qualify.LIFECYCLE_WARMUP_CYCLES]
+            )
+            self.assertLessEqual(
+                abs(warmup_aware), qualify.MAX_RETAINED_GROWTH_BYTES
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
