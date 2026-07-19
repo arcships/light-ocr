@@ -168,6 +168,7 @@ def package_bundle(base: Path, output: Path) -> None:
         (temporary / "SHA256SUMS").write_text(
             "".join(f"{digest}  {path}\n" for path, digest in checksums.items()),
             encoding="ascii",
+            newline="\n",
         )
         if output.exists():
             shutil.rmtree(output)
