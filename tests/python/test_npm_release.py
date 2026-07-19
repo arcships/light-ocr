@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 from pathlib import Path
 import platform as host_platform
@@ -317,7 +318,19 @@ class NpmReleaseTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            lock = locked()
+            lock = copy.deepcopy(locked())
+            qualification = lock["qualification"]
+            qualification["status"] = "development-pending-device-validation"
+            qualification["providerGatePassed"] = False
+            qualification["productionArtifactQualified"] = False
+            qualification["qualifiedArtifactSetSha256"] = {
+                "linux-x64": None,
+                "windows-x64": None,
+            }
+            qualification["qualificationReportSha256"] = {
+                "linux-x64": None,
+                "windows-x64": None,
+            }
             packages = create_fake_packages(root, lock)
             build = root / "build" / "bin"
             build.mkdir(parents=True)
@@ -363,14 +376,22 @@ class NpmReleaseTests(unittest.TestCase):
                         webgpu_artifact_manifest=manifest_path,
                         qualification_build=False,
                     )
-                    with self.assertRaisesRegex(
-                        RuntimeError, "accepted Linux and Windows Provider Gates"
+                    with mock.patch(
+                        "tools.npm_release.webgpu_runtime.load_lock",
+                        return_value=lock,
                     ):
-                        npm_release.stage_native(arguments)
+                        with self.assertRaisesRegex(
+                            RuntimeError, "accepted Linux and Windows Provider Gates"
+                        ):
+                            npm_release.stage_native(arguments)
                     self.assertFalse(output.exists())
 
                     arguments.qualification_build = True
-                    npm_release.stage_native(arguments)
+                    with mock.patch(
+                        "tools.npm_release.webgpu_runtime.load_lock",
+                        return_value=lock,
+                    ):
+                        npm_release.stage_native(arguments)
                     descriptor = json.loads(
                         (output / "native" / "runtime-descriptor.json").read_text(
                             "utf-8"

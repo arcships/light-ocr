@@ -25,6 +25,23 @@ def locked() -> dict[str, object]:
     )
 
 
+def pending_locked() -> dict[str, object]:
+    lock = locked()
+    qualification = lock["qualification"]
+    qualification["status"] = "development-pending-device-validation"
+    qualification["providerGatePassed"] = False
+    qualification["productionArtifactQualified"] = False
+    qualification["qualifiedArtifactSetSha256"] = {
+        "linux-x64": None,
+        "windows-x64": None,
+    }
+    qualification["qualificationReportSha256"] = {
+        "linux-x64": None,
+        "windows-x64": None,
+    }
+    return lock
+
+
 def package_members(lock: dict[str, object], package_name: str) -> set[str]:
     members: set[str] = set()
     for platform_id in ("linux-x64", "windows-x64"):
@@ -69,19 +86,11 @@ class WebGpuRuntimeContractTest(unittest.TestCase):
 
     def test_complete_production_qualification_state_is_valid(self) -> None:
         lock = locked()
-        qualification = lock["qualification"]
-        qualification["status"] = "production-qualified"
-        qualification["providerGatePassed"] = True
-        qualification["productionArtifactQualified"] = True
-        qualification["qualifiedArtifactSetSha256"] = {
-            "linux-x64": "1" * 64,
-            "windows-x64": "2" * 64,
-        }
-        qualification["qualificationReportSha256"] = {
-            "linux-x64": "3" * 64,
-            "windows-x64": "4" * 64,
-        }
         build_runtime.validate_lock(lock)
+        self.assertEqual(lock["qualification"]["status"], "production-qualified")
+
+    def test_complete_pending_qualification_state_is_valid(self) -> None:
+        build_runtime.validate_lock(pending_locked())
 
     def test_production_qualification_requires_both_platform_reports(self) -> None:
         lock = locked()
@@ -145,7 +154,7 @@ class WebGpuRuntimeContractTest(unittest.TestCase):
             (
                 "provider gate claim",
                 lambda lock: lock["qualification"].__setitem__(
-                    "providerGatePassed", True
+                    "providerGatePassed", False
                 ),
                 "qualification",
             ),
@@ -157,7 +166,7 @@ class WebGpuRuntimeContractTest(unittest.TestCase):
             (
                 "production claim",
                 lambda lock: lock["qualification"].__setitem__(
-                    "productionArtifactQualified", True
+                    "productionArtifactQualified", False
                 ),
                 "qualification",
             ),
@@ -284,7 +293,7 @@ class WebGpuRuntimeContractTest(unittest.TestCase):
                     self.assertEqual(
                         len(manifest["artifacts"]["files"]), expected_files
                     )
-                    self.assertFalse(manifest["qualification"]["providerGatePassed"])
+                    self.assertTrue(manifest["qualification"]["providerGatePassed"])
 
     def test_sdk_validation_rejects_file_and_manifest_tampering(self) -> None:
         lock = locked()
@@ -387,10 +396,11 @@ class WebGpuRuntimeContractTest(unittest.TestCase):
                     build_runtime.archive_member(archive, "../safe", "test")
 
     def test_cmake_freezes_plugin_runtime_release_boundary(self) -> None:
-        dependencies = "\n".join(
-            (ROOT / "cmake" / name).read_text("utf-8")
+        sources = {
+            name: (ROOT / "cmake" / name).read_text("utf-8")
             for name in ("Dependencies.cmake", "WebGpuRuntime.cmake")
-        )
+        }
+        dependencies = "\n".join(sources.values())
         required = [
             "LIGHT_OCR_ONNXRUNTIME_FLAVOR",
             "LIGHT_OCR_WEBGPU_SDK_DIR",
@@ -404,6 +414,9 @@ class WebGpuRuntimeContractTest(unittest.TestCase):
         for token in required:
             with self.subTest(token=token):
                 self.assertIn(token, dependencies)
+        webgpu_runtime = sources["WebGpuRuntime.cmake"]
+        self.assertIn("_qualification_hash_length EQUAL 64", webgpu_runtime)
+        self.assertNotIn("[0-9a-f]{64}", webgpu_runtime)
 
 
 if __name__ == "__main__":

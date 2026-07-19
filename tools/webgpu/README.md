@@ -2,9 +2,9 @@
 
 This directory owns the reproducible Linux x64 and Windows x64 Native WebGPU
 runtime, its release gate, and the real-device qualification runner. Product
-integration is complete in the current source candidate; production release is
-intentionally blocked until both platform reports are reviewed and bound to the
-exact artifact sets in `runtime-lock.json`.
+integration is complete in the current source candidate. Both platform reports
+have been reviewed and bound to the exact artifact sets in `runtime-lock.json`;
+ordinary release staging accepts only those production-qualified payloads.
 
 Both checked-in real-device reports pass 164/164 Gates. The `0.3.0` public
 execution profile is FP32-only: Linux/NVIDIA Vulkan measured 5.698x aggregate
@@ -195,10 +195,11 @@ when available); absence of a driver identity fails the report. No CUDA, ROCm,
 OpenVINO, Python inference runtime, or source compiler is a product runtime
 prerequisite.
 
-Do not edit the pending qualification fields from a successful exit code alone.
-Both reports must be reviewed for device identity, placement, quality,
-performance, memory, lifecycle, and supported compatibility scope before their
-hashes and artifact-set identities can enter the production lock.
+Qualification report fields remain immutable historical snapshots; do not edit
+them after collection. Both reports were reviewed for device identity,
+placement, quality, performance, memory, lifecycle, and supported compatibility
+scope before their hashes and artifact-set identities entered the production
+lock.
 
 ## Report-pair collection
 
@@ -221,9 +222,11 @@ inventory; and checks the copied SDK manifest and schema 2 descriptor against
 the committed runtime lock, artifact-set hashes, provider inventory, ABI, and
 payload bytes. Both platforms must pass as one pair.
 
-A successful collector exit writes a hash-protected
-`manual-review-required` candidate. This is deliberately not an acceptance or a
-production-lock mutation. A maintainer must still inspect device/driver scope,
-ORT FP32 placement, bounded CPU partitions, strict rejection, CPU-s, latency distributions,
-cold-start, RSS/VRAM evidence, logs, and cross-vendor coverage before choosing a
-compatibility or release conclusion.
+A successful collector exit writes a hash-protected candidate. With a pending
+lock it remains `manual-review-required` and does not mutate the production
+lock. With the committed production lock, the collector additionally requires
+the recomputed report and artifact-set hashes to match its exact bindings and
+marks the reviewed pair `production-qualified`. Device/driver scope, ORT FP32
+placement, bounded CPU partitions, strict rejection, CPU-s, latency
+distributions, cold-start, RSS/VRAM evidence, logs, and cross-vendor coverage
+remain part of the human review that precedes any future lock change.

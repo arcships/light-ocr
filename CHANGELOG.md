@@ -49,7 +49,7 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 - Heavy model conversion, Compute Plan placement, performance, cache, and lifecycle qualification remain local real-device work. Ordinary CI stays limited to cross-platform builds, contracts, and lightweight tests and does not require paid runners.
 - The Core ML provider is merged on `main` but is not included in the published `0.2.0` npm packages. The planned `0.3.0` distribution keeps the existing six-package installation shape.
 - Native WebGPU compatibility and performance are evidenced on the named NVIDIA/Linux and AMD/Windows systems. Other devices may use the open compatibility path but do not inherit these performance numbers.
-- The Linux and Windows qualification reports both passed 164/164 mechanical Gates. Production release staging remains closed until the reviewed report and artifact hashes are bound into the runtime lock.
+- The Linux and Windows qualification reports both passed 164/164 mechanical Gates. Their reviewed report and artifact-set hashes are bound into the production runtime lock, so ordinary `0.3.0` release staging now accepts the exact qualified payloads.
 
 Full evidence and methodology: [Apple device acceleration](docs/apple-device-acceleration.md), [Linux device acceleration](docs/linux-device-acceleration.md), [Windows device acceleration](docs/windows-device-acceleration.md), [implementation status](docs/implementation-status.md), the accepted Apple baseline [`apple-fp16-mixed-20260715.2`](contracts/apple-provider-baselines.json), and the checked-in WebGPU qualification reports.
 

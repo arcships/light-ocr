@@ -86,6 +86,22 @@ jobs:
             --offline \
             --package-cache .cache/webgpu-packages \
             --output-dir "dist/webgpu-sdk-offline/${{ matrix.id }}"
+      - name: Resolve the locked WebGPU build mode
+        shell: bash
+        run: |
+          qualification_status="$(python -c 'import json; print(json.load(open("tools/webgpu/runtime-lock.json", encoding="utf-8"))["qualification"]["status"])')"
+          case "$qualification_status" in
+            development-pending-device-validation)
+              echo "WEBGPU_QUALIFICATION_BUILD=ON" >> "$GITHUB_ENV"
+              ;;
+            production-qualified)
+              echo "WEBGPU_QUALIFICATION_BUILD=OFF" >> "$GITHUB_ENV"
+              ;;
+            *)
+              echo "Unsupported WebGPU qualification status: $qualification_status" >&2
+              exit 1
+              ;;
+          esac
       - name: Install Node development files (Linux)
         if: runner.os != 'Windows'
         shell: bash
@@ -110,7 +126,7 @@ jobs:
           }
           "NODE_INCLUDE_DIR=$headers" | Out-File -FilePath $env:GITHUB_ENV -Append
           "NODE_LIBRARY=$($library.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
-      - name: Configure WebGPU qualification build (Linux)
+      - name: Configure WebGPU contract build (Linux)
         if: runner.os != 'Windows'
         shell: bash
         run: >-
@@ -119,13 +135,13 @@ jobs:
           -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
           -DLIGHT_OCR_ONNXRUNTIME_FLAVOR=webgpu
           -DLIGHT_OCR_WEBGPU_SDK_DIR="$PWD/dist/webgpu-sdk/${{ matrix.id }}"
-          -DLIGHT_OCR_WEBGPU_QUALIFICATION_BUILD=ON
+          -DLIGHT_OCR_WEBGPU_QUALIFICATION_BUILD="$WEBGPU_QUALIFICATION_BUILD"
           -DLIGHT_OCR_BUILD_NODE=ON
           -DLIGHT_OCR_BUILD_TESTS=ON
           -DLIGHT_OCR_BUILD_TOOLS=ON
           -DLIGHT_OCR_NODE_INCLUDE_DIR="$NODE_INCLUDE_DIR"
           -DLIGHT_OCR_NODE_EXECUTABLE="$(command -v node)"
-      - name: Configure WebGPU qualification build (Windows)
+      - name: Configure WebGPU contract build (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: >-
@@ -133,7 +149,7 @@ jobs:
           "-DLIGHT_OCR_DEPENDENCY_CACHE_DIR=$env:GITHUB_WORKSPACE/.cache/dependencies"
           -DLIGHT_OCR_ONNXRUNTIME_FLAVOR=webgpu
           "-DLIGHT_OCR_WEBGPU_SDK_DIR=$env:GITHUB_WORKSPACE/dist/webgpu-sdk/${{ matrix.id }}"
-          -DLIGHT_OCR_WEBGPU_QUALIFICATION_BUILD=ON
+          "-DLIGHT_OCR_WEBGPU_QUALIFICATION_BUILD=$env:WEBGPU_QUALIFICATION_BUILD"
           -DLIGHT_OCR_BUILD_NODE=ON
           -DLIGHT_OCR_BUILD_TESTS=ON
           -DLIGHT_OCR_BUILD_TOOLS=ON
@@ -162,6 +178,10 @@ jobs:
             --configuration Release \
             --platform-id "${{ matrix.id }}" \
             --output-dir "reports/webgpu/${{ matrix.id }}"
+          qualification_args=()
+          if [[ "$WEBGPU_QUALIFICATION_BUILD" == "ON" ]]; then
+            qualification_args+=(--qualification-build)
+          fi
           python tools/npm_release.py stage-native \
             --platform-id "${{ matrix.id }}" \
             --build-dir build-webgpu \
@@ -170,7 +190,7 @@ jobs:
             --output-dir "dist/webgpu-native/${{ matrix.id }}" \
             --runtime-flavor webgpu \
             --webgpu-artifact-manifest "dist/webgpu-sdk/${{ matrix.id }}/artifact-manifest.json" \
-            --qualification-build
+            "${qualification_args[@]}"
           LIGHT_OCR_NODE_BINARY="$PWD/dist/webgpu-native/${{ matrix.id }}/native/light_ocr_node.node" \
           LIGHT_OCR_RUNTIME_DESCRIPTOR="$PWD/dist/webgpu-native/${{ matrix.id }}/native/runtime-descriptor.json" \
           node -e "const x=require('./bindings/node/js/load-native.cjs').loadNative(); console.log(JSON.stringify(x.runtimePolicy))"
