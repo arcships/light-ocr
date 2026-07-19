@@ -16,9 +16,9 @@
 
 这个项目面向希望把 OCR 做成真正本地能力的产品：随时调用、默认保护隐私，也能自然嵌入现有的图像处理流程。
 
-> **npm 已可用：**`@arcships/light-ocr@0.2.0` 自带默认 PP-OCRv6 Small 模型和全部 Tier 1 平台的预编译原生运行时，并支持可选 tiled 检测与 Node.js 内存 JPEG/PNG 直接输入。详见[包支持](#包支持)。
+> **npm 已可用：**`@arcships/light-ocr@0.3.0` 自带默认 PP-OCRv6 Small 模型和全部 Tier 1 平台的预编译原生运行时，并支持可选 tiled 检测、Node.js 内存 JPEG/PNG 直接输入和 descriptor 驱动的硬件加速。详见[包支持](#包支持)。
 
-> **`0.3.0` 加速候选：**macOS arm64 加入 Direct Core ML；Linux x64/Vulkan 与 Windows x64/D3D12 加入官方 Native WebGPU Plugin EP。已记录的真机结果分别为 Apple M4 Max **2.30×–2.85×**、NVIDIA RTX 5060 Ti **聚合 P50 5.70×**、AMD Radeon 780M **聚合 P50 2.44×**。WebGPU 发布 FP32 执行 profile，Apple 使用独立资格验证的 FP16 路径；macOS x64 保持 CPU provider。
+> **`0.3.0` 加速：**macOS arm64 加入 Direct Core ML；Linux x64/Vulkan 与 Windows x64/D3D12 加入官方 Native WebGPU Plugin EP。已记录的真机结果分别为 Apple M4 Max **2.30×–2.85×**、NVIDIA RTX 5060 Ti **聚合 P50 5.70×**、AMD Radeon 780M **聚合 P50 2.44×**。WebGPU 发布 FP32 执行 profile，Apple 使用独立资格验证的 FP16 路径；macOS x64 保持 CPU provider。
 
 ## 适合哪些场景
 
@@ -43,9 +43,9 @@
 - **默认本地运行。**识别过程不会访问网络，也不会启动子进程。
 - **适合真实应用流程。**直接接收 `GRAY8`、`RGB8`、`BGR8` 和 `RGBA8` 像素；Node.js 适配器也能解码已经在内存中的 JPEG 和 PNG。
 - **两种明确的大图策略。**bounded/960 仍是速度和内存优先的默认模式；可选 tiled 检测为小字和密集的 2048 像素文档保留更多细节，并始终逐个处理 detection tile。
-- **按需启用原生 Apple 加速。**在 macOS arm64 上，`0.3.0` 源码候选可以用 Core ML 执行 FP16 detection/recognition，同时保持公共 OCR 结果契约不变。
-- **已完成真机资格验证的 Native WebGPU 加速。**`0.3.0` 候选会打包官方 WebGPU Plugin EP 及其精确的 Linux/Vulkan 或 Windows/D3D12 运行时闭包，支持哈希校验的离线 staging；两台记录设备均通过 164/164 Gate。
-- **模型固定且可复现。**约 31 MB 的 PP-OCRv6 Small bundle 会经过完整性验证，目标是随应用一起安装，而不是首次运行时再下载。
+- **按需启用原生 Apple 加速。**在 macOS arm64 上，`0.3.0` 可以用 Core ML 执行 FP16 detection/recognition，同时保持公共 OCR 结果契约不变。
+- **已完成真机资格验证的 Native WebGPU 加速。**`0.3.0` 会打包官方 WebGPU Plugin EP 及其精确的 Linux/Vulkan 或 Windows/D3D12 运行时闭包，支持哈希校验的离线 staging；两台记录设备均通过 164/164 Gate。
+- **模型固定且可复现。**自包含的 PP-OCRv6 Small bundle 会经过完整性验证，目标是随应用一起安装，而不是首次运行时再下载。
 - **跨平台结果一致。**macOS、Linux 和 Windows 使用同一套模型与结果契约。
 - **适合异步宿主。**Node-API 适配器不会占用 JavaScript 主线程，并提供有界队列、取消和明确的生命周期控制。
 - **开放、可检查。**项目采用 Apache-2.0 协议，并在 CI 中验证真实模型行为、大图内存、生命周期安全和输出对齐。
@@ -140,7 +140,7 @@ Node.js 22 和 24 支持 macOS arm64/x64、Linux x64 glibc 与 Windows x64：
 npm install @arcships/light-ocr
 ```
 
-安装会自动取得当前平台的原生运行时和固定版本的 PP-OCRv6 Small 模型；首次运行不会再下载模型，`postinstall` 也不会现场编译原生代码。0.2.0 同时支持下面的 `recognizeEncoded()` 和 raw-pixel `recognize()`。
+安装会自动取得当前平台的原生运行时和固定版本的 PP-OCRv6 Small 模型；首次运行不会再下载模型，`postinstall` 也不会现场编译原生代码。0.3.0 同时支持下面的 `recognizeEncoded()` 和 raw-pixel `recognize()`。
 
 ```ts
 import { createEngine } from "@arcships/light-ocr";
@@ -165,12 +165,10 @@ console.log(rawResult.lines);
 await engine.close();
 ```
 
-当前源码候选通过平台 runtime descriptor 执行 Auto 选择；显式 Apple 与 WebGPU 都是严格的单 provider 请求。下面是面向维护者/源码 checkout 的 preview，不是 `0.2.0` 的 `npm install` 使用路径：
+已发布 package 通过平台 runtime descriptor 执行 Auto 选择；显式 Apple 与 WebGPU 都是严格的单 provider 请求。在 macOS arm64 上可以直接请求 Apple：
 
 ```ts
 const engine = await createEngine({
-  // 仅源码候选需要；计划中的 npm 0.3.0 package 会自动解析该 payload。
-  bundlePath: "/absolute/path/to/ppocrv6-small-native-20260719.1",
   execution: {
     provider: "apple",
     precision: "fp16",
@@ -195,7 +193,7 @@ const engine = await createEngine({
 });
 ```
 
-`cpuPartition: "allow"` 与 strict GPU-only profile 适用于 Apple Silicon 上的 Apple provider；`0.3.0` macOS x64 package 只暴露 CPU。显式 provider 失败不会转入 CPU，只有 Auto 可以沿 descriptor 锁定的创建候选继续。源码候选发布前，公开的 `0.2.0` package 仍保持 CPU 默认。
+`cpuPartition: "allow"` 与 strict GPU-only profile 适用于 Apple Silicon 上的 Apple provider；`0.3.0` macOS x64 package 只暴露 CPU。显式 provider 失败不会转入 CPU，只有 Auto 可以沿 descriptor 锁定的创建候选继续。不传 `execution` 的 `createEngine()` 现在使用 Auto。
 
 完整 API、取消、队列限制和生命周期行为见 [Node.js 指南](bindings/node/README.md)。
 
@@ -221,19 +219,19 @@ ctest --preset release
 | --- | --- | --- |
 | C++ Core 源码 | 可用 | macOS arm64/x64、Linux x64 glibc、Windows x64 |
 | Node-API 适配器源码 | 可用 | Node.js 22 和 24 |
-| [`@arcships/light-ocr`](https://www.npmjs.com/package/@arcships/light-ocr) | 已发布 `0.2.0` | 全部 Tier 1 平台的 Node.js 22/24 |
-| [`@arcships/light-ocr-model-ppocrv6-small`](https://www.npmjs.com/package/@arcships/light-ocr-model-ppocrv6-small) | 已发布 `0.2.0` | 与平台无关的必需模型依赖 |
-| 各平台 native npm packages | 已发布 `0.2.0` | macOS arm64/x64、Linux x64 glibc、Windows x64 |
+| [`@arcships/light-ocr`](https://www.npmjs.com/package/@arcships/light-ocr) | 已发布 `0.3.0` | 全部 Tier 1 平台的 Node.js 22/24 |
+| [`@arcships/light-ocr-model-ppocrv6-small`](https://www.npmjs.com/package/@arcships/light-ocr-model-ppocrv6-small) | 已发布 `0.3.0` | 与平台无关的必需模型依赖 |
+| 各平台 native npm packages | 已发布 `0.3.0` | macOS arm64/x64、Linux x64 glibc、Windows x64 |
 
-npm 分发会安装一个统一入口、一个必需的模型包，以及与当前系统匹配的 native 包。包内容、版本策略和发布门槛见 [npm package 设计](docs/npm-packaging.md)；`0.2.0` 的不可变哈希和验证证据见[发布记录](docs/releases/npm-0.2.0.md)。
+npm 分发会安装一个统一入口、一个必需的模型包，以及与当前系统匹配的 native 包。包内容、版本策略和发布门槛见 [npm package 设计](docs/npm-packaging.md)；`0.3.0` 的不可变哈希和验证证据见[发布记录](docs/releases/npm-0.3.0.md)。
 
-macOS arm64 Direct Core ML 加速已经合并到 `main`，目标版本为 `0.3.0`，但尚未进入已发布的 `0.2.0` package set。它会继续复用现有六包安装结构，不计划新增 provider package 或运行时下载。
+macOS arm64 Direct Core ML 加速已经随 `0.3.0` 发布，并复用现有六包安装结构，没有新增 provider package 或运行时下载；macOS x64 保持 CPU-only。
 
-PR #11 同时包含 Linux x64 与 Windows x64 Native WebGPU 源码候选。显式 WebGPU 接受 `auto/fp32`，Auto 同样选择 FP32；三个必要 CPU partition 算子会被显式报告并限制范围。两份真机报告均已通过 164/164 Gate，其报告与产物的不可变哈希现已绑定进 production lock，供 `0.3.0` 发布流程使用。已发布的 `0.2.0` packages 保持不变，并在这两个平台继续仅使用 CPU。
+`0.3.0` 已在 Linux x64 与 Windows x64 发布 Native WebGPU。显式 WebGPU 接受 `auto/fp32`，Auto 同样选择 FP32；三个必要 CPU partition 算子会被显式报告并限制范围。两份真机报告均已通过 164/164 Gate，其报告与产物的不可变哈希已绑定进 production lock。
 
 ## 项目状态
 
-`light-ocr` 仍在积极开发。`0.2.0` 已发布确定性的 `tiled-v1` 大图模式，以及 Node.js 适配器中受资源限制的内存 JPEG/PNG 解码；C++ Core 的 raw-pixel 边界保持不变。`0.3.0` 源码候选加入 descriptor-driven Auto、macOS arm64 Direct Core ML，以及 Linux x64/Windows x64 FP32 Native WebGPU 执行。
+`light-ocr` 仍在积极开发。`0.3.0` 包含确定性的 `tiled-v1` 大图模式、Node.js 内存 JPEG/PNG 解码、descriptor-driven Auto、macOS arm64 Direct Core ML，以及 Linux x64/Windows x64 FP32 Native WebGPU 执行；C++ Core 的 raw-pixel 边界保持不变。
 
 作为 pre-1.0 项目，公共 API 和 package 布局仍可能调整；项目目前不承诺跨版本稳定的 C++ ABI。
 
