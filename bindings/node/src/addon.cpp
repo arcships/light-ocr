@@ -27,7 +27,7 @@
 #include "bundle_loader.hpp"
 #include "core/engine_factory.hpp"
 #include "encoded_image.hpp"
-#include "inference/onnxruntime/backend.hpp"
+#include "inference/backend.hpp"
 #include "light_ocr/core.hpp"
 
 namespace light_ocr::node {

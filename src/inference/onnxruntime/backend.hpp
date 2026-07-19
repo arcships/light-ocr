@@ -13,7 +13,6 @@
 namespace light_ocr::internal {
 
 void add_webgpu_session_config_entries(Ort::SessionOptions& options);
-void shutdown_webgpu_runtime_if_idle() noexcept;
 
 class OnnxSession final : public InferenceSession {
  public:
