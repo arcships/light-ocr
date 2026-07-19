@@ -308,44 +308,82 @@ test('loads PP-OCRv6, snapshots pixels, maps results, and closes idempotently', 
   assert.equal(engine.info.limits.maxDetectionTiles, 100);
   assert.equal(engine.info.capabilities.tiledDetection, true);
   assert.equal(engine.info.tiledDetection, undefined);
-  assert.equal(engine.info.executionProvider, 'CPUExecutionProvider');
   assert.equal(engine.info.execution.requestedProvider, 'auto');
   assert.ok(runtimePolicy);
-  const expectedAutoAttempts = runtimePolicy.orderedCandidates[0] === 'apple'
-    ? [
-        {
-          provider: 'apple',
-          status: 'skipped',
-          creationReason: 'model_compute_unsupported',
-        },
-        { provider: 'cpu', status: 'selected' },
-      ]
-    : [{ provider: 'cpu', status: 'selected' }];
+  const selectedProvider = engine.info.execution.selectionTrace.selectedProvider;
+  assert.ok(['cpu', 'webgpu'].includes(selectedProvider));
+  assert.equal(
+    engine.info.executionProvider,
+    selectedProvider === 'webgpu'
+      ? 'WebGpuExecutionProvider'
+      : 'CPUExecutionProvider',
+  );
+  let expectedAutoAttempts;
+  if (runtimePolicy.orderedCandidates[0] === 'apple') {
+    expectedAutoAttempts = [
+      {
+        provider: 'apple',
+        status: 'skipped',
+        creationReason: 'model_compute_unsupported',
+      },
+      { provider: 'cpu', status: 'selected' },
+    ];
+  } else if (runtimePolicy.orderedCandidates[0] === 'webgpu') {
+    expectedAutoAttempts = selectedProvider === 'webgpu'
+      ? [{ provider: 'webgpu', status: 'selected' }]
+      : [
+          {
+            provider: 'webgpu',
+            status: 'skipped',
+            creationReason: 'adapter_unavailable',
+          },
+          { provider: 'cpu', status: 'selected' },
+        ];
+  } else {
+    expectedAutoAttempts = [{ provider: 'cpu', status: 'selected' }];
+  }
   assert.deepEqual(engine.info.execution.selectionTrace, {
     requestedProvider: 'auto',
     policyId: runtimePolicy.id,
     policyVersion: runtimePolicy.version,
     orderedCandidates: runtimePolicy.orderedCandidates,
     attempts: expectedAutoAttempts,
-    selectedProvider: 'cpu',
+    selectedProvider,
   });
   assert.equal(engine.info.execution.sessionFallback, 'error');
   assert.equal(engine.info.execution.cpuPartition, 'allow');
   assert.equal(engine.info.execution.performanceHint, 'latency');
   assert.equal(engine.info.execution.requestedPrecision, 'auto');
-  assert.deepEqual(engine.info.execution.providerCapabilities, [{
+  const expectedProviderCapabilities = [{
     provider: 'cpu',
     packageIncluded: true,
     deviceAvailable: true,
     deviceValidated: true,
-  }]);
+  }];
+  if (runtimePolicy.orderedCandidates.includes('webgpu')) {
+    expectedProviderCapabilities.push({
+      provider: 'webgpu',
+      packageIncluded: true,
+      deviceAvailable: selectedProvider === 'webgpu',
+      deviceValidated: selectedProvider === 'webgpu'
+        && runtimePolicy.released
+        && !runtimePolicy.qualificationOnly,
+    });
+  }
+  assert.deepEqual(
+    engine.info.execution.providerCapabilities,
+    expectedProviderCapabilities,
+  );
+  const expectedProviderChain = selectedProvider === 'webgpu'
+    ? ['WebGpuExecutionProvider', 'CPUExecutionProvider']
+    : ['CPUExecutionProvider'];
   assert.deepEqual(
     engine.info.execution.sessions.detection.actualProviderChain,
-    ['CPUExecutionProvider'],
+    expectedProviderChain,
   );
   assert.deepEqual(
     engine.info.execution.sessions.recognition.actualProviderChain,
-    ['CPUExecutionProvider'],
+    expectedProviderChain,
   );
   assert.equal(
     engine.info.execution.sessions.detection.modelId,
@@ -577,6 +615,7 @@ test('rejects malformed and unsupported encoded images safely', async () => {
 });
 
 test('validates input and reports adapter errors as OcrError', async () => {
+  assert.ok(runtimePolicy);
   await assert.rejects(
     createEngine({ model: 'ppocrv6-small', bundlePath }),
     (error) => error instanceof OcrError && error.code === 'invalid_argument',
@@ -597,15 +636,47 @@ test('validates input and reports adapter errors as OcrError', async () => {
     createEngine({ bundlePath, execution: { provider: 'apple' } }),
     (error) => error instanceof OcrError && error.code === 'unsupported_capability',
   );
-  await assert.rejects(
-    createEngine({ bundlePath, execution: { provider: 'webgpu' } }),
-    (error) => {
+  if (!runtimePolicy.orderedCandidates.includes('webgpu')) {
+    await assert.rejects(
+      createEngine({ bundlePath, execution: { provider: 'webgpu' } }),
+      (error) => {
+        assert.ok(error instanceof OcrError);
+        assert.equal(error.code, 'unsupported_capability');
+        assert.equal(error.creationTrace, undefined);
+        return true;
+      },
+    );
+  } else {
+    let webgpu;
+    try {
+      webgpu = await createEngine({
+        bundlePath,
+        execution: { provider: 'webgpu' },
+      });
+      assert.equal(webgpu.info.execution.requestedProvider, 'webgpu');
+      assert.equal(webgpu.info.executionProvider, 'WebGpuExecutionProvider');
+      assert.equal(
+        webgpu.info.execution.selectionTrace.selectedProvider,
+        'webgpu',
+      );
+    } catch (error) {
       assert.ok(error instanceof OcrError);
-      assert.equal(error.code, 'unsupported_capability');
-      assert.equal(error.creationTrace, undefined);
-      return true;
-    },
-  );
+      assert.equal(error.code, 'runtime_initialization_failed');
+      assert.equal(error.creationTrace.requestedProvider, 'webgpu');
+      assert.deepEqual(error.creationTrace.orderedCandidates, ['webgpu']);
+      assert.equal(error.creationTrace.selectedProvider, undefined);
+      assert.equal(error.creationTrace.attempts.length, 1);
+      assert.equal(error.creationTrace.attempts[0].provider, 'webgpu');
+      assert.equal(error.creationTrace.attempts[0].status, 'fatal');
+      assert.ok(
+        error.creationTrace.attempts[0].creationReason === 'adapter_unavailable'
+          || error.creationTrace.attempts[0].errorCode
+            === 'runtime_initialization_failed',
+      );
+    } finally {
+      if (webgpu) await webgpu.close();
+    }
+  }
   await assert.rejects(
     createEngine({ bundlePath, execution: { precision: 'fp16' } }),
     (error) => error instanceof OcrError && error.code === 'invalid_argument',
