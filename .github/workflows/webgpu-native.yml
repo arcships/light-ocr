@@ -156,11 +156,11 @@ jobs:
           "-DLIGHT_OCR_NODE_INCLUDE_DIR=$env:NODE_INCLUDE_DIR"
           "-DLIGHT_OCR_NODE_LIBRARY=$env:NODE_LIBRARY"
           "-DLIGHT_OCR_NODE_EXECUTABLE=$((Get-Command node).Source)"
-      - name: Compile, link, and run hardware-independent tests
+      - name: Compile, link, and run contract tests
         shell: bash
         run: |
           cmake --build build-webgpu --config Release --parallel
-          ctest --test-dir build-webgpu -C Release --output-on-failure -LE node
+          ctest --test-dir build-webgpu -C Release --output-on-failure
       - name: Verify the staged addon and descriptor from a sterile directory
         shell: bash
         env:
