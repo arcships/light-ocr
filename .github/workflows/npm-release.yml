@@ -6,7 +6,7 @@ on:
       version:
         description: Lockstep version for all six packages
         required: true
-        default: 0.2.1
+        default: 0.3.0
         type: string
       publish_to_registry:
         description: Publish the fully gated candidate to npm after preflight
@@ -44,6 +44,9 @@ jobs:
             test -f contracts/tiled-platform-baselines.json
             test -f contracts/apple-provider-baselines.json
           fi
+          python tools/webgpu/review_reports.py \
+            --reports-root reports/webgpu-qualification \
+            --output "$RUNNER_TEMP/webgpu-release-evidence.json"
 
   build-native:
     needs: validate
@@ -55,15 +58,19 @@ jobs:
           - id: macos-arm64
             runner: macos-15
             executable_suffix: ""
+            runtime_flavor: cpu
           - id: macos-x64
             runner: macos-15-intel
             executable_suffix: ""
+            runtime_flavor: cpu
           - id: linux-x64
             runner: ubuntu-24.04
             executable_suffix: ""
+            runtime_flavor: webgpu
           - id: windows-x64
             runner: windows-2022
             executable_suffix: ".exe"
+            runtime_flavor: webgpu
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -82,6 +89,16 @@ jobs:
           python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies --offline
           python tools/bootstrap_models.py --cache-dir .cache/models
           python tools/package_model_bundle.py
+      - name: Assemble and revalidate the production WebGPU SDK
+        if: matrix.runtime_flavor == 'webgpu'
+        shell: bash
+        run: |
+          python tools/webgpu/build_runtime.py \
+            --platform "${{ matrix.id }}" \
+            --package-cache .cache/webgpu-packages \
+            --output-dir "dist/webgpu-sdk/${{ matrix.id }}"
+          python tools/webgpu/build_runtime.py \
+            --validate-sdk "dist/webgpu-sdk/${{ matrix.id }}"
       - name: Install verified Node development files (Unix)
         if: runner.os != 'Windows'
         shell: bash
@@ -116,6 +133,8 @@ jobs:
           cmake -S . -B build-npm -G Ninja
           -DCMAKE_BUILD_TYPE=Release
           -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
+          -DLIGHT_OCR_ONNXRUNTIME_FLAVOR=${{ matrix.runtime_flavor }}
+          -DLIGHT_OCR_WEBGPU_SDK_DIR="$PWD/dist/webgpu-sdk/${{ matrix.id }}"
           -DLIGHT_OCR_BUILD_NODE=ON
           -DLIGHT_OCR_BUILD_TESTS=ON
           -DLIGHT_OCR_BUILD_TOOLS=ON
@@ -129,6 +148,8 @@ jobs:
         run: >-
           cmake -S . -B build-npm -G "Visual Studio 17 2022" -A x64
           "-DLIGHT_OCR_DEPENDENCY_CACHE_DIR=$env:GITHUB_WORKSPACE/.cache/dependencies"
+          -DLIGHT_OCR_ONNXRUNTIME_FLAVOR=${{ matrix.runtime_flavor }}
+          "-DLIGHT_OCR_WEBGPU_SDK_DIR=$env:GITHUB_WORKSPACE/dist/webgpu-sdk/${{ matrix.id }}"
           -DLIGHT_OCR_BUILD_NODE=ON
           -DLIGHT_OCR_BUILD_TESTS=ON
           -DLIGHT_OCR_BUILD_TOOLS=ON
@@ -167,7 +188,10 @@ jobs:
             --build-dir build-npm \
             --configuration Release \
             --metadata-dir "reports/npm/${{ matrix.id }}" \
-            --output-dir "dist/native-input/${{ matrix.id }}"
+            --output-dir "dist/native-input/${{ matrix.id }}" \
+            --runtime-flavor "${{ matrix.runtime_flavor }}" \
+            --webgpu-artifact-manifest \
+              "dist/webgpu-sdk/${{ matrix.id }}/artifact-manifest.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: native-${{ matrix.id }}

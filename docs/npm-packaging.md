@@ -184,7 +184,7 @@ Facade 只按固定映射加载 package：
 
 ### 5.1 硬件加速的分发约束
 
-当前源码已经为 Linux x64 glibc 与 Windows x64 实现 Native WebGPU qualification payload：Linux package 自带 ORT Core 1.24.4 与 official WebGPU plugin 0.1.0；Windows 还自带 plugin 所需的 `dxcompiler.dll`、`dxil.dll`。schema 2 runtime descriptor 从实际 staging 文件生成，逐文件记录 bytes/SHA-256、provider library、ORT/plugin ABI、qualification identity 与 `webgpu → cpu` Auto policy；共享 loader 拒绝缺失、额外、hash 漂移或 symlink payload，并从 sterile cwd 加载。当前 lock 仍为 `development-pending-device-validation`，因此这些制品只允许 `--qualification-build` staging，不能进入普通 npm release。
+当前源码已经为 Linux x64 glibc 与 Windows x64 实现 production-qualified Native WebGPU payload：Linux package 自带 ORT Core 1.24.4 与 official WebGPU plugin 0.1.0；Windows 还自带 plugin 所需的 `dxcompiler.dll`、`dxil.dll`。schema 2 runtime descriptor 从实际 staging 文件生成，逐文件记录 bytes/SHA-256、provider library、ORT/plugin ABI、qualification identity 与 `webgpu → cpu` Auto policy；共享 loader 拒绝缺失、额外、hash 漂移或 symlink payload，并从 sterile cwd 加载。production lock 已绑定两平台的已审阅 report/artifact hashes，普通 npm release 只允许精确匹配的 payload staging。
 
 后续 CoreML、DirectML、OpenVINO、TensorRT、VitisAI、QNN 或其他 provider 也不得改变本节的用户契约：正常用户仍只运行 `npm install @arcships/light-ocr`，不能被要求另装或配置 ONNX Runtime、Windows ML framework runtime、CUDA、TensorRT、OpenVINO、Ryzen AI/VitisAI、QNN SDK、Python 或编译工具链。正常操作系统和硬件 driver 是唯一允许的系统前置条件；Windows official runtime 依赖的 Microsoft Visual C++ 2015-2022 x64 系统 runtime 需作为平台前置条件明确说明。
 

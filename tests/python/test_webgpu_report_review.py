@@ -10,6 +10,23 @@ import unittest
 from tools.webgpu import build_runtime, qualify, review_reports
 
 
+def pending_lock() -> dict[str, object]:
+    lock = build_runtime.load_lock()
+    qualification = lock["qualification"]
+    qualification["status"] = "development-pending-device-validation"
+    qualification["providerGatePassed"] = False
+    qualification["productionArtifactQualified"] = False
+    qualification["qualifiedArtifactSetSha256"] = {
+        "linux-x64": None,
+        "windows-x64": None,
+    }
+    qualification["qualificationReportSha256"] = {
+        "linux-x64": None,
+        "windows-x64": None,
+    }
+    return lock
+
+
 def line() -> dict[str, object]:
     return {
         "text": "HELLO 123",
@@ -327,17 +344,20 @@ class WebGpuReportReviewTest(unittest.TestCase):
     def setUp(self) -> None:
         self.revision = review_reports.current_revision()
 
-    def create_pair(self, root: Path) -> None:
-        lock = build_runtime.load_lock()
+    def create_pair(self, root: Path) -> Path:
+        lock = pending_lock()
+        lock_path = root / "runtime-lock.json"
+        write_json(lock_path, lock)
         for platform_id in review_reports.PLATFORMS:
             write_platform_report(root, platform_id, lock)
+        return lock_path
 
     def test_collects_intact_pair_as_manual_review_candidate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            self.create_pair(root)
+            lock_path = self.create_pair(root)
             candidate = review_reports.collect_pair(
-                root, expected_revision=self.revision
+                root, expected_revision=self.revision, lock_path=lock_path
             )
             self.assertTrue(candidate["mechanicalValidationPassed"])
             self.assertEqual(candidate["status"], "manual-review-required")
@@ -349,18 +369,20 @@ class WebGpuReportReviewTest(unittest.TestCase):
     def test_rejects_report_changed_without_sidecar_update(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            self.create_pair(root)
+            lock_path = self.create_pair(root)
             report_path = root / "linux-x64" / "qualification-report.json"
             report = json.loads(report_path.read_text("utf-8"))
             report["passed"] = False
             write_json(report_path, report)
             with self.assertRaisesRegex(RuntimeError, "report hash mismatch"):
-                review_reports.collect_pair(root, expected_revision=self.revision)
+                review_reports.collect_pair(
+                    root, expected_revision=self.revision, lock_path=lock_path
+                )
 
     def test_rejects_rehashed_report_with_missing_gate(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            self.create_pair(root)
+            lock_path = self.create_pair(root)
             report_path = root / "linux-x64" / "qualification-report.json"
             report = json.loads(report_path.read_text("utf-8"))
             report["gates"].pop()
@@ -370,19 +392,23 @@ class WebGpuReportReviewTest(unittest.TestCase):
                 "utf-8",
             )
             with self.assertRaisesRegex(RuntimeError, "gate inventory"):
-                review_reports.collect_pair(root, expected_revision=self.revision)
+                review_reports.collect_pair(
+                    root, expected_revision=self.revision, lock_path=lock_path
+                )
 
     def test_rejects_cross_revision_report_pair(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            self.create_pair(root)
+            lock_path = self.create_pair(root)
             with self.assertRaisesRegex(RuntimeError, "report identity"):
-                review_reports.collect_pair(root, expected_revision="a" * 40)
+                review_reports.collect_pair(
+                    root, expected_revision="a" * 40, lock_path=lock_path
+                )
 
     def test_collects_staggered_platform_revisions_without_override(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            self.create_pair(root)
+            lock_path = self.create_pair(root)
             report_path = root / "windows-x64" / "qualification-report.json"
             report = json.loads(report_path.read_text("utf-8"))
             report["sourceRevision"] = "b" * 40
@@ -391,7 +417,7 @@ class WebGpuReportReviewTest(unittest.TestCase):
                 f"{review_reports.sha256(report_path)}  qualification-report.json\n",
                 "utf-8",
             )
-            candidate = review_reports.collect_pair(root)
+            candidate = review_reports.collect_pair(root, lock_path=lock_path)
             self.assertEqual(
                 candidate["sourceRevisions"],
                 {"linux-x64": self.revision, "windows-x64": "b" * 40},
@@ -400,7 +426,7 @@ class WebGpuReportReviewTest(unittest.TestCase):
     def test_rejects_tampered_copied_descriptor(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            self.create_pair(root)
+            lock_path = self.create_pair(root)
             descriptor_path = (
                 root / "windows-x64" / "artifacts" / "native-runtime-descriptor.json"
             )
@@ -408,7 +434,42 @@ class WebGpuReportReviewTest(unittest.TestCase):
             descriptor["released"] = True
             write_json(descriptor_path, descriptor)
             with self.assertRaisesRegex(RuntimeError, "descriptor policy"):
-                review_reports.collect_pair(root, expected_revision=self.revision)
+                review_reports.collect_pair(
+                    root, expected_revision=self.revision, lock_path=lock_path
+                )
+
+    def test_production_lock_must_bind_the_reviewed_pair(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.create_pair(root)
+            lock = pending_lock()
+            qualification = lock["qualification"]
+            qualification["status"] = "production-qualified"
+            qualification["providerGatePassed"] = True
+            qualification["productionArtifactQualified"] = True
+            qualification["qualifiedArtifactSetSha256"] = {}
+            qualification["qualificationReportSha256"] = {}
+            for platform_id in review_reports.PLATFORMS:
+                report = json.loads(
+                    (root / platform_id / "qualification-report.json").read_text(
+                        "utf-8"
+                    )
+                )
+                qualification["qualifiedArtifactSetSha256"][platform_id] = report[
+                    "sdk"
+                ]["artifactSetSha256"]
+                qualification["qualificationReportSha256"][platform_id] = (
+                    root / platform_id / "qualification-report.sha256"
+                ).read_text("utf-8").split()[0]
+            production_lock = root / "production-runtime-lock.json"
+            write_json(production_lock, lock)
+            candidate = review_reports.collect_pair(root, lock_path=production_lock)
+            self.assertEqual(candidate["status"], "production-qualified")
+
+            qualification["qualificationReportSha256"]["windows-x64"] = "0" * 64
+            write_json(production_lock, lock)
+            with self.assertRaisesRegex(RuntimeError, "differs from the reviewed"):
+                review_reports.collect_pair(root, lock_path=production_lock)
 
 
 if __name__ == "__main__":

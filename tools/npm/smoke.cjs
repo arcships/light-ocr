@@ -23,6 +23,28 @@ async function main() {
     assert.equal(engine.info.detectionStrategy, 'bounded');
     assert.equal(engine.info.detectionMaxSide, 960);
     assert.equal(engine.info.defaultRecognitionBatchSize, 1);
+    if (process.platform === 'darwin') {
+      assert.deepEqual(
+        engine.info.execution.selectionTrace.orderedCandidates,
+        ['apple', 'cpu'],
+      );
+      assert.ok(engine.info.execution.providerCapabilities.some(
+        (capability) => capability.provider === 'apple'
+          && capability.packageIncluded,
+      ));
+    } else {
+      assert.deepEqual(
+        engine.info.execution.selectionTrace.orderedCandidates,
+        ['webgpu', 'cpu'],
+      );
+      assert.ok(engine.info.execution.providerCapabilities.some(
+        (capability) => capability.provider === 'webgpu'
+          && capability.packageIncluded,
+      ));
+      assert.ok(['webgpu', 'cpu'].includes(
+        engine.info.execution.selectionTrace.selectedProvider,
+      ));
+    }
     const result = await engine.recognize({
       data: pixels,
       width: metadata.width,
@@ -35,21 +57,23 @@ async function main() {
     await engine.close();
   }
 
-  const apple = await cjs.createEngine({
-    execution: {
-      provider: 'apple',
-      precision: 'fp16',
-      sessionFallback: 'error',
-    },
-  });
-  try {
-    assert.equal(apple.info.execution.requestedProvider, 'apple');
-    const detection = apple.info.execution.sessions.detection;
-    assert.equal(apple.info.executionProvider, 'CoreML');
-    assert.equal(detection.sessionFallback, false);
-    assert.match(detection.qualificationId, /^apple-/);
-  } finally {
-    await apple.close();
+  if (process.platform === 'darwin') {
+    const apple = await cjs.createEngine({
+      execution: {
+        provider: 'apple',
+        precision: 'fp16',
+        sessionFallback: 'error',
+      },
+    });
+    try {
+      assert.equal(apple.info.execution.requestedProvider, 'apple');
+      const detection = apple.info.execution.sessions.detection;
+      assert.equal(apple.info.executionProvider, 'CoreML');
+      assert.equal(detection.sessionFallback, false);
+      assert.match(detection.qualificationId, /^apple-/);
+    } finally {
+      await apple.close();
+    }
   }
 
   const tiledPixels = Buffer.alloc(2048 * 2048 * 3, 255);

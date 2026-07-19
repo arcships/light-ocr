@@ -1,6 +1,6 @@
 # Windows Device 加速技术方案
 
-状态：Windows x64/D3D12 产品实现与 AMD Radeon 780M 真实设备 Provider Gate 已完成（164/164）；production lock 待绑定已审阅报告和产物哈希
+状态：Windows x64/D3D12 产品实现与 AMD Radeon 780M 真实设备 Provider Gate 已完成（164/164）；已审阅报告和产物哈希已绑定 production lock
 
 更新时间：2026-07-19
 
