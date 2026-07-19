@@ -125,6 +125,7 @@ test('validates runtime descriptor artifacts before native loading', () => {
       : process.platform === 'win32'
         ? 'windows-x64'
         : 'linux-x64';
+    const appleSupported = process.platform === 'darwin' && process.arch === 'arm64';
     const descriptor = {
       schemaVersion: '2.0',
       platform: {
@@ -145,7 +146,7 @@ test('validates runtime descriptor artifacts before native loading', () => {
       autoPolicy: {
         id: `${platformId}-v1`,
         version: 1,
-        providers: process.platform === 'darwin' ? ['apple', 'cpu'] : ['cpu'],
+        providers: appleSupported ? ['apple', 'cpu'] : ['cpu'],
       },
       providers: {
         cpu: {
@@ -153,7 +154,7 @@ test('validates runtime descriptor artifacts before native loading', () => {
           qualificationId: 'cpu-baseline-v1',
           artifacts: [record(runtime)],
         },
-        ...(process.platform === 'darwin'
+        ...(appleSupported
           ? {
               apple: {
                 runtimeProvider: 'CoreML',

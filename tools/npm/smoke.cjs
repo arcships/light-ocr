@@ -14,6 +14,7 @@ async function main() {
 
   const cjs = require('@arcships/light-ocr');
   const esm = await import('@arcships/light-ocr');
+  const appleSupported = process.platform === 'darwin' && process.arch === 'arm64';
   assert.strictEqual(esm.createEngine, cjs.createEngine);
   assert.strictEqual(esm.OcrError, cjs.OcrError);
 
@@ -23,7 +24,7 @@ async function main() {
     assert.equal(engine.info.detectionStrategy, 'bounded');
     assert.equal(engine.info.detectionMaxSide, 960);
     assert.equal(engine.info.defaultRecognitionBatchSize, 1);
-    if (process.platform === 'darwin') {
+    if (appleSupported) {
       assert.deepEqual(
         engine.info.execution.selectionTrace.orderedCandidates,
         ['apple', 'cpu'],
@@ -32,6 +33,15 @@ async function main() {
         (capability) => capability.provider === 'apple'
           && capability.packageIncluded,
       ));
+    } else if (process.platform === 'darwin') {
+      assert.deepEqual(
+        engine.info.execution.selectionTrace.orderedCandidates,
+        ['cpu'],
+      );
+      assert.equal(
+        engine.info.execution.selectionTrace.selectedProvider,
+        'cpu',
+      );
     } else {
       assert.deepEqual(
         engine.info.execution.selectionTrace.orderedCandidates,
@@ -57,7 +67,7 @@ async function main() {
     await engine.close();
   }
 
-  if (process.platform === 'darwin') {
+  if (appleSupported) {
     const apple = await cjs.createEngine({
       execution: {
         provider: 'apple',

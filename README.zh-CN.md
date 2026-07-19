@@ -18,7 +18,7 @@
 
 > **npm 已可用：**`@arcships/light-ocr@0.2.0` 自带默认 PP-OCRv6 Small 模型和全部 Tier 1 平台的预编译原生运行时，并支持可选 tiled 检测与 Node.js 内存 JPEG/PNG 直接输入。详见[包支持](#包支持)。
 
-> **`0.3.0` 加速候选：**macOS 加入 Direct Core ML；Linux x64/Vulkan 与 Windows x64/D3D12 加入官方 Native WebGPU Plugin EP。已记录的真机结果分别为 Apple M4 Max **2.30×–2.85×**、NVIDIA RTX 5060 Ti **聚合 P50 5.70×**、AMD Radeon 780M **聚合 P50 2.44×**。WebGPU 发布 FP32 执行 profile，Apple 使用独立资格验证的 FP16 路径。这些 provider 尚未进入已发布的 `0.2.0` packages。
+> **`0.3.0` 加速候选：**macOS arm64 加入 Direct Core ML；Linux x64/Vulkan 与 Windows x64/D3D12 加入官方 Native WebGPU Plugin EP。已记录的真机结果分别为 Apple M4 Max **2.30×–2.85×**、NVIDIA RTX 5060 Ti **聚合 P50 5.70×**、AMD Radeon 780M **聚合 P50 2.44×**。WebGPU 发布 FP32 执行 profile，Apple 使用独立资格验证的 FP16 路径；macOS x64 保持 CPU provider。
 
 ## 适合哪些场景
 
@@ -43,7 +43,7 @@
 - **默认本地运行。**识别过程不会访问网络，也不会启动子进程。
 - **适合真实应用流程。**直接接收 `GRAY8`、`RGB8`、`BGR8` 和 `RGBA8` 像素；Node.js 适配器也能解码已经在内存中的 JPEG 和 PNG。
 - **两种明确的大图策略。**bounded/960 仍是速度和内存优先的默认模式；可选 tiled 检测为小字和密集的 2048 像素文档保留更多细节，并始终逐个处理 detection tile。
-- **按需启用原生 Apple 加速。**`0.3.0` 源码候选可以用 Core ML 执行 FP16 detection/recognition，同时保持公共 OCR 结果契约不变。
+- **按需启用原生 Apple 加速。**在 macOS arm64 上，`0.3.0` 源码候选可以用 Core ML 执行 FP16 detection/recognition，同时保持公共 OCR 结果契约不变。
 - **已完成真机资格验证的 Native WebGPU 加速。**`0.3.0` 候选会打包官方 WebGPU Plugin EP 及其精确的 Linux/Vulkan 或 Windows/D3D12 运行时闭包，支持哈希校验的离线 staging；两台记录设备均通过 164/164 Gate。
 - **模型固定且可复现。**约 31 MB 的 PP-OCRv6 Small bundle 会经过完整性验证，目标是随应用一起安装，而不是首次运行时再下载。
 - **跨平台结果一致。**macOS、Linux 和 Windows 使用同一套模型与结果契约。
@@ -120,7 +120,7 @@ WebGPU 聚合值按锁定的 14-fixture corpus 计算：`CPU fixture P50 之和 
 
 正式 warm 性能测量的 peak RSS 为 692.14 MiB，自包含 Apple 模型 payload 增加 25.42 MiB。独立的同 engine 100 个密集页生命周期测试 peak RSS 为 888.11 MiB，结束时比预热后基线低 27.47 MiB，该次测试未出现持续增长。首次使用会离线编译，并按需加载 recognition functions：固定 `HELLO 123` 启动 canary 的 compiled-cache miss 为 7.219 s，hit 为 1.275/1.278 s；113 行表单的首次整页 miss 为 53.846 s，hit 为 12.677/12.677 s。运行时不会下载 provider、编译器或模型。
 
-真实设备性能数据只来自这一台 M4 Max。证据契约把它归入 `Apple M4` device family 并据此设置 `deviceValidated`，不代表每一种 M4 SKU 都做过独立测量。该候选对其他 macOS 15+ 硬件采取开放但实验性的兼容策略：M1–M3 和后续 Apple Silicon 可以尝试同一 ANE/GPU 路径，Intel Mac 使用 Core ML CPU+GPU。没有已审阅证据的硬件会报告 `deviceValidated: false`；取得对应设备数据前不宣称加速倍数。完整方法、模型放置、质量阈值、缓存与生命周期结果见 [Apple 加速技术方案](docs/apple-device-acceleration.md)。
+真实设备性能数据只来自这一台 M4 Max。证据契约把它归入 `Apple M4` device family 并据此设置 `deviceValidated`，不代表每一种 M4 SKU 都做过独立测量。M1–M3 和后续 Apple Silicon 可以尝试同一 ANE/GPU 路径并报告 `deviceValidated: false`，但不继承性能承诺。`0.3.0` macOS x64 package 的 Core ML OCR 未通过发布 smoke parity，因此保持 CPU-only。完整方法、模型放置、质量阈值、缓存与生命周期结果见 [Apple 加速技术方案](docs/apple-device-acceleration.md)。
 
 ### Native WebGPU 加速
 
@@ -195,7 +195,7 @@ const engine = await createEngine({
 });
 ```
 
-`cpuPartition: "allow"` 同时适用于 Apple Silicon 和 Intel Mac；strict GPU-only profile 只支持 Apple Silicon。显式 provider 失败不会转入 CPU，只有 Auto 可以沿 descriptor 锁定的创建候选继续。源码候选发布前，公开的 `0.2.0` package 仍保持 CPU 默认。
+`cpuPartition: "allow"` 与 strict GPU-only profile 适用于 Apple Silicon 上的 Apple provider；`0.3.0` macOS x64 package 只暴露 CPU。显式 provider 失败不会转入 CPU，只有 Auto 可以沿 descriptor 锁定的创建候选继续。源码候选发布前，公开的 `0.2.0` package 仍保持 CPU 默认。
 
 完整 API、取消、队列限制和生命周期行为见 [Node.js 指南](bindings/node/README.md)。
 
@@ -227,13 +227,13 @@ ctest --preset release
 
 npm 分发会安装一个统一入口、一个必需的模型包，以及与当前系统匹配的 native 包。包内容、版本策略和发布门槛见 [npm package 设计](docs/npm-packaging.md)；`0.2.0` 的不可变哈希和验证证据见[发布记录](docs/releases/npm-0.2.0.md)。
 
-Direct Core ML 加速已经合并到 `main`，目标版本为 `0.3.0`，但尚未进入已发布的 `0.2.0` package set。它会继续复用现有六包安装结构，不计划新增 provider package 或运行时下载。
+macOS arm64 Direct Core ML 加速已经合并到 `main`，目标版本为 `0.3.0`，但尚未进入已发布的 `0.2.0` package set。它会继续复用现有六包安装结构，不计划新增 provider package 或运行时下载。
 
 PR #11 同时包含 Linux x64 与 Windows x64 Native WebGPU 源码候选。显式 WebGPU 接受 `auto/fp32`，Auto 同样选择 FP32；三个必要 CPU partition 算子会被显式报告并限制范围。两份真机报告均已通过 164/164 Gate，其报告与产物的不可变哈希现已绑定进 production lock，供 `0.3.0` 发布流程使用。已发布的 `0.2.0` packages 保持不变，并在这两个平台继续仅使用 CPU。
 
 ## 项目状态
 
-`light-ocr` 仍在积极开发。`0.2.0` 已发布确定性的 `tiled-v1` 大图模式，以及 Node.js 适配器中受资源限制的内存 JPEG/PNG 解码；C++ Core 的 raw-pixel 边界保持不变。`0.3.0` 源码候选加入 descriptor-driven Auto、macOS Direct Core ML，以及 Linux x64/Windows x64 FP32 Native WebGPU 执行。
+`light-ocr` 仍在积极开发。`0.2.0` 已发布确定性的 `tiled-v1` 大图模式，以及 Node.js 适配器中受资源限制的内存 JPEG/PNG 解码；C++ Core 的 raw-pixel 边界保持不变。`0.3.0` 源码候选加入 descriptor-driven Auto、macOS arm64 Direct Core ML，以及 Linux x64/Windows x64 FP32 Native WebGPU 执行。
 
 作为 pre-1.0 项目，公共 API 和 package 布局仍可能调整；项目目前不承诺跨版本稳定的 C++ ABI。
 

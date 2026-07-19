@@ -380,14 +380,14 @@ def validate_runtime_descriptor(
         ["webgpu", "cpu"]
         if runtime["flavor"] == "webgpu"
         else ["apple", "cpu"]
-        if str(platform.get("id", "")).startswith("macos-")
+        if platform.get("id") == "macos-arm64"
         else ["cpu"]
     )
     expected_available = (
         {"cpu", "webgpu"}
         if runtime["flavor"] == "webgpu"
         else {"apple", "cpu"}
-        if str(platform.get("id", "")).startswith("macos-")
+        if platform.get("id") == "macos-arm64"
         else {"cpu"}
     )
     if providers != expected_policy or set(provider_records) != expected_available:
@@ -522,7 +522,7 @@ def stage_native(arguments: argparse.Namespace) -> None:
                     "artifacts": [runtime_record],
                 }
             }
-            if platform["os"] == ["darwin"]:
+            if arguments.platform_id == "macos-arm64":
                 provider_entries["apple"] = {
                     "runtimeProvider": "CoreML",
                     "qualificationId": "apple-open-macos-v1",
@@ -613,7 +613,11 @@ def stage_native(arguments: argparse.Namespace) -> None:
                 "providers": (
                     ["webgpu", "cpu"]
                     if runtime_flavor == "webgpu"
-                    else (["apple", "cpu"] if platform["os"] == ["darwin"] else ["cpu"])
+                    else (
+                        ["apple", "cpu"]
+                        if arguments.platform_id == "macos-arm64"
+                        else ["cpu"]
+                    )
                 ),
             },
             "providers": provider_entries,

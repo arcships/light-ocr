@@ -7,7 +7,7 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 ### Added
 
 - Added an opt-in Direct Core ML provider for the `0.3.0` source candidate. Apple Silicon routes FP16 detection and shorter recognition shapes through the Neural Engine envelope, with wider recognition shapes on the GPU.
-- Added experimental macOS 15+ compatibility for both `arm64` and `x86_64`. Intel Macs use Core ML CPU+GPU because they do not have an Apple Neural Engine; the strict GPU-only profile remains Apple-Silicon-only.
+- Added experimental macOS 15+ Core ML compatibility on `arm64`. The macOS x64 package remains CPU-only after its release smoke test did not reproduce the locked OCR result through Core ML.
 - Added per-provider and per-session execution diagnostics, including configured provider chain, device family, operating system, precision, model/cache identity, qualification identity, a structured Auto creation trace, and `deviceValidated` evidence status.
 - Added a self-contained Apple model bundle, deterministic Core ML derivation, offline compiled-model cache, cross-process cache locking, bounded recognition-function caching, and descriptor-driven platform Auto selection.
 - Added self-contained Native WebGPU execution on Linux x64 glibc/Vulkan and Windows x64/D3D12 with ONNX Runtime 1.24.4, the official WebGPU Plugin EP 0.1.0, hash-verified runtime descriptors, offline staging, and CPU as the final Auto candidate.
@@ -44,10 +44,10 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 ### Compatibility and evidence
 
 - The current source candidate defaults to descriptor-driven Auto selection. Explicit providers are strict single-backend requests, and the legacy `sessionFallback: "cpu"` value returns `invalid_argument`.
-- Production bundles use `devicePolicy: "open-macos"`: M1–M3, later Apple Silicon, and Intel Macs are not blocked by the current evidence list.
+- Production bundles use `devicePolicy: "open-macos"` for Apple Silicon: M1–M3 and later Apple Silicon are not blocked by the current evidence list. The npm runtime descriptor does not expose Apple on macOS x64.
 - Real-device performance data currently comes from one Apple M4 Max runner. The evidence contract classifies it under the `Apple M4` device family for `deviceValidated`; this is not a claim that every M4 SKU was measured separately. Other Macs report `deviceValidated: false`; experimental compatibility is available, but no performance number is promised until that hardware family is reviewed.
 - Heavy model conversion, Compute Plan placement, performance, cache, and lifecycle qualification remain local real-device work. Ordinary CI stays limited to cross-platform builds, contracts, and lightweight tests and does not require paid runners.
-- The Core ML provider is merged on `main` but is not included in the published `0.2.0` npm packages. The planned `0.3.0` distribution keeps the existing six-package installation shape.
+- The macOS arm64 Core ML provider is merged on `main` but is not included in the published `0.2.0` npm packages. The planned `0.3.0` distribution keeps the existing six-package installation shape.
 - Native WebGPU compatibility and performance are evidenced on the named NVIDIA/Linux and AMD/Windows systems. Other devices may use the open compatibility path but do not inherit these performance numbers.
 - The Linux and Windows qualification reports both passed 164/164 mechanical Gates. Their reviewed report and artifact-set hashes are bound into the production runtime lock, so ordinary `0.3.0` release staging now accepts the exact qualified payloads.
 
