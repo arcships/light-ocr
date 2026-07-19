@@ -105,6 +105,35 @@ def list_of_strings(value: object, context: str) -> list[str]:
     return value
 
 
+def validate_report_qualification(
+    value: object, lock_qualification: dict[str, Any], *, platform_id: str
+) -> None:
+    """Validate the pending qualification snapshot captured by a device run."""
+    qualification = mapping(value, f"{platform_id} evidence qualification")
+    if (
+        set(qualification) != set(lock_qualification)
+        or qualification.get("status")
+        != "development-pending-device-validation"
+        or qualification.get("evidenceId") != lock_qualification.get("evidenceId")
+        or qualification.get("providerGatePassed") is not False
+        or qualification.get("productionArtifactQualified") is not False
+        or qualification.get("qualifiedArtifactSetSha256")
+        != {"linux-x64": None, "windows-x64": None}
+        or qualification.get("qualificationReportSha256")
+        != {"linux-x64": None, "windows-x64": None}
+        or qualification.get("requiredPlatforms")
+        != lock_qualification.get("requiredPlatforms")
+        or not isinstance(qualification.get("knownLimitations"), list)
+        or not all(
+            isinstance(item, str) and item
+            for item in qualification["knownLimitations"]
+        )
+    ):
+        raise RuntimeError(
+            f"{platform_id} evidence qualification snapshot is invalid"
+        )
+
+
 def current_revision() -> str:
     revision = subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -242,16 +271,21 @@ def validate_manifest(
     }
     if "libc" in platform_lock:
         expected_platform["libc"] = platform_lock["libc"]
+    lock_qualification = mapping(
+        lock["qualification"], "runtime lock qualification"
+    )
     if (
         manifest.get("contractId") != lock["contractId"]
         or manifest.get("platform") != expected_platform
         or manifest.get("runtime") != build_runtime.runtime_identity(lock, platform_id)
         or manifest.get("sessionOptions") != lock["sessionOptions"]
-        or manifest.get("qualification") != lock["qualification"]
     ):
         raise RuntimeError(
             f"{platform_id} SDK manifest disagrees with the runtime lock"
         )
+    validate_report_qualification(
+        manifest.get("qualification"), lock_qualification, platform_id=platform_id
+    )
 
     artifacts = mapping(manifest.get("artifacts"), f"{platform_id} manifest.artifacts")
     if set(artifacts) != {
@@ -638,12 +672,18 @@ def collect_pair(
     lock = build_runtime.load_lock(lock_path)
     build_runtime.validate_lock(lock)
     qualification = mapping(lock["qualification"], "runtime lock qualification")
-    if (
-        qualification.get("status") != "development-pending-device-validation"
-        or qualification.get("providerGatePassed") is not False
-        or qualification.get("productionArtifactQualified") is not False
-    ):
-        raise RuntimeError("report collection requires the pending qualification lock")
+    pending = (
+        qualification.get("status") == "development-pending-device-validation"
+        and qualification.get("providerGatePassed") is False
+        and qualification.get("productionArtifactQualified") is False
+    )
+    production = (
+        qualification.get("status") == "production-qualified"
+        and qualification.get("providerGatePassed") is True
+        and qualification.get("productionArtifactQualified") is True
+    )
+    if not pending and not production:
+        raise RuntimeError("report collection requires a valid qualification lock")
     root = reports_root.resolve()
     try:
         platforms = {
@@ -657,9 +697,27 @@ def collect_pair(
         }
     except (IndexError, KeyError, TypeError, ValueError) as exception:
         raise RuntimeError("qualification report structure is invalid") from exception
+    if production:
+        artifact_hashes = {
+            platform_id: platform["artifactSetSha256"]
+            for platform_id, platform in platforms.items()
+        }
+        report_hashes = {
+            platform_id: platform["reportSha256"]
+            for platform_id, platform in platforms.items()
+        }
+        if (
+            qualification.get("qualifiedArtifactSetSha256") != artifact_hashes
+            or qualification.get("qualificationReportSha256") != report_hashes
+        ):
+            raise RuntimeError(
+                "production qualification lock differs from the reviewed reports"
+            )
     candidate: dict[str, Any] = {
         "schema": "light-ocr-webgpu-provider-gate-review/1.0",
-        "status": "manual-review-required",
+        "status": (
+            "production-qualified" if production else "manual-review-required"
+        ),
         "mechanicalValidationPassed": True,
         "evidenceId": qualification["evidenceId"],
         "sourceRevisions": {

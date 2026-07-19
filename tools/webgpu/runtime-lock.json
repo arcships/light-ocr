@@ -119,27 +119,28 @@
     "deviceIdSupported": false
   },
   "qualification": {
-    "status": "development-pending-device-validation",
+    "status": "production-qualified",
     "evidenceId": "native-webgpu-plugin-0.1.0-ort-1.24.4-dev2",
-    "providerGatePassed": false,
-    "productionArtifactQualified": false,
+    "providerGatePassed": true,
+    "productionArtifactQualified": true,
     "qualifiedArtifactSetSha256": {
-      "linux-x64": null,
-      "windows-x64": null
+      "linux-x64": "47caf50e71dad9e7bf6fcf0c15d86df6b97ab8b36b9f7eac3bd25ecaba0e5dd3",
+      "windows-x64": "6fa272f5d7a9139dd1b1d36e366eae5564201981bb988955fb47bdcc2abcc128"
     },
     "qualificationReportSha256": {
-      "linux-x64": null,
-      "windows-x64": null
+      "linux-x64": "30bfc4d8add1542ed4ae27bf89121951156f643174bf328163c5dd4a544d1df8",
+      "windows-x64": "f806387b09a50489aefe43e7b5ffe04cc7b701b591b12115ef20402bd1048c3b"
     },
     "requiredPlatforms": [
       "linux-x64",
       "windows-x64"
     ],
     "knownLimitations": [
-      "Linux and Windows real-device FP32/FP16 placement, quality, performance, memory, and lifecycle reports are pending.",
-      "The qualified FP16 models use native float16 graph I/O but retain converter-blocked operations at float32; Concat, Gather, and Slice require the bounded CPU partition, so cpuPartition=forbid fails closed.",
+      "The public WebGPU profile is FP32-only in 0.3.0; the locked FP16 derivations remain internal reproducibility artifacts and are not selectable through the WebGPU API.",
+      "Concat, Gather, and Slice require the bounded CPU partition, so cpuPartition=forbid fails closed before session creation.",
+      "Compatibility and performance evidence is limited to the recorded Linux x64/NVIDIA Vulkan and Windows x64/AMD D3D12 systems; other adapters and drivers do not inherit their measured speedups.",
       "The released WebGPU plugin does not expose a typed driver-compatibility failure for every Dawn initialization error; unknown provider failures remain fatal instead of being inferred from text.",
-      "No production compatibility range or released Auto policy may be claimed until both platform qualification reports are reviewed."
+      "Linux arm64, Linux musl, Windows arm64, browser WebGPU, external device/context injection, and zero-copy GPU input are outside the 0.3.0 release scope."
     ]
   }
 }

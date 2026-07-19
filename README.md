@@ -229,7 +229,7 @@ The npm distribution installs one facade, one required model package, and the na
 
 Direct Core ML acceleration is merged on `main` for the `0.3.0` candidate but is not part of the published `0.2.0` package set. Its release keeps the same six-package installation shape; no extra provider package or runtime download is planned.
 
-PR #11 also carries the Linux x64 and Windows x64 Native WebGPU source candidate. Explicit WebGPU accepts `auto`/`fp32`; Auto also selects FP32. The three required CPU-partition operators are reported and bounded. Both real-device reports passed 164/164 Gates; release packaging remains gated until their immutable hashes are bound into the production lock. Published `0.2.0` packages remain unchanged and CPU-only on those platforms.
+PR #11 also carries the Linux x64 and Windows x64 Native WebGPU source candidate. Explicit WebGPU accepts `auto`/`fp32`; Auto also selects FP32. The three required CPU-partition operators are reported and bounded. Both real-device reports passed 164/164 Gates, and their immutable report/artifact hashes are now bound into the production lock for the `0.3.0` release workflow. Published `0.2.0` packages remain unchanged and CPU-only on those platforms.
 
 ## Project status
 
