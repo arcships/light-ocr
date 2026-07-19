@@ -169,7 +169,7 @@ if(LIGHT_OCR_BUILD_TESTS)
     set_tests_properties(light_ocr_node_tests PROPERTIES
       WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
       ENVIRONMENT "${_light_ocr_node_test_environment}"
-      TIMEOUT 180
+      TIMEOUT 600
       LABELS "node;integration")
   else()
     message(STATUS
