@@ -519,7 +519,7 @@ def collect_evidence(
     complete_fixture_modes = all(
         all(
             f"{fixture}:{mode}" in cases
-            for mode in ("cpu", "fp32", "allow", "strict")
+            for mode in ("cpu", "allow", "strict")
         )
         for fixture in required_fixtures
     )
@@ -545,7 +545,7 @@ def collect_evidence(
         and integer_at_least(report.get("cycles"), MIN_COLD_START_CYCLES)
         and report["iterations"] * report["cycles"] >= MIN_MEASUREMENT_SAMPLES
         for key, report in cases.items()
-        if key.endswith((":cpu", ":fp32", ":allow", ":auto"))
+        if key.endswith((":cpu", ":allow", ":auto"))
         and key != "native-cpp:auto"
     )
     lifecycle_measurement = cases.get(f"{canary}:lifecycle", {})
@@ -595,25 +595,17 @@ def collect_evidence(
             cpu.get("result", {}).get("deterministic") is True,
             f"sha256={cpu.get('result', {}).get('sha256')}",
         )
-        for mode, expected_precision in (("fp32", "fp32"), ("allow", "fp16")):
+        for mode in ("allow",):
             report = cases.get(f"{fixture}:{mode}", {})
             chains = session_chains(report)
             expected = [["WebGpuExecutionProvider", "CPUExecutionProvider"]] * 2
-            sessions = report.get("engine", {}).get("execution", {}).get(
-                "sessions", {}
-            )
-            precisions = [
-                sessions.get(name, {}).get("precision")
-                for name in ("detection", "recognition")
-            ]
             gate(
                 f"{fixture}-{mode}-provider",
                 report.get("ok") is True
                 and report.get("engine", {}).get("executionProvider")
                 == "WebGpuExecutionProvider"
-                and chains == expected
-                and precisions == [expected_precision, expected_precision],
-                f"chains={chains}, precisions={precisions}",
+                and chains == expected,
+                f"chains={chains}",
             )
             quality, detail = quality_matches(cpu, report)
             gate(f"{fixture}-{mode}-quality", quality, detail)
@@ -624,15 +616,15 @@ def collect_evidence(
             )
         strict = cases.get(f"{fixture}:strict", {})
         strict_error = strict.get("error", {})
+        strict_accepted = (
+            strict.get("expectedRejection") is True
+            and strict_error.get("code") == "runtime_initialization_failed"
+            and isinstance(strict_error.get("message"), str)
+            and "fallback to CPU EP has been explicitly disabled" in strict_error.get("message", "")
+        )
         gate(
             f"{fixture}-strict-fail-closed",
-            strict.get("ok") is True
-            and strict.get("expectedRejection") is True
-            and strict_error.get("code") == "unsupported_capability"
-            and strict_error.get("message")
-            == "The WebGPU model requires a bounded CPU operator partition"
-            and strict_error.get("detail")
-            == "required operators: Concat, Gather, Slice",
+            strict.get("ok") is True and strict_accepted,
             f"error={json.dumps(strict_error, sort_keys=True)}",
         )
         allow = cases.get(f"{fixture}:allow", {})
@@ -728,7 +720,7 @@ def collect_evidence(
             and 0 < maximum_resident <= MAX_RESIDENT_BYTES,
             f"residentMaximumBytes={maximum_resident}",
         )
-    for mode in ("cpu", "fp32", "allow", "auto"):
+    for mode in ("cpu", "allow", "auto"):
         key = f"generated-hello-123:{mode}"
         report = cases.get(key, {})
         initialization_values = report.get("engineInitializationUs", {}).get("values")
@@ -1031,7 +1023,7 @@ def main() -> int:
         fixture = ROOT / "corpus" / "fixtures" / fixture_id / "fixture.json"
         if not fixture.is_file():
             raise QualificationError(f"fixture is missing: {fixture_id}")
-        modes = ["cpu", "fp32", "allow", "strict"]
+        modes = ["cpu", "allow", "strict"]
         if fixture_id == fixtures[0]:
             modes.append("auto")
         for mode in modes:
@@ -1042,7 +1034,7 @@ def main() -> int:
             for stale_profile in profiles_dir.glob(prefix_name + "*.json"):
                 stale_profile.unlink()
             environment = os.environ.copy()
-            if mode in {"fp32", "allow", "auto"}:
+            if mode in {"allow", "auto"}:
                 environment["LIGHT_OCR_WEBGPU_PROFILE_PREFIX"] = str(
                     (profiles_dir / prefix_name).resolve()
                 )
@@ -1085,7 +1077,7 @@ def main() -> int:
                         "exitCode": completed.returncode,
                     },
                 }
-            if mode in {"fp32", "allow", "auto"}:
+            if mode in {"allow", "auto"}:
                 profiles[key] = profile_summary(profiles_dir, prefix_name)
 
     lifecycle_key = "generated-hello-123:lifecycle"

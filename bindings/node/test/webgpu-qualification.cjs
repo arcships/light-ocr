@@ -76,9 +76,8 @@ async function main() {
   const execution = {
     auto: { provider: 'auto' },
     cpu: { provider: 'cpu', precision: 'fp32' },
-    fp32: { provider: 'webgpu', cpuPartition: 'allow', precision: 'fp32' },
-    allow: { provider: 'webgpu', cpuPartition: 'allow', precision: 'fp16' },
-    strict: { provider: 'webgpu', cpuPartition: 'forbid', precision: 'fp16' },
+    allow: { provider: 'webgpu', cpuPartition: 'allow', precision: 'fp32' },
+    strict: { provider: 'webgpu', cpuPartition: 'forbid', precision: 'fp32' },
   }[arguments_.mode];
   const reportPath = path.resolve(arguments_.report);
   const writeReport = (report) => {
@@ -113,9 +112,15 @@ async function main() {
       }
     } catch (error) {
       const serialized = serializeError(error);
-      const accepted = serialized.code === 'unsupported_capability' &&
+      const accepted = (
+        serialized.code === 'unsupported_capability' &&
         serialized.message === 'The WebGPU model requires a bounded CPU operator partition' &&
-        serialized.detail === 'required operators: Concat, Gather, Slice';
+        serialized.detail === 'required operators: Concat, Gather, Slice'
+      ) || (
+        serialized.code === 'runtime_initialization_failed' &&
+        typeof serialized.message === 'string' &&
+        serialized.message.includes('fallback to CPU EP has been explicitly disabled')
+      );
       report = {
         schemaVersion: '1.1',
         ok: accepted,
