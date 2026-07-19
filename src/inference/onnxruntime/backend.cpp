@@ -86,6 +86,15 @@ WebGpuRegistrationState& webgpu_registration_state() {
   return state;
 }
 
+std::mutex& webgpu_session_creation_mutex() {
+  // The plugin registration API is process-global, while Dawn device/session
+  // initialization is not safe to enter concurrently from multiple engine
+  // workers on Windows. Keep registration and session construction serialized;
+  // completed sessions can still run concurrently.
+  static std::mutex mutex;
+  return mutex;
+}
+
 #if !defined(_WIN32)
 bool linux_drm_render_node_available() {
   std::error_code error;
@@ -468,8 +477,13 @@ Result<std::unique_ptr<OnnxSession>> OnnxSession::create(
             ? GraphOptimizationLevel::ORT_ENABLE_EXTENDED
             : GraphOptimizationLevel::ORT_ENABLE_ALL);
     std::string selected_webgpu_device;
+#if defined(LIGHT_OCR_HAS_WEBGPU)
+    std::unique_lock<std::mutex> webgpu_session_creation_lock;
+#endif
     if (config.provider == ExecutionProvider::webgpu) {
 #if defined(LIGHT_OCR_HAS_WEBGPU)
+      webgpu_session_creation_lock =
+          std::unique_lock<std::mutex>(webgpu_session_creation_mutex());
       options.DisableMemPattern();
       if (config.cpu_partition == CpuPartition::forbid) {
         options.AddConfigEntry(kOrtSessionOptionsDisableCPUEPFallback, "1");
@@ -491,6 +505,11 @@ Result<std::unique_ptr<OnnxSession>> OnnxSession::create(
 #endif
     }
     auto session = std::make_unique<Ort::Session>(environment(), model->data(), model->size(), options);
+#if defined(LIGHT_OCR_HAS_WEBGPU)
+    if (webgpu_session_creation_lock.owns_lock()) {
+      webgpu_session_creation_lock.unlock();
+    }
+#endif
     validate_model_contract(*session, kind, expected_recognition_classes,
                             config.precision);
     Ort::AllocatorWithDefaultOptions allocator;
