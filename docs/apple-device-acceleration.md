@@ -1,12 +1,12 @@
 # Apple Device 加速技术方案
 
-状态：Implemented with open macOS compatibility；M4 Max 的实现、放置、质量、性能、缓存和 100 页生命周期 Gate 已通过；其他 Mac 以实验兼容模式开放；不代表已经发布
+状态：Implemented with open Apple Silicon compatibility；M4 Max 的实现、放置、质量、性能、缓存和 100 页生命周期 Gate 已通过；其他 Apple Silicon 以实验兼容模式开放；macOS x64 npm runtime 保持 CPU-only；不代表已经发布
 
 更新时间：2026-07-16
 
-范围：以 macOS 15+ 为当前交付目标；Apple Silicon 使用 ANE/GPU 混合路由，Intel Mac 使用 CPU+GPU 路由；iPhone/iPad 不在当前 Tier 1 平台承诺内
+范围：以 macOS 15+ Apple Silicon 为当前 Core ML 交付目标；macOS x64 继续作为 CPU Tier 1 平台；iPhone/iPad 不在当前 Tier 1 平台承诺内
 
-实施状态：Direct Objective-C++ Core ML bridge、schema 1.1 capability manifest、哈希锁 FP16 模型派生、自包含 npm 模型包、ANE/GPU 与 Intel CPU+GPU 路由、严格 GPU 模式、离线编译缓存、跨进程锁、20 个加权宽度桶的有界函数缓存、C++/Node API、资格工具和 D112 macOS Auto 外层顺序 `apple → cpu` 均已在源码实现，平台发布证据仍待完成。生产 bundle 使用 `devicePolicy: open-macos`，macOS 15+ 的 arm64/x86_64 Mac 均可尝试 Core ML；`validatedDeviceFamilies: ["Apple M4"]` 只标记已有性能证据，不再充当运行白名单。`deviceValidated` 让调用方区分 M4 实证与其他设备的实验兼容。
+实施状态：Direct Objective-C++ Core ML bridge、schema 1.1 capability manifest、哈希锁 FP16 模型派生、自包含 npm 模型包、ANE/GPU 路由、严格 GPU 模式、离线编译缓存、跨进程锁、20 个加权宽度桶的有界函数缓存、C++/Node API、资格工具和 D112 macOS arm64 Auto 外层顺序 `apple → cpu` 均已在源码实现。生产 bundle 使用 `devicePolicy: open-macos`；`validatedDeviceFamilies: ["Apple M4"]` 只标记已有性能证据，不再充当 Apple Silicon 运行白名单。macOS x64 release smoke 的 Core ML OCR 未通过 parity，因此 0.3.0 x64 runtime descriptor 使用 `cpu` 单候选。
 
 关联 Roadmap：[Perf-0–Perf-4](roadmap.md#7-perf-0perf-4--性能与宿主加速线)
 
@@ -166,7 +166,7 @@ W8A8 的已有 quality smoke 只使用 3 页 detector 校准图和 10 个 recogn
 | --- | --- | --- | --- | --- |
 | M4 系列 | 有；M4 具备 Apple 明确说明的 INT8×INT8 加速 | 已验证的 FP16 ANE + FP16 GPU | 质量与收益通过后，可对 ANE 子模型启用 | `deviceValidated=true`；D112 Auto 可在可跳过创建原因后尝试 CPU |
 | M1–M3 与后续 Apple Silicon Mac | 有 | 开放 FP16 ANE/GPU 实验兼容 | 不承诺 W8A8 加速；社区设备反馈后逐步补证据 | `deviceValidated=false`；同一 D112 Auto 规则 |
-| Intel Mac | 无 | 开放 Core ML FP16 CPU+GPU 实验兼容；仅 `cpuPartition=allow` | 不适用 ANE W8A8 | `deviceValidated=false`；同一 D112 Auto 规则 |
+| Intel Mac | 无 | 0.3.0 npm package 使用 CPU；Core ML CPU+GPU 保留为未交付实验路径 | 不适用 ANE W8A8 | x64 runtime descriptor 的 Auto 为 `cpu` |
 | A17 Pro/M4 系列及项目独立验证过的后续 iPhone/iPad | 有；A17 Pro/M4 具备 Apple 明确说明的 INT8×INT8 加速 | 架构上与 Mac 相同 | 未来平台工作，当前不发布 | 平台自有 CPU/GPU 策略 |
 | 更老 iPhone/iPad | 有或无，能力不同 | 当前不在项目支持矩阵 | 不承诺 | 当前不发布 |
 
@@ -380,7 +380,7 @@ Apple provider 继承 Roadmap Provider Gate，并增加交互式 CPU 目标：
 
 ### Phase B — FP16 Apple interactive preview
 
-状态：实现完成，M4 Max 本机全套 Gate 已通过；macOS 15+ 的其他 Apple Silicon 以同一 ANE/GPU 路径开放，Intel Mac 以 CPU+GPU 路径开放，二者均明确报告 `deviceValidated=false`。
+状态：实现完成，M4 Max 本机全套 Gate 已通过；macOS 15+ 的其他 Apple Silicon 以同一 ANE/GPU 路径开放并明确报告 `deviceValidated=false`。Intel Core ML CPU+GPU 未通过 release smoke OCR parity，0.3.0 npm x64 package 因此保持 CPU-only。
 
 - Detector、常规 recognition 优先 FP16 ANE。
 - ANE-unqualified recognition shape 使用 FP16 GPU。
@@ -413,8 +413,8 @@ Apple provider 继承 Roadmap Provider Gate，并增加交互式 CPU 目标：
 ## 13. 已落地决策与剩余外部证据
 
 1. 正式 backend 候选为 Direct Core ML；ORT 1.22 CoreML EP 在禁止 CPU fallback 时不能完整放置当前 graph，保留为未来对照而非产品路径。
-2. FP16 生产 manifest 使用 `devicePolicy: open-macos` 和 `architectures: [arm64, x86_64]`。`validatedDeviceFamilies` 当前只列 M4，但仅表示性能证据；M1–M3、后续 Apple Silicon 和 Intel Mac 无需白名单即可尝试。CI 虚拟 M1 不暴露 GPU/Neural Engine，仍不能作为性能证据。W8A8 仍不发布。
-3. Detector 使用 32–960 的受限 range MLProgram；Apple Silicon interactive 使用 ANE/MLCPU envelope，strict 使用全 GPU；Intel 因无 ANE 使用 Core ML CPU+GPU，且不接受 strict `cpuPartition=forbid`。
+2. FP16 生产 manifest 保留 `devicePolicy: open-macos` 和可复现的模型架构声明；npm runtime descriptor 只在 macOS arm64 暴露 Apple provider。`validatedDeviceFamilies` 当前只列 M4，但仅表示性能证据；M1–M3 与后续 Apple Silicon 无需白名单即可尝试。CI 虚拟 M1 不暴露 GPU/Neural Engine，仍不能作为性能证据。W8A8 仍不发布。
+3. Detector 使用 32–960 的受限 range MLProgram；Apple Silicon interactive 使用 ANE/MLCPU envelope，strict 使用全 GPU。Intel CPU+GPU 路径保留在源码中，但不进入 0.3.0 npm provider policy。
 4. Recognition 使用 320–3200、步长 32 的 91-function MLProgram 做全量资格审查；运行时向上取整到锁定的 20 个加权 bucket，≤1600 走 ANE envelope，>1600 走 GPU，LRU≤20。
 5. 随包携带源 `.mlpackage`，首次运行离线编译并以 package/OS/device identity 缓存；不分发跨 OS 的预编译 `.mlmodelc`。
 6. 质量、两 workload speedup、CPU-time 降幅、canary 的 3 次 cold start、30 次 warm、RSS、同 engine 100 页生命周期和 32 MiB 包增量阈值由 `tools/apple/acceptance.json` 锁定。

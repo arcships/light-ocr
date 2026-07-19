@@ -12,7 +12,7 @@ Decision：[decisions.md](decisions.md) D105
 0.3.0 候选不增加第七个包或第二个安装入口。model package 改为
 `ppocrv6-small-native-20260719.1` 自包含 superset：所有平台继续使用其中的
 ONNX FP32 CPU/WebGPU payload；锁定的 WebGPU FP16 variants 仅作为内部可复现工件保留；
-macOS 15+ arm64/x86_64 使用 `open-macos` 策略，均可显式请求 Core ML。`validatedDeviceFamilies` 只标记已有真机证据，不阻塞其他 Mac 的实验兼容。
+macOS 15+ arm64 使用 `open-macos` 策略并可显式请求 Core ML；`validatedDeviceFamilies` 只标记已有真机证据，不阻塞其他 Apple Silicon 的实验兼容。macOS x64 package 保持 CPU-only，因为发布 smoke 未能通过 Intel Core ML OCR parity。
 release workflow 在 Linux 复现内部 WebGPU FP16 ONNX 工件、在 macOS 以哈希锁 Python 3.12 工具链派生固定 Core ML 工件，Linux assemble job 只消费这些已验证 artifacts；公共 WebGPU 只使用 FP32，运行时和 postinstall 都不转换或下载模型。
 
 ## 1. 用户契约

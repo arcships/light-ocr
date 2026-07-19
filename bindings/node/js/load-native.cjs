@@ -340,12 +340,12 @@ function validateRuntimeDescriptor(descriptorPath) {
 
   const expectedPolicy = runtime.flavor === 'webgpu'
     ? ['webgpu', 'cpu']
-    : actual.os === 'darwin'
+    : actual.id === 'macos-arm64'
       ? ['apple', 'cpu']
       : ['cpu'];
   const expectedAvailable = runtime.flavor === 'webgpu'
     ? ['cpu', 'webgpu']
-    : actual.os === 'darwin'
+    : actual.id === 'macos-arm64'
       ? ['apple', 'cpu']
       : ['cpu'];
   const sortedAvailable = [...availableProviders].sort();

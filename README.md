@@ -18,7 +18,7 @@ It is made for products where OCR should feel like a local capability: quick to 
 
 > **Available on npm:** `@arcships/light-ocr@0.2.0` includes the default PP-OCRv6 Small model, prebuilt native runtimes for all Tier 1 platforms, opt-in tiled detection, and direct in-memory JPEG/PNG input for Node.js. See [Package support](#package-support).
 
-> **`0.3.0` acceleration candidate:** macOS adds Direct Core ML; Linux x64/Vulkan and Windows x64/D3D12 add the official Native WebGPU Plugin EP. The recorded real-device results are **2.30×–2.85×** on Apple M4 Max, **5.70× aggregate P50** on NVIDIA RTX 5060 Ti, and **2.44× aggregate P50** on AMD Radeon 780M. WebGPU ships an FP32 execution profile; Apple uses its separately qualified FP16 route. These providers are not included in the published `0.2.0` packages yet.
+> **`0.3.0` acceleration candidate:** macOS arm64 adds Direct Core ML; Linux x64/Vulkan and Windows x64/D3D12 add the official Native WebGPU Plugin EP. The recorded real-device results are **2.30×–2.85×** on Apple M4 Max, **5.70× aggregate P50** on NVIDIA RTX 5060 Ti, and **2.44× aggregate P50** on AMD Radeon 780M. WebGPU ships an FP32 execution profile; Apple uses its separately qualified FP16 route. macOS x64 remains on the CPU provider.
 
 ## Where light-ocr fits
 
@@ -43,7 +43,7 @@ Cloud OCR is convenient, but it introduces uploads, network availability, recurr
 - **Local by default.** Recognition performs no runtime network access and does not start a child process.
 - **Ready for real application pipelines.** It accepts `GRAY8`, `RGB8`, `BGR8`, and `RGBA8` pixel buffers; the Node.js adapter can also decode JPEG and PNG bytes already held in memory.
 - **Two deliberate large-image modes.** Bounded/960 remains the fast, memory-conscious default. Opt-in tiled detection preserves more detail for small text and dense 2048-pixel documents while processing one detection tile at a time.
-- **Native Apple acceleration when requested.** The `0.3.0` source candidate can route FP16 detection and recognition through Core ML without changing the public OCR result contract.
+- **Native Apple acceleration when requested.** On macOS arm64, the `0.3.0` source candidate can route FP16 detection and recognition through Core ML without changing the public OCR result contract.
 - **Qualified Native WebGPU acceleration.** The `0.3.0` candidate packages the official WebGPU Plugin EP and its exact Linux/Vulkan or Windows/D3D12 runtime closure, with hash-verified offline staging and 164/164 real-device Gates on both recorded systems.
 - **A pinned, reproducible model.** The approximately 31 MB PP-OCRv6 Small bundle is integrity-checked and designed to ship with the application instead of downloading on first use.
 - **Consistent across supported platforms.** The same model and result contract are used on macOS, Linux, and Windows.
@@ -120,7 +120,7 @@ The accelerated output also passed all 14 locked quality fixtures: 99.6484% char
 
 The formal warm performance runs peaked at 692.14 MiB RSS and the self-contained Apple model payload added 25.42 MiB. The separate same-engine 100-dense-page lifecycle run peaked at 888.11 MiB and finished 27.47 MiB below its post-warm-up baseline, showing no sustained growth in that run. First use performs offline compilation and loads recognition functions on demand: the fixed `HELLO 123` startup canary took 7.219 s on a compiled-cache miss and 1.275/1.278 s on hits; the 113-line form took 53.846 s on its first full-page miss and 12.677/12.677 s on hits. No provider, compiler, or model is downloaded at runtime.
 
-Only that single M4 Max runner has real-device performance data. The evidence contract classifies it under the `Apple M4` device family for `deviceValidated`; this does not represent separate measurements of every M4 SKU. The candidate's compatibility policy is intentionally open and experimental on other macOS 15+ hardware: M1–M3 and later Apple Silicon can try the same ANE/GPU route, while Intel Macs use Core ML CPU+GPU. Hardware without reviewed evidence reports `deviceValidated: false`; no speedup is claimed until that family has its own data. See the [Apple acceleration design and evidence](docs/apple-device-acceleration.md) for methodology, model placement, quality thresholds, cache behavior, and lifecycle results.
+Only that single M4 Max runner has real-device performance data. The evidence contract classifies it under the `Apple M4` device family for `deviceValidated`; this does not represent separate measurements of every M4 SKU. M1–M3 and later Apple Silicon can try the same ANE/GPU route and report `deviceValidated: false` without inheriting a speed claim. The `0.3.0` macOS x64 package remains CPU-only after its release smoke test failed Core ML OCR parity. See the [Apple acceleration design and evidence](docs/apple-device-acceleration.md) for methodology, model placement, quality thresholds, cache behavior, and lifecycle results.
 
 ### Native WebGPU acceleration
 
@@ -195,7 +195,7 @@ const engine = await createEngine({
 });
 ```
 
-`cpuPartition: "allow"` works on both Apple Silicon and Intel Macs. The strict GPU-only profile is Apple-Silicon-only. Explicit providers never fall through to CPU; only Auto may advance through its descriptor-locked creation candidates. Published `0.2.0` packages remain CPU-default until the source candidate is released.
+`cpuPartition: "allow"` and the strict GPU-only profile apply to the Apple provider on Apple Silicon. The `0.3.0` macOS x64 package exposes CPU only. Explicit providers never fall through to CPU; only Auto may advance through its descriptor-locked creation candidates. Published `0.2.0` packages remain CPU-default until the source candidate is released.
 
 See the [Node.js guide](bindings/node/README.md) for the full API, cancellation, queue limits, and lifecycle behavior.
 
@@ -227,13 +227,13 @@ See [Build and release](docs/build-and-release.md) for platform prerequisites an
 
 The npm distribution installs one facade, one required model package, and the native package matching the host platform. Package contents, versioning, and release gates are documented in [npm packaging](docs/npm-packaging.md); immutable `0.2.0` hashes and validation evidence are recorded in the [release record](docs/releases/npm-0.2.0.md).
 
-Direct Core ML acceleration is merged on `main` for the `0.3.0` candidate but is not part of the published `0.2.0` package set. Its release keeps the same six-package installation shape; no extra provider package or runtime download is planned.
+Direct Core ML acceleration on macOS arm64 is merged on `main` for the `0.3.0` candidate but is not part of the published `0.2.0` package set. Its release keeps the same six-package installation shape; no extra provider package or runtime download is planned.
 
 PR #11 also carries the Linux x64 and Windows x64 Native WebGPU source candidate. Explicit WebGPU accepts `auto`/`fp32`; Auto also selects FP32. The three required CPU-partition operators are reported and bounded. Both real-device reports passed 164/164 Gates, and their immutable report/artifact hashes are now bound into the production lock for the `0.3.0` release workflow. Published `0.2.0` packages remain unchanged and CPU-only on those platforms.
 
 ## Project status
 
-`light-ocr` is under active development. Version `0.2.0` publishes the deterministic `tiled-v1` high-resolution mode and bounded in-memory JPEG/PNG decoding in the Node.js adapter without changing the raw-pixel C++ Core boundary. The `0.3.0` source candidate adds descriptor-driven Auto selection, Direct Core ML execution on macOS, and FP32 Native WebGPU execution on Linux x64/Windows x64.
+`light-ocr` is under active development. Version `0.2.0` publishes the deterministic `tiled-v1` high-resolution mode and bounded in-memory JPEG/PNG decoding in the Node.js adapter without changing the raw-pixel C++ Core boundary. The `0.3.0` source candidate adds descriptor-driven Auto selection, Direct Core ML execution on macOS arm64, and FP32 Native WebGPU execution on Linux x64/Windows x64.
 
 As a pre-1.0 project, public APIs and package layout may still evolve; the project does not currently promise a stable cross-release C++ ABI.
 

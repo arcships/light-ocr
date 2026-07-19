@@ -99,6 +99,10 @@ else()
   set(_light_ocr_node_platform_arch "x86_64")
   set(_light_ocr_node_platform_libc "glibc")
 endif()
+set(_light_ocr_node_has_apple_provider 0)
+if(APPLE AND _light_ocr_node_platform_arch STREQUAL "arm64")
+  set(_light_ocr_node_has_apple_provider 1)
+endif()
 if(LIGHT_OCR_HAS_WEBGPU)
   set(_light_ocr_node_runtime_flavor "webgpu")
   set(_light_ocr_node_runtime_version "1.24.4")
@@ -127,7 +131,7 @@ target_compile_definitions(light_ocr_node PRIVATE
   LIGHT_OCR_NODE_WEBGPU_QUALIFICATION_ID="${LIGHT_OCR_WEBGPU_QUALIFICATION_ID}"
   LIGHT_OCR_NODE_QUALIFICATION_ONLY=${_light_ocr_node_qualification_only}
   LIGHT_OCR_NODE_RELEASED=${_light_ocr_node_released}
-  LIGHT_OCR_NODE_HAS_APPLE=$<BOOL:${APPLE}>
+  LIGHT_OCR_NODE_HAS_APPLE=${_light_ocr_node_has_apple_provider}
   LIGHT_OCR_NODE_HAS_WEBGPU=$<BOOL:${LIGHT_OCR_HAS_WEBGPU}>)
 add_custom_command(TARGET light_ocr_node POST_BUILD
   COMMAND "${CMAKE_COMMAND}"
@@ -141,7 +145,7 @@ add_custom_command(TARGET light_ocr_node POST_BUILD
     "-DRUNTIME_FLAVOR=${_light_ocr_node_runtime_flavor}"
     "-DQUALIFICATION_ONLY=${_light_ocr_node_qualification_only}"
     "-DWEBGPU_QUALIFICATION_ID=${LIGHT_OCR_WEBGPU_QUALIFICATION_ID}"
-    "-DHAS_COREML=$<BOOL:${APPLE}>"
+    "-DHAS_COREML=${_light_ocr_node_has_apple_provider}"
     -P "${PROJECT_SOURCE_DIR}/cmake/StageNodeRuntime.cmake"
   VERBATIM)
 

@@ -138,10 +138,16 @@ class NpmReleaseTests(unittest.TestCase):
                         native_root / platform_id / "native" / "runtime-descriptor.json"
                     ).read_text("utf-8")
                 )
-                self.assertEqual(
-                    descriptor["autoPolicy"]["providers"], ["apple", "cpu"]
+                expected = (
+                    ["apple", "cpu"]
+                    if platform_id == "macos-arm64"
+                    else ["cpu"]
                 )
-                self.assertIn("apple", descriptor["providers"])
+                self.assertEqual(descriptor["autoPolicy"]["providers"], expected)
+                self.assertEqual(
+                    set(descriptor["providers"]),
+                    {"apple", "cpu"} if platform_id == "macos-arm64" else {"cpu"},
+                )
 
             bundle = root / "bundle"
             bundle.mkdir()
