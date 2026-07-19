@@ -1,0 +1,4 @@
+Warning: maxDynamicUniformBuffersPerPipelineLayout artificially reduced from 500000 to 16 to fit dynamic offset allocation limit.
+Warning: maxDynamicStorageBuffersPerPipelineLayout artificially reduced from 500000 to 16 to fit dynamic offset allocation limit.
+[1;31m2026-07-18 03:16:23.048868507 [E:onnxruntime:, inference_session.cc:2506 Initialize] This session contains graph nodes that are assigned to the default CPU EP, but fallback to CPU EP has been explicitly disabled by the user.[m
+{"schemaVersion":"1.0","ok":false,"error":{"name":"OcrError","code":"runtime_initialization_failed","message":"ONNX Runtime failed to create a session","detail":"This session contains graph nodes that are assigned to the default CPU EP, but fallback to CPU EP has been explicitly disabled by the user.","creationTrace":{"requestedProvider":"webgpu","orderedCandidates":["webgpu"],"attempts":[{"provider":"webgpu","status":"fatal","errorCode":"runtime_initialization_failed"}]}}}
