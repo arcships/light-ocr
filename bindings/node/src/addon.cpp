@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "bundle_loader.hpp"
+#include "core/engine_factory.hpp"
 #include "encoded_image.hpp"
 #include "light_ocr/core.hpp"
 
@@ -38,20 +39,34 @@ constexpr std::uint64_t kMaximumPendingInputBytes = 1024ull * 1024 * 1024;
 constexpr std::size_t kCompletionQueueCapacity = 64;
 constexpr double kMaximumSafeInteger = 9007199254740991.0;
 constexpr napi_type_tag kEngineTypeTag{0xaec3925fba3d4b41ULL, 0x9748d5c80121e692ULL};
+constexpr const char* kRuntimePlatformId = LIGHT_OCR_NODE_PLATFORM_ID;
+constexpr const char* kRuntimePolicyId = LIGHT_OCR_NODE_POLICY_ID;
+constexpr std::uint32_t kRuntimePolicyVersion = LIGHT_OCR_NODE_POLICY_VERSION;
+constexpr const char* kRuntimeFlavor = LIGHT_OCR_NODE_RUNTIME_FLAVOR;
+constexpr const char* kRuntimeVersion = LIGHT_OCR_NODE_RUNTIME_VERSION;
+constexpr const char* kRuntimeAbi = LIGHT_OCR_NODE_RUNTIME_ABI;
+constexpr bool kRuntimeQualificationOnly = LIGHT_OCR_NODE_QUALIFICATION_ONLY != 0;
+constexpr bool kRuntimeReleased = LIGHT_OCR_NODE_RELEASED != 0;
 
 class AddonFailure : public std::runtime_error {
  public:
-  AddonFailure(std::string code, std::string message, std::string detail = {})
+  AddonFailure(std::string code, std::string message, std::string detail = {},
+               std::optional<CreationTrace> creation_trace = std::nullopt)
       : std::runtime_error(std::move(message)),
         code_(std::move(code)),
-        detail_(std::move(detail)) {}
+        detail_(std::move(detail)),
+        creation_trace_(std::move(creation_trace)) {}
 
   const std::string& code() const noexcept { return code_; }
   const std::string& detail() const noexcept { return detail_; }
+  const std::optional<CreationTrace>& creation_trace() const noexcept {
+    return creation_trace_;
+  }
 
  private:
   std::string code_;
   std::string detail_;
+  std::optional<CreationTrace> creation_trace_;
 };
 
 class NapiFailure final : public AddonFailure {
@@ -107,14 +122,142 @@ void set_named(napi_env env, napi_value object, const char* name, napi_value val
   check(env, napi_set_named_property(env, object, name, value), "set object property");
 }
 
-napi_value create_error_value(napi_env env, const std::string& code, const std::string& message,
-                              const std::string& detail = {}) {
+void freeze(napi_env env, napi_value value) {
+  check(env, napi_object_freeze(env, value), "freeze object");
+}
+
+napi_value string_array(napi_env env, const std::vector<std::string>& values) {
+  napi_value result = nullptr;
+  check(env, napi_create_array_with_length(env, values.size(), &result),
+        "create string array");
+  for (std::size_t index = 0; index < values.size(); ++index) {
+    check(env,
+          napi_set_element(env, result, static_cast<std::uint32_t>(index),
+                           string_value(env, values[index])),
+          "set string array entry");
+  }
+  freeze(env, result);
+  return result;
+}
+
+std::vector<std::string> compiled_available_providers() {
+#if LIGHT_OCR_NODE_HAS_APPLE
+  return {"apple", "cpu"};
+#elif LIGHT_OCR_NODE_HAS_WEBGPU
+  return {"cpu", "webgpu"};
+#else
+  return {"cpu"};
+#endif
+}
+
+std::vector<std::string> compiled_provider_qualification_ids() {
+#if LIGHT_OCR_NODE_HAS_APPLE
+  return {LIGHT_OCR_NODE_APPLE_QUALIFICATION_ID,
+          LIGHT_OCR_NODE_CPU_QUALIFICATION_ID};
+#elif LIGHT_OCR_NODE_HAS_WEBGPU
+  return {LIGHT_OCR_NODE_CPU_QUALIFICATION_ID,
+          LIGHT_OCR_NODE_WEBGPU_QUALIFICATION_ID};
+#else
+  return {LIGHT_OCR_NODE_CPU_QUALIFICATION_ID};
+#endif
+}
+
+std::vector<std::string> compiled_ordered_candidates() {
+#if LIGHT_OCR_NODE_HAS_APPLE
+  return {"apple", "cpu"};
+#elif LIGHT_OCR_NODE_HAS_WEBGPU
+  return {"webgpu", "cpu"};
+#else
+  return {"cpu"};
+#endif
+}
+
+napi_value create_runtime_contract(napi_env env) {
+  napi_value contract = nullptr;
+  check(env, napi_create_object(env, &contract), "create runtime contract");
+  set_named(env, contract, "policyId", string_value(env, kRuntimePolicyId));
+  set_named(env, contract, "policyVersion",
+            uint32_value(env, kRuntimePolicyVersion));
+  set_named(env, contract, "platformId", string_value(env, kRuntimePlatformId));
+  set_named(env, contract, "runtimeFlavor", string_value(env, kRuntimeFlavor));
+  set_named(env, contract, "runtimeVersion", string_value(env, kRuntimeVersion));
+  set_named(env, contract, "runtimeAbi", string_value(env, kRuntimeAbi));
+  set_named(env, contract, "qualificationOnly",
+            boolean_value(env, kRuntimeQualificationOnly));
+  set_named(env, contract, "released", boolean_value(env, kRuntimeReleased));
+  set_named(env, contract, "orderedCandidates",
+            string_array(env, compiled_ordered_candidates()));
+  set_named(env, contract, "availableProviders",
+            string_array(env, compiled_available_providers()));
+  set_named(env, contract, "providerQualificationIds",
+            string_array(env, compiled_provider_qualification_ids()));
+  freeze(env, contract);
+  return contract;
+}
+
+napi_value create_creation_trace(napi_env env, const CreationTrace& trace) {
+  napi_value object = nullptr;
+  check(env, napi_create_object(env, &object), "create creation trace");
+  set_named(env, object, "requestedProvider",
+            string_value(env, trace.requested_provider));
+  if (trace.policy_id) {
+    set_named(env, object, "policyId", string_value(env, *trace.policy_id));
+  }
+  if (trace.policy_version) {
+    set_named(env, object, "policyVersion", uint32_value(env, *trace.policy_version));
+  }
+
+  set_named(env, object, "orderedCandidates",
+            string_array(env, trace.ordered_candidates));
+
+  napi_value attempts = nullptr;
+  check(env, napi_create_array_with_length(env, trace.attempts.size(), &attempts),
+        "create creation attempts");
+  for (std::size_t index = 0; index < trace.attempts.size(); ++index) {
+    const auto& attempt = trace.attempts[index];
+    napi_value entry = nullptr;
+    check(env, napi_create_object(env, &entry), "create creation attempt");
+    set_named(env, entry, "provider", string_value(env, attempt.provider));
+    set_named(env, entry, "status",
+              string_value(env, to_string(attempt.status)));
+    if (attempt.creation_reason) {
+      set_named(env, entry, "creationReason",
+                string_value(env, to_string(*attempt.creation_reason)));
+    }
+    if (attempt.error_code) {
+      set_named(env, entry, "errorCode",
+                string_value(env, to_string(*attempt.error_code)));
+    }
+    freeze(env, entry);
+    check(env,
+          napi_set_element(env, attempts, static_cast<std::uint32_t>(index),
+                           entry),
+          "set creation attempt");
+  }
+  freeze(env, attempts);
+  set_named(env, object, "attempts", attempts);
+  if (trace.selected_provider) {
+    set_named(env, object, "selectedProvider",
+              string_value(env, *trace.selected_provider));
+  }
+  freeze(env, object);
+  return object;
+}
+
+napi_value create_error_value(
+    napi_env env, const std::string& code, const std::string& message,
+    const std::string& detail = {},
+    const std::optional<CreationTrace>& creation_trace = std::nullopt) {
   napi_value error = nullptr;
   const auto message_value = string_value(env, message);
   check(env, napi_create_error(env, nullptr, message_value, &error), "create error");
   set_named(env, error, "name", string_value(env, "OcrError"));
   set_named(env, error, "code", string_value(env, code));
   if (!detail.empty()) set_named(env, error, "detail", string_value(env, detail));
+  if (creation_trace) {
+    set_named(env, error, "creationTrace",
+              create_creation_trace(env, *creation_trace));
+  }
   return error;
 }
 
@@ -129,7 +272,9 @@ napi_value create_abort_error(napi_env env) {
 
 void throw_failure(napi_env env, const AddonFailure& failure) noexcept {
   try {
-    const auto error = create_error_value(env, failure.code(), failure.what(), failure.detail());
+    const auto error =
+        create_error_value(env, failure.code(), failure.what(), failure.detail(),
+                           failure.creation_trace());
     napi_throw(env, error);
   } catch (...) {
     napi_throw_error(env, "internal_error", failure.what());
@@ -280,6 +425,7 @@ std::string error_code_string(ErrorCode code) { return to_string(code); }
 struct ParsedCreateOptions {
   std::filesystem::path bundle_path;
   EngineOptions core;
+  internal::RuntimePolicy runtime_policy;
   std::size_t queue_capacity = kDefaultQueueCapacity;
   std::uint64_t max_pending_input_bytes = kDefaultPendingInputBytes;
 };
@@ -348,10 +494,13 @@ DetectionOptions parse_detection_options(napi_env env, napi_value value) {
 
 ExecutionProvider parse_execution_provider(napi_env env, napi_value value) {
   const auto provider = get_string(env, value, "execution.provider");
+  if (provider == "auto") return ExecutionProvider::automatic;
   if (provider == "cpu") return ExecutionProvider::cpu;
   if (provider == "apple") return ExecutionProvider::apple;
-  throw AddonFailure("invalid_argument",
-                     "execution.provider must be cpu or apple");
+  if (provider == "webgpu") return ExecutionProvider::webgpu;
+  throw AddonFailure(
+      "invalid_argument",
+      "execution.provider must be auto, cpu, apple, or webgpu");
 }
 
 SessionFallback parse_session_fallback(napi_env env, napi_value value) {
@@ -385,6 +534,136 @@ Precision parse_precision(napi_env env, napi_value value) {
   if (precision == "fp16") return Precision::fp16;
   throw AddonFailure("invalid_argument",
                      "execution.precision must be auto, fp32, or fp16");
+}
+
+internal::RuntimePolicy parse_runtime_policy(napi_env env, napi_value value) {
+  require_object(env, value, "runtime policy");
+  const std::unordered_set<std::string> allowed{
+      "id", "version", "platformId", "runtimeFlavor", "runtimeVersion",
+      "runtimeAbi", "qualificationOnly", "released", "orderedCandidates",
+      "availableProviders", "providerQualificationIds",
+      "webgpuProviderLibrary", "webgpuProviderBytes",
+      "webgpuProviderSha256"};
+  reject_unknown_properties(env, value, allowed, "runtime policy");
+  for (const auto& name : allowed) {
+    if (!has_own(env, value, name.c_str())) {
+      throw AddonFailure("package_load_failed",
+                         "runtime policy is missing required field: " + name);
+    }
+  }
+
+  auto read_strings = [&](const char* name, bool require_unique) {
+    const auto input = get_named(env, value, name);
+    bool array = false;
+    check(env, napi_is_array(env, input, &array), "check runtime policy array");
+    if (!array) {
+      throw AddonFailure("package_load_failed",
+                         std::string("runtime policy ") + name + " must be an array");
+    }
+    std::uint32_t length = 0;
+    check(env, napi_get_array_length(env, input, &length),
+          "get runtime policy array length");
+    if (length == 0 || length > 3) {
+      throw AddonFailure("package_load_failed",
+                         std::string("runtime policy ") + name + " has invalid length");
+    }
+    std::vector<std::string> providers;
+    providers.reserve(length);
+    for (std::uint32_t index = 0; index < length; ++index) {
+      napi_value entry = nullptr;
+      check(env, napi_get_element(env, input, index, &entry),
+            "get runtime policy provider");
+      const auto provider =
+          get_string(env, entry, "runtime policy provider");
+      if (require_unique &&
+          std::find(providers.begin(), providers.end(), provider) !=
+              providers.end()) {
+        throw AddonFailure("package_load_failed",
+                           std::string("runtime policy ") + name +
+                               " contains a duplicate provider");
+      }
+      providers.push_back(provider);
+    }
+    return providers;
+  };
+
+  internal::RuntimePolicy policy;
+  policy.id = get_string(env, get_named(env, value, "id"), "runtime policy id");
+  policy.version = get_u32(env, get_named(env, value, "version"),
+                           "runtime policy version", 1);
+  policy.platform_id = get_string(env, get_named(env, value, "platformId"),
+                                  "runtime policy platformId");
+  policy.runtime_flavor = get_string(env, get_named(env, value, "runtimeFlavor"),
+                                     "runtime policy runtimeFlavor");
+  policy.runtime_version = get_string(env, get_named(env, value, "runtimeVersion"),
+                                      "runtime policy runtimeVersion");
+  policy.runtime_abi = get_string(env, get_named(env, value, "runtimeAbi"),
+                                  "runtime policy runtimeAbi");
+  policy.qualification_only = get_boolean(
+      env, get_named(env, value, "qualificationOnly"),
+      "runtime policy qualificationOnly");
+  policy.released = get_boolean(env, get_named(env, value, "released"),
+                                "runtime policy released");
+  policy.webgpu_provider_library = get_string(
+      env, get_named(env, value, "webgpuProviderLibrary"),
+      "runtime policy webgpuProviderLibrary");
+  policy.webgpu_provider_bytes = get_safe_u64(
+      env, get_named(env, value, "webgpuProviderBytes"),
+      "runtime policy webgpuProviderBytes");
+  policy.webgpu_provider_sha256 = get_string(
+      env, get_named(env, value, "webgpuProviderSha256"),
+      "runtime policy webgpuProviderSha256");
+  policy.ordered_candidates = read_strings("orderedCandidates", true);
+  policy.available_providers = read_strings("availableProviders", true);
+  policy.provider_qualification_ids =
+      read_strings("providerQualificationIds", false);
+
+  auto available = policy.available_providers;
+  std::sort(available.begin(), available.end());
+#if LIGHT_OCR_NODE_HAS_WEBGPU
+#if defined(_WIN32)
+  constexpr const char* kExpectedWebGpuLibrary =
+      "onnxruntime_providers_webgpu.dll";
+#else
+  constexpr const char* kExpectedWebGpuLibrary =
+      "libonnxruntime_providers_webgpu.so";
+#endif
+  const auto provider_path =
+      std::filesystem::u8path(policy.webgpu_provider_library);
+  const bool valid_webgpu_artifact =
+      provider_path.is_absolute() &&
+      provider_path.filename().u8string() == kExpectedWebGpuLibrary &&
+      policy.webgpu_provider_bytes > 0 &&
+      policy.webgpu_provider_sha256.size() == 64 &&
+      std::all_of(policy.webgpu_provider_sha256.begin(),
+                  policy.webgpu_provider_sha256.end(), [](char value) {
+                    return (value >= '0' && value <= '9') ||
+                           (value >= 'a' && value <= 'f');
+                  });
+#else
+  const bool valid_webgpu_artifact =
+      policy.webgpu_provider_library.empty() &&
+      policy.webgpu_provider_bytes == 0 &&
+      policy.webgpu_provider_sha256.empty();
+#endif
+  if (policy.id != kRuntimePolicyId ||
+      policy.version != kRuntimePolicyVersion ||
+      policy.platform_id != kRuntimePlatformId ||
+      policy.runtime_flavor != kRuntimeFlavor ||
+      policy.runtime_version != kRuntimeVersion ||
+      policy.runtime_abi != kRuntimeAbi ||
+      policy.qualification_only != kRuntimeQualificationOnly ||
+      policy.released != kRuntimeReleased ||
+      policy.ordered_candidates != compiled_ordered_candidates() ||
+      available != compiled_available_providers() ||
+      policy.provider_qualification_ids !=
+          compiled_provider_qualification_ids() ||
+      !valid_webgpu_artifact) {
+    throw AddonFailure(
+        "package_load_failed",
+        "Runtime descriptor is incompatible with the native addon ABI or capabilities");
+  }
+  return policy;
 }
 
 ExecutionOptions parse_execution_options(napi_env env, napi_value value) {
@@ -725,6 +1004,7 @@ struct Completion {
     std::string code;
     std::string message;
     std::string detail;
+    std::optional<CreationTrace> creation_trace;
   };
   std::optional<AdapterError> adapter_error;
   std::int64_t external_memory_delta = 0;
@@ -838,11 +1118,13 @@ void EngineState::run() {
       throw AddonFailure(error_code_string(bundle_result.error().code),
                          bundle_result.error().message, bundle_result.error().detail);
     }
-    auto engine_result =
-        Engine::create(std::move(bundle_result).value(), create_options.core);
+    auto engine_result = internal::EngineFactory::create(
+        std::move(bundle_result).value(), create_options.core,
+        std::move(create_options.runtime_policy));
     if (!engine_result) {
       throw AddonFailure(error_code_string(engine_result.error().code),
-                         engine_result.error().message, engine_result.error().detail);
+                         engine_result.error().message, engine_result.error().detail,
+                         engine_result.error().creation_trace);
     }
     core = std::move(engine_result).value();
     info = core->info();
@@ -866,7 +1148,8 @@ void EngineState::run() {
     completion->kind = CompletionKind::create;
     completion->engine = shared_from_this();
     completion->adapter_error =
-        Completion::AdapterError{"bundle_io_failed", "Failed to read model bundle", failure.what()};
+        Completion::AdapterError{"bundle_io_failed", "Failed to read model bundle",
+                                 failure.what(), std::nullopt};
     post_completion(context, std::move(completion));
     napi_release_threadsafe_function(context->dispatcher, napi_tsfn_release);
     return;
@@ -878,8 +1161,8 @@ void EngineState::run() {
     auto completion = std::make_unique<Completion>();
     completion->kind = CompletionKind::create;
     completion->engine = shared_from_this();
-    completion->adapter_error =
-        Completion::AdapterError{failure.code(), failure.what(), failure.detail()};
+    completion->adapter_error = Completion::AdapterError{
+        failure.code(), failure.what(), failure.detail(), failure.creation_trace()};
     post_completion(context, std::move(completion));
     napi_release_threadsafe_function(context->dispatcher, napi_tsfn_release);
     return;
@@ -893,7 +1176,7 @@ void EngineState::run() {
     completion->engine = shared_from_this();
     completion->adapter_error = Completion::AdapterError{
         "runtime_initialization_failed", "Unexpected adapter initialization failure",
-        failure.what()};
+        failure.what(), std::nullopt};
     post_completion(context, std::move(completion));
     napi_release_threadsafe_function(context->dispatcher, napi_tsfn_release);
     return;
@@ -906,7 +1189,8 @@ void EngineState::run() {
     completion->kind = CompletionKind::create;
     completion->engine = shared_from_this();
     completion->adapter_error = Completion::AdapterError{
-        "internal_error", "Unknown adapter initialization failure", {}};
+        "internal_error", "Unknown adapter initialization failure", {},
+        std::nullopt};
     post_completion(context, std::move(completion));
     napi_release_threadsafe_function(context->dispatcher, napi_tsfn_release);
     return;
@@ -1244,7 +1528,13 @@ napi_value create_resource_limits(napi_env env, const ResourceLimits& limits) {
 }
 
 const char* execution_provider_string(ExecutionProvider provider) {
-  return provider == ExecutionProvider::apple ? "apple" : "cpu";
+  switch (provider) {
+    case ExecutionProvider::automatic: return "auto";
+    case ExecutionProvider::cpu: return "cpu";
+    case ExecutionProvider::apple: return "apple";
+    case ExecutionProvider::webgpu: return "webgpu";
+  }
+  return "auto";
 }
 
 const char* session_fallback_string(SessionFallback fallback) {
@@ -1351,6 +1641,8 @@ napi_value create_execution_info(napi_env env, const ExecutionInfo& info) {
           "set provider capability");
   }
   set_named(env, object, "providerCapabilities", capabilities);
+  set_named(env, object, "selectionTrace",
+            create_creation_trace(env, info.selection_trace));
 
   napi_value sessions = nullptr;
   check(env, napi_create_object(env, &sessions), "create execution sessions");
@@ -1756,7 +2048,8 @@ void call_js(napi_env env, napi_value, void*, void* data) {
         const auto& error = *completion->adapter_error;
         check(env, napi_reject_deferred(env, deferred,
                                         create_error_value(env, error.code, error.message,
-                                                           error.detail)),
+                                                           error.detail,
+                                                           error.creation_trace)),
               "reject engine creation");
         engine->join();
       } else {
@@ -1787,7 +2080,8 @@ void call_js(napi_env env, napi_value, void*, void* data) {
           check(env,
                 napi_reject_deferred(env, deferred,
                                      create_error_value(env, error_code_string(error.code),
-                                                        error.message, error.detail)),
+                                                        error.message, error.detail,
+                                                        error.creation_trace)),
                 "reject recognition");
         } else {
           check(env, napi_resolve_deferred(
@@ -1847,14 +2141,18 @@ void cleanup_environment(void* data) {
 
 napi_value native_create_engine(napi_env env, napi_callback_info callback_info) {
   try {
-    napi_value argument = nullptr;
-    std::size_t argument_count = 1;
-    check(env, napi_get_cb_info(env, callback_info, &argument_count, &argument, nullptr, nullptr),
+    std::array<napi_value, 2> arguments{};
+    std::size_t argument_count = arguments.size();
+    check(env, napi_get_cb_info(env, callback_info, &argument_count,
+                                arguments.data(), nullptr, nullptr),
           "read createEngine arguments");
-    if (argument_count != 1) {
-      throw AddonFailure("invalid_argument", "createEngine requires one options object");
+    if (argument_count != arguments.size()) {
+      throw AddonFailure(
+          "package_load_failed",
+          "createEngine requires verified options and runtime policy");
     }
-    auto parsed = parse_create_options(env, argument);
+    auto parsed = parse_create_options(env, arguments[0]);
+    parsed.runtime_policy = parse_runtime_policy(env, arguments[1]);
     napi_deferred deferred = nullptr;
     napi_value promise = nullptr;
     check(env, napi_create_promise(env, &deferred, &promise), "create engine promise");
@@ -1909,10 +2207,15 @@ napi_value initialize(napi_env env, napi_value exports) {
         "set adapter environment state");
   check(env, napi_add_env_cleanup_hook(env, cleanup_environment, context.get()),
         "register adapter cleanup hook");
-  napi_property_descriptor create_property{
-      "createEngine", nullptr, native_create_engine, nullptr, nullptr, nullptr, napi_default, nullptr};
-  check(env, napi_define_properties(env, exports, 1, &create_property),
-        "export createEngine");
+  const auto runtime_contract = create_runtime_contract(env);
+  const std::array<napi_property_descriptor, 2> properties{{
+      {"createEngine", nullptr, native_create_engine, nullptr, nullptr, nullptr,
+       napi_default, nullptr},
+      {"runtimeContract", nullptr, nullptr, nullptr, nullptr, runtime_contract,
+       napi_default, nullptr},
+  }};
+  check(env, napi_define_properties(env, exports, properties.size(), properties.data()),
+        "export native adapter properties");
   context.release();
   return exports;
 }

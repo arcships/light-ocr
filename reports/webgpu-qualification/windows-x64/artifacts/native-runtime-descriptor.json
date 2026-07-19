@@ -1,0 +1,91 @@
+{
+  "addon": {
+    "bytes": 3745792,
+    "path": "native/light_ocr_node.node",
+    "sha256": "7c42f467d5a7452a3b81cbc9d07bb0fecb1103b987656d08990c6d7997508908"
+  },
+  "autoPolicy": {
+    "id": "windows-x64-v1",
+    "providers": [
+      "webgpu",
+      "cpu"
+    ],
+    "version": 1
+  },
+  "platform": {
+    "architecture": "x86_64",
+    "id": "windows-x64",
+    "os": "win32"
+  },
+  "providers": {
+    "cpu": {
+      "artifacts": [
+        {
+          "bytes": 14203464,
+          "path": "native/onnxruntime.dll",
+          "sha256": "b95efb2113b603bbbf3f191061c5516a871ed546893c820e4f3b7b6c358dbf2a"
+        }
+      ],
+      "qualificationId": "cpu-baseline-v1",
+      "runtimeProvider": "CPUExecutionProvider"
+    },
+    "webgpu": {
+      "artifacts": [
+        {
+          "bytes": 8807264,
+          "path": "native/onnxruntime_providers_webgpu.dll",
+          "sha256": "591e286a211b133e3c4e5c833febf2d594b7b548433a2490407b11b906a9271b"
+        },
+        {
+          "bytes": 17986360,
+          "path": "native/dxcompiler.dll",
+          "sha256": "2cec74ef87a1171e4502c7d735169756bf4c528676ea354bfde24b01394965f0"
+        },
+        {
+          "bytes": 1508664,
+          "path": "native/dxil.dll",
+          "sha256": "0767448abeade590821e88e56c471e0f2dfe89ec9a7642d08adc3dc94f14ab92"
+        }
+      ],
+      "providerLibrary": {
+        "bytes": 8807264,
+        "path": "native/onnxruntime_providers_webgpu.dll",
+        "sha256": "591e286a211b133e3c4e5c833febf2d594b7b548433a2490407b11b906a9271b"
+      },
+      "providerVersion": "0.1.0",
+      "qualificationId": "native-webgpu-plugin-0.1.0-ort-1.24.4-dev2",
+      "runtimeProvider": "WebGpuExecutionProvider"
+    }
+  },
+  "qualificationOnly": true,
+  "released": false,
+  "runtime": {
+    "abi": "onnxruntime-c-api-24-plugin-ep-0.1",
+    "artifacts": [
+      {
+        "bytes": 14203464,
+        "path": "native/onnxruntime.dll",
+        "sha256": "b95efb2113b603bbbf3f191061c5516a871ed546893c820e4f3b7b6c358dbf2a"
+      },
+      {
+        "bytes": 8807264,
+        "path": "native/onnxruntime_providers_webgpu.dll",
+        "sha256": "591e286a211b133e3c4e5c833febf2d594b7b548433a2490407b11b906a9271b"
+      },
+      {
+        "bytes": 17986360,
+        "path": "native/dxcompiler.dll",
+        "sha256": "2cec74ef87a1171e4502c7d735169756bf4c528676ea354bfde24b01394965f0"
+      },
+      {
+        "bytes": 1508664,
+        "path": "native/dxil.dll",
+        "sha256": "0767448abeade590821e88e56c471e0f2dfe89ec9a7642d08adc3dc94f14ab92"
+      }
+    ],
+    "flavor": "webgpu",
+    "kind": "onnxruntime-plugin-webgpu",
+    "version": "1.24.4"
+  },
+  "schemaVersion": "2.0"
+}

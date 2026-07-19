@@ -1,6 +1,6 @@
 # light-ocr Node-API 适配器设计
 
-状态：`@arcships/light-ocr@0.2.0` 已发布；0.2.1 Apple/Core ML provider 候选已实现并进入资格审查<br>
+状态：`@arcships/light-ocr@0.2.0` 已发布；0.3.0 Apple/Core ML 与 Native WebGPU provider 候选已实现并完成目标设备资格验证<br>
 更新时间：2026-07-15<br>
 Authority：JavaScript/TypeScript API、异步调度、内存所有权、Node.js 生命周期与 npm 布局  
 Core contract：[native-api.md](native-api.md)  
@@ -333,7 +333,7 @@ export function createEngine(options?: CreateEngineOptions): Promise<OcrEngine>;
 
 `Buffer` 是 `Uint8Array` 的子类，因此可以直接作为 `RawImage.data` 或 `recognizeEncoded()` 输入。不接受 `DataView`、其他 TypedArray 或以 `SharedArrayBuffer` 为 backing store 的 `Uint8Array`。
 
-`OcrEngine` 没有 public constructor，只能由成功的 `createEngine` 创建。未传 `model`/`bundlePath` 时默认使用内置 `ppocrv6-small`；二者同时出现是 `invalid_argument`。`execution` 默认选择 CPU；Apple 需要自包含 Apple bundle，接受 `fp16`、`latency`、batch 1 和 bounded detection，并按 `sessionFallback` 决定稳定失败或整 session CPU 回退。生产 bundle 对 macOS 15+ arm64/x86_64 开放，`deviceValidated` 标记当前硬件是否有已审阅证据；Intel 仅支持 `cpuPartition: 'allow'` 的 CPU+GPU 路由。`reducedLimits` 一旦提供就必须包含全部八个字段；适配器把 Core 固定的 `maxConcurrentCalls=1` 补入 native options。所有配置对象拒绝未知 own property，避免拼写错误被静默忽略。预期的参数、package、I/O、Core 和队列错误都通过 Promise rejection 返回 `OcrError`；取消按 `AbortSignal.reason` 拒绝，默认 `AbortController.abort()` 因而得到标准 `AbortError`。只有非法 receiver、Node-API 无法创建 Promise 或不可恢复的运行时故障可能同步抛出。
+`OcrEngine` 没有 public constructor，只能由成功的 `createEngine` 创建。未传 `model`/`bundlePath` 时默认使用内置 `ppocrv6-small`；二者同时出现是 `invalid_argument`。`execution` 默认使用平台 runtime descriptor 锁定的 Auto 候选；Apple 需要自包含 native bundle，接受 `fp16`、`latency`、batch 1 和 bounded detection。WebGPU 公共 profile 接受 `auto` 或 `fp32`，并使用上游 FP32 模型；`fp16` 只属于 Apple provider，`provider=webgpu, precision=fp16` 返回 `invalid_argument`。WebGPU 当前需要 `Concat/Gather/Slice` 三类有界 CPU partition，`cpuPartition=forbid` 稳定返回 `unsupported_capability`。显式 provider 只尝试指定 backend，旧 `sessionFallback=cpu` 返回 `invalid_argument`；只有 Auto 可按 D112 typed 创建失败进入下一候选。生产 bundle 对 macOS 15+ arm64/x86_64 开放，`deviceValidated` 标记当前硬件是否有已审阅证据；Intel 仅支持 `cpuPartition: 'allow'` 的 CPU+GPU 路由。`reducedLimits` 一旦提供就必须包含全部八个字段；适配器把 Core 固定的 `maxConcurrentCalls=1` 补入 native options。所有配置对象拒绝未知 own property，避免拼写错误被静默忽略。预期的参数、package、I/O、Core 和队列错误都通过 Promise rejection 返回 `OcrError`；取消按 `AbortSignal.reason` 拒绝，默认 `AbortController.abort()` 因而得到标准 `AbortError`。只有非法 receiver、Node-API 无法创建 Promise 或不可恢复的运行时故障可能同步抛出。
 
 ### 3.1 使用示例
 

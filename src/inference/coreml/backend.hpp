@@ -22,7 +22,8 @@ std::string coreml_device_description() noexcept;
 class CoreMlSession final : public InferenceSession {
  public:
   static Result<std::unique_ptr<CoreMlSession>> create(
-      const InferenceSessionConfig& config, ModelKind kind);
+      const InferenceSessionConfig& config, ModelKind kind,
+      std::optional<CreationReason>* creation_reason = nullptr);
 
   ~CoreMlSession() noexcept override;
 

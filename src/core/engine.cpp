@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "core/engine_factory.hpp"
 #include "detection/db_postprocess.hpp"
 #include "detection/tiled.hpp"
 #include "geometry/geometry.hpp"
@@ -21,6 +22,7 @@
 #include "inference/coreml/backend.hpp"
 #endif
 #include "inference/onnxruntime/backend.hpp"
+#include "inference/selection.hpp"
 #include "model/bundle_data.hpp"
 #include "preprocess/image.hpp"
 #include "preprocess/tensor.hpp"
@@ -74,23 +76,118 @@ bool valid_limits(const ResourceLimits& value, const ResourceLimits& ceiling) {
 }
 
 bool valid_execution_options(const ExecutionOptions& options) {
-  if (options.device_id.has_value() ||
+  if (options.session_fallback != SessionFallback::error ||
       options.performance_hint != PerformanceHint::latency) {
     return false;
   }
+  if (options.provider == ExecutionProvider::automatic) {
+    return !options.device_id.has_value() &&
+           options.cpu_partition == CpuPartition::allow &&
+           options.precision == Precision::automatic;
+  }
   if (options.provider == ExecutionProvider::cpu) {
-    return options.session_fallback == SessionFallback::error &&
+    return !options.device_id.has_value() &&
            options.cpu_partition == CpuPartition::allow &&
            (options.precision == Precision::automatic ||
             options.precision == Precision::fp32);
   }
+  if (options.provider == ExecutionProvider::webgpu) {
+    return !options.device_id.has_value() &&
+           (options.cpu_partition == CpuPartition::allow ||
+            options.cpu_partition == CpuPartition::forbid) &&
+           (options.precision == Precision::automatic ||
+            options.precision == Precision::fp32);
+  }
   return options.provider == ExecutionProvider::apple &&
-         (options.session_fallback == SessionFallback::error ||
-          options.session_fallback == SessionFallback::cpu) &&
+         !options.device_id.has_value() &&
          (options.cpu_partition == CpuPartition::allow ||
           options.cpu_partition == CpuPartition::forbid) &&
          (options.precision == Precision::automatic ||
           options.precision == Precision::fp16);
+}
+
+const char* provider_name(ExecutionProvider provider) {
+  switch (provider) {
+    case ExecutionProvider::automatic: return "auto";
+    case ExecutionProvider::cpu: return "cpu";
+    case ExecutionProvider::apple: return "apple";
+    case ExecutionProvider::webgpu: return "webgpu";
+  }
+  return "auto";
+}
+
+bool known_provider(const std::string& provider) {
+  return provider == "cpu" || provider == "apple" || provider == "webgpu";
+}
+
+bool policy_includes_provider(const internal::RuntimePolicy& policy,
+                              const std::string& provider) {
+  return std::find(policy.available_providers.begin(),
+                   policy.available_providers.end(),
+                   provider) != policy.available_providers.end();
+}
+
+std::string policy_qualification_id(const internal::RuntimePolicy& policy,
+                                    const std::string& provider) {
+  const auto iterator = std::find(policy.available_providers.begin(),
+                                  policy.available_providers.end(), provider);
+  if (iterator == policy.available_providers.end() ||
+      policy.provider_qualification_ids.empty()) {
+    return {};
+  }
+  const auto index = static_cast<std::size_t>(
+      std::distance(policy.available_providers.begin(), iterator));
+  return policy.provider_qualification_ids[index];
+}
+
+bool valid_runtime_policy(const internal::RuntimePolicy& policy) {
+  const bool valid_provider_hash = policy.webgpu_provider_sha256.empty() ||
+      (policy.webgpu_provider_sha256.size() == 64 &&
+       std::all_of(policy.webgpu_provider_sha256.begin(),
+                   policy.webgpu_provider_sha256.end(), [](char value) {
+                     return (value >= '0' && value <= '9') ||
+                            (value >= 'a' && value <= 'f');
+                   }));
+  if (policy.id.empty() || policy.version == 0 ||
+      policy.ordered_candidates.empty() ||
+      policy.ordered_candidates.back() != "cpu" ||
+      !policy_includes_provider(policy, "cpu") ||
+      policy.qualification_only == policy.released ||
+      (!policy.webgpu_provider_library.empty() &&
+       !policy_includes_provider(policy, "webgpu")) ||
+      ((policy.webgpu_provider_bytes != 0 ||
+        !policy.webgpu_provider_sha256.empty()) &&
+       (!policy_includes_provider(policy, "webgpu") ||
+        policy.webgpu_provider_library.empty() ||
+        policy.webgpu_provider_bytes == 0 ||
+        !valid_provider_hash)) ||
+      (!policy.provider_qualification_ids.empty() &&
+       policy.provider_qualification_ids.size() !=
+           policy.available_providers.size())) {
+    return false;
+  }
+  for (auto iterator = policy.available_providers.begin();
+       iterator != policy.available_providers.end(); ++iterator) {
+    const auto index = static_cast<std::size_t>(
+        std::distance(policy.available_providers.begin(), iterator));
+    if (!known_provider(*iterator) ||
+        (!policy.provider_qualification_ids.empty() &&
+         policy.provider_qualification_ids[index].empty()) ||
+        std::find(policy.available_providers.begin(), iterator, *iterator) !=
+            iterator) {
+      return false;
+    }
+  }
+  for (auto iterator = policy.ordered_candidates.begin();
+       iterator != policy.ordered_candidates.end(); ++iterator) {
+    if (!known_provider(*iterator) ||
+        !policy_includes_provider(policy, *iterator) ||
+        std::find(policy.ordered_candidates.begin(), iterator, *iterator) !=
+            iterator) {
+      return false;
+    }
+  }
+  return true;
 }
 
 #if defined(LIGHT_OCR_HAS_COREML)
@@ -129,6 +226,15 @@ internal::AppleModelPackage make_apple_package(
   return package;
 }
 #endif
+
+struct CreatedSessions {
+  ExecutionProvider provider = ExecutionProvider::cpu;
+  std::unique_ptr<internal::InferenceSession> detection;
+  std::unique_ptr<internal::InferenceSession> recognition;
+  std::uint32_t recognition_width_multiple = 1;
+  std::vector<std::uint32_t> recognition_width_buckets;
+  std::uint32_t maximum_backend_batch_size = 1;
+};
 
 class EngineImpl final : public Engine {
  public:
@@ -581,8 +687,42 @@ class EngineImpl final : public Engine {
 
 Engine::~Engine() noexcept = default;
 
+internal::RuntimePolicy internal::builtin_runtime_policy() {
+  RuntimePolicy policy;
+#if defined(LIGHT_OCR_HAS_WEBGPU)
+  policy.id = "builtin-webgpu-v1";
+  policy.ordered_candidates = {"webgpu", "cpu"};
+#if defined(LIGHT_OCR_WEBGPU_QUALIFICATION_BUILD)
+  policy.qualification_only = true;
+  policy.released = false;
+#endif
+#else
+  policy.id = "builtin-cpu-v1";
+  policy.ordered_candidates = {"cpu"};
+#endif
+  policy.version = 1;
+  policy.available_providers = {"cpu"};
+  policy.provider_qualification_ids = {"builtin-cpu-v1"};
+#if defined(LIGHT_OCR_HAS_COREML)
+  policy.available_providers.push_back("apple");
+  policy.provider_qualification_ids.push_back("builtin-apple-v1");
+#endif
+#if defined(LIGHT_OCR_HAS_WEBGPU)
+  policy.available_providers.push_back("webgpu");
+  policy.provider_qualification_ids.push_back("builtin-webgpu-v1");
+#endif
+  return policy;
+}
+
 Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
                                                const EngineOptions& options) {
+  return internal::EngineFactory::create(
+      std::move(bundle), options, internal::builtin_runtime_policy());
+}
+
+Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
+    ModelBundle bundle, const EngineOptions& options,
+    RuntimePolicy runtime_policy) {
   try {
     if (!bundle.data_) {
       return failure<std::unique_ptr<Engine>>(ErrorCode::invalid_model_bundle,
@@ -597,11 +737,24 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
           ErrorCode::invalid_argument,
           "Execution options are unsupported");
     }
-    if (options.execution.provider == ExecutionProvider::apple &&
-        !bundle.data_->apple_provider) {
+    if (!valid_runtime_policy(runtime_policy)) {
       return failure<std::unique_ptr<Engine>>(
-          ErrorCode::unsupported_capability,
-          "The model bundle does not include the Apple provider payload");
+          ErrorCode::internal_error,
+          "The package runtime policy is invalid");
+    }
+    auto selected_provider = options.execution.provider;
+    std::vector<std::string> policy_candidates;
+    if (selected_provider == ExecutionProvider::automatic) {
+      policy_candidates = runtime_policy.ordered_candidates;
+    } else {
+      const std::string requested = provider_name(selected_provider);
+      if (!policy_includes_provider(runtime_policy, requested)) {
+        return failure<std::unique_ptr<Engine>>(
+            ErrorCode::unsupported_capability,
+            "The requested provider is not included in this runtime package",
+            requested);
+      }
+      policy_candidates = {requested};
     }
     auto limits = options.reduced_limits.value_or(bundle.data_->limits);
     if (!valid_limits(limits, bundle.data_->limits)) {
@@ -615,8 +768,7 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
     if (!valid_score(score_threshold) || batch_size == 0 ||
         batch_size > limits.max_recognition_batch_size ||
         batch_size > bundle.data_->recognition.maximum_batch_size ||
-        (options.execution.provider == ExecutionProvider::apple &&
-         batch_size != 1)) {
+        (selected_provider == ExecutionProvider::apple && batch_size != 1)) {
       return failure<std::unique_ptr<Engine>>(ErrorCode::invalid_argument,
                                               "Engine recognition defaults are outside limits");
     }
@@ -628,7 +780,7 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
           ErrorCode::unsupported_capability,
           "Tiled detection is unavailable in this bundle");
     }
-    if (options.execution.provider == ExecutionProvider::apple &&
+    if (selected_provider == ExecutionProvider::apple &&
         detection_strategy != DetectionStrategy::bounded) {
       return failure<std::unique_ptr<Engine>>(
           ErrorCode::invalid_argument,
@@ -665,18 +817,19 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
           ErrorCode::invalid_argument,
           "Engine detection defaults are outside limits");
     }
-    if (options.execution.provider == ExecutionProvider::apple &&
+    if (selected_provider == ExecutionProvider::apple &&
         detection_max_side > 960) {
       return failure<std::unique_ptr<Engine>>(
           ErrorCode::invalid_argument,
           "The Apple detector is qualified only through side length 960");
     }
-    const auto& detection_bytes = bundle.data_->files.at(bundle.data_->detection_model_path);
-    const auto& recognition_bytes = bundle.data_->files.at(bundle.data_->recognition_model_path);
+    const auto& detection_bytes =
+        bundle.data_->files.at(bundle.data_->detection_model_path);
+    const auto& recognition_bytes =
+        bundle.data_->files.at(bundle.data_->recognition_model_path);
     internal::InferenceSessionConfig detection_config;
     detection_config.intra_op_threads = options.intra_op_threads;
     detection_config.inter_op_threads = options.inter_op_threads;
-    detection_config.provider = options.execution.provider;
     detection_config.session_fallback = options.execution.session_fallback;
     detection_config.cpu_partition = options.execution.cpu_partition;
     detection_config.device_id = options.execution.device_id;
@@ -685,15 +838,12 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
     detection_config.model_id = bundle.data_->detection_model_id;
     detection_config.model_sha256 = bundle.data_->detection_model_sha256;
     detection_config.shape_policy = "dynamic";
+    detection_config.requested_provider_override =
+        provider_name(options.execution.provider);
     auto recognition_config = detection_config;
     recognition_config.model_id = bundle.data_->recognition_model_id;
     recognition_config.model_sha256 = bundle.data_->recognition_model_sha256;
-    std::unique_ptr<internal::InferenceSession> detection;
-    std::unique_ptr<internal::InferenceSession> recognition;
-    std::uint32_t recognition_width_multiple = 1;
-    std::vector<std::uint32_t> recognition_width_buckets;
-    std::uint32_t maximum_backend_batch_size =
-        bundle.data_->recognition.maximum_batch_size;
+
     bool apple_device_available = false;
     bool apple_device_validated = false;
 #if defined(LIGHT_OCR_HAS_COREML)
@@ -711,109 +861,190 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
             bundle.data_->apple_provider->validated_device_families);
 #endif
 
-    auto create_cpu_sessions = [&](bool fallback,
-                                   std::optional<std::string> fallback_reason)
-        -> std::optional<Error> {
-      auto cpu_detection_config = detection_config;
-      cpu_detection_config.provider = ExecutionProvider::cpu;
-      cpu_detection_config.session_fallback = SessionFallback::error;
-      cpu_detection_config.cpu_partition = CpuPartition::allow;
-      cpu_detection_config.precision = Precision::fp32;
-      cpu_detection_config.model_id = bundle.data_->detection_model_id;
-      cpu_detection_config.model_sha256 = bundle.data_->detection_model_sha256;
-      cpu_detection_config.shape_policy = "dynamic";
-      cpu_detection_config.apple_package.reset();
-      cpu_detection_config.requested_provider_override = fallback ? "apple" : "";
-      cpu_detection_config.session_fallback_used = fallback;
-      cpu_detection_config.fallback_reason = fallback_reason;
-      auto cpu_recognition_config = cpu_detection_config;
-      cpu_recognition_config.model_id = bundle.data_->recognition_model_id;
-      cpu_recognition_config.model_sha256 = bundle.data_->recognition_model_sha256;
-      auto cpu_detection = internal::OnnxSession::create(
-          detection_bytes, cpu_detection_config, internal::ModelKind::detection);
-      if (!cpu_detection) return cpu_detection.error();
-      auto cpu_recognition = internal::OnnxSession::create(
-          recognition_bytes, cpu_recognition_config,
-          internal::ModelKind::recognition,
-          bundle.data_->recognition.characters.size() + 1);
-      if (!cpu_recognition) return cpu_recognition.error();
-      detection = std::move(cpu_detection).value();
-      recognition = std::move(cpu_recognition).value();
-      recognition_width_multiple = 1;
-      recognition_width_buckets.clear();
-      maximum_backend_batch_size =
-          bundle.data_->recognition.maximum_batch_size;
-      return std::nullopt;
-    };
-
-    if (options.execution.provider == ExecutionProvider::cpu) {
-      const auto error = create_cpu_sessions(false, std::nullopt);
-      if (error) return Result<std::unique_ptr<Engine>>::failure(*error);
-    } else {
-#if defined(LIGHT_OCR_HAS_COREML)
-      std::optional<Error> apple_error;
-      if (apple_device_allowed) {
-        const auto& apple = *bundle.data_->apple_provider;
-        detection_config.model_id = apple.detection.model_id;
-        detection_config.model_sha256 = apple.detection.package_sha256;
-        detection_config.shape_policy = apple.detection.shape_policy;
-        detection_config.apple_package = make_apple_package(
-            *bundle.data_, apple.detection, apple, false);
-        recognition_config.model_id = apple.recognition.model_id;
-        recognition_config.model_sha256 = apple.recognition.package_sha256;
-        recognition_config.shape_policy = apple.recognition.shape_policy;
-        recognition_config.apple_package = make_apple_package(
-            *bundle.data_, apple.recognition, apple, true);
-        auto apple_detection = internal::CoreMlSession::create(
-            detection_config, internal::ModelKind::detection);
-        if (!apple_detection) {
-          apple_error = apple_detection.error();
-        } else {
-          auto apple_recognition = internal::CoreMlSession::create(
-              recognition_config, internal::ModelKind::recognition);
-          if (!apple_recognition) {
-            apple_error = apple_recognition.error();
-          } else {
-            detection = std::move(apple_detection).value();
-            recognition = std::move(apple_recognition).value();
-            recognition_width_multiple = apple.recognition_width_multiple;
-            recognition_width_buckets =
-                apple.recognition_runtime_width_buckets;
-            maximum_backend_batch_size = 1;
-          }
-        }
-      } else {
-        apple_error = Error{ErrorCode::unsupported_capability,
-                            "The Apple provider is unavailable on this device",
-                            {}};
-      }
-      if (apple_error) {
-        if (options.execution.session_fallback != SessionFallback::cpu) {
-          return Result<std::unique_ptr<Engine>>::failure(*apple_error);
-        }
-        const auto fallback_reason =
-            apple_device_allowed
-                ? "apple_initialization_failed"
-                : apple_device_available ? "apple_device_unqualified"
-                                         : "apple_device_unavailable";
-        const auto fallback_error = create_cpu_sessions(true, fallback_reason);
-        if (fallback_error) {
-          return Result<std::unique_ptr<Engine>>::failure(*fallback_error);
-        }
-      }
-#else
-      if (options.execution.session_fallback != SessionFallback::cpu) {
-        return failure<std::unique_ptr<Engine>>(
-            ErrorCode::unsupported_capability,
-            "The Apple provider is unavailable in this build");
-      }
-      const auto fallback_error = create_cpu_sessions(
-          true, "apple_provider_not_built");
-      if (fallback_error) {
-        return Result<std::unique_ptr<Engine>>::failure(*fallback_error);
-      }
+    auto selection = internal::select_candidate<CreatedSessions>(
+        provider_name(options.execution.provider), policy_candidates,
+        options.execution.provider == ExecutionProvider::automatic
+            ? std::optional<std::string>{runtime_policy.id}
+            : std::nullopt,
+        options.execution.provider == ExecutionProvider::automatic
+            ? std::optional<std::uint32_t>{runtime_policy.version}
+            : std::nullopt,
+        [&](const std::string& candidate) {
+          auto fail = [](Error error, CreationReason reason) {
+            return internal::CandidateResult<CreatedSessions>::failure(
+                internal::CandidateFailure{std::move(error), reason});
+          };
+          auto fail_from_error = [](
+                                     Error error,
+                                     std::optional<CreationReason> reason) {
+            return internal::CandidateResult<CreatedSessions>::failure(
+                internal::CandidateFailure{std::move(error), reason});
+          };
+          CreatedSessions created;
+          if (candidate == "cpu" || candidate == "webgpu") {
+            created.provider = candidate == "webgpu"
+                                   ? ExecutionProvider::webgpu
+                                   : ExecutionProvider::cpu;
+            if (created.provider == ExecutionProvider::webgpu &&
+                options.execution.cpu_partition == CpuPartition::forbid &&
+                bundle.data_->webgpu_provider) {
+              return fail(
+                  Error{ErrorCode::unsupported_capability,
+                        "The WebGPU model requires a bounded CPU operator partition",
+                        "required operators: Concat, Gather, Slice"},
+                  CreationReason::model_compute_unsupported);
+            }
+#if !defined(LIGHT_OCR_HAS_WEBGPU)
+            if (created.provider == ExecutionProvider::webgpu) {
+              return fail(
+                  Error{ErrorCode::unsupported_capability,
+                        "The runtime descriptor and addon WebGPU capabilities disagree",
+                        {}},
+                  CreationReason::provider_abi_mismatch);
+            }
 #endif
+            auto candidate_detection_config = detection_config;
+            candidate_detection_config.provider = created.provider;
+            candidate_detection_config.qualification_id =
+                policy_qualification_id(runtime_policy, candidate);
+            candidate_detection_config.webgpu_provider_library =
+                runtime_policy.webgpu_provider_library;
+            candidate_detection_config.webgpu_provider_bytes =
+                runtime_policy.webgpu_provider_bytes;
+            candidate_detection_config.webgpu_provider_sha256 =
+                runtime_policy.webgpu_provider_sha256;
+            candidate_detection_config.webgpu_device_validated =
+                runtime_policy.released && !runtime_policy.qualification_only;
+            auto candidate_recognition_config = recognition_config;
+            candidate_recognition_config.provider = created.provider;
+            candidate_recognition_config.qualification_id =
+                candidate_detection_config.qualification_id;
+            candidate_recognition_config.webgpu_provider_library =
+                candidate_detection_config.webgpu_provider_library;
+            candidate_recognition_config.webgpu_provider_bytes =
+                candidate_detection_config.webgpu_provider_bytes;
+            candidate_recognition_config.webgpu_provider_sha256 =
+                candidate_detection_config.webgpu_provider_sha256;
+            candidate_recognition_config.webgpu_device_validated =
+                candidate_detection_config.webgpu_device_validated;
+            auto candidate_detection_bytes = detection_bytes;
+            auto candidate_recognition_bytes = recognition_bytes;
+            std::optional<CreationReason> creation_reason;
+            auto candidate_detection = internal::OnnxSession::create(
+                candidate_detection_bytes, candidate_detection_config,
+                internal::ModelKind::detection, 0, &creation_reason);
+            if (!candidate_detection) {
+              return fail_from_error(candidate_detection.error(),
+                                     creation_reason);
+            }
+            auto candidate_recognition = internal::OnnxSession::create(
+                candidate_recognition_bytes, candidate_recognition_config,
+                internal::ModelKind::recognition,
+                bundle.data_->recognition.characters.size() + 1,
+                &creation_reason);
+            if (!candidate_recognition) {
+              return fail_from_error(candidate_recognition.error(),
+                                     creation_reason);
+            }
+            created.detection = std::move(candidate_detection).value();
+            created.recognition = std::move(candidate_recognition).value();
+            created.maximum_backend_batch_size =
+                bundle.data_->recognition.maximum_batch_size;
+            return internal::CandidateResult<CreatedSessions>::success(
+                std::move(created));
+          }
+          if (candidate != "apple") {
+            return fail(Error{ErrorCode::internal_error,
+                              "Runtime policy contains an unknown provider", {}},
+                        CreationReason::internal_assertion_failed);
+          }
+          created.provider = ExecutionProvider::apple;
+          if (!bundle.data_->apple_provider) {
+            return fail(
+                Error{ErrorCode::unsupported_capability,
+                      "The model bundle does not include the Apple provider payload",
+                      {}},
+                CreationReason::model_compute_unsupported);
+          }
+#if defined(LIGHT_OCR_HAS_COREML)
+          if (!apple_device_available) {
+            return fail(
+                Error{ErrorCode::unsupported_capability,
+                      "The Apple provider has no compatible device", {}},
+                CreationReason::adapter_unavailable);
+          }
+          if (!apple_device_allowed || batch_size != 1 ||
+              detection_strategy != DetectionStrategy::bounded ||
+              detection_max_side > 960) {
+            return fail(
+                Error{ErrorCode::unsupported_capability,
+                      "The Apple provider cannot create the requested model profile",
+                      {}},
+                CreationReason::model_compute_unsupported);
+          }
+          const auto& apple = *bundle.data_->apple_provider;
+          auto apple_detection_config = detection_config;
+          apple_detection_config.provider = ExecutionProvider::apple;
+          apple_detection_config.model_id = apple.detection.model_id;
+          apple_detection_config.model_sha256 = apple.detection.package_sha256;
+          apple_detection_config.shape_policy = apple.detection.shape_policy;
+          apple_detection_config.apple_package = make_apple_package(
+              *bundle.data_, apple.detection, apple, false);
+          apple_detection_config.apple_package->qualification_id =
+              policy_qualification_id(runtime_policy, candidate);
+          auto apple_recognition_config = recognition_config;
+          apple_recognition_config.provider = ExecutionProvider::apple;
+          apple_recognition_config.model_id = apple.recognition.model_id;
+          apple_recognition_config.model_sha256 =
+              apple.recognition.package_sha256;
+          apple_recognition_config.shape_policy = apple.recognition.shape_policy;
+          apple_recognition_config.apple_package = make_apple_package(
+              *bundle.data_, apple.recognition, apple, true);
+          apple_recognition_config.apple_package->qualification_id =
+              apple_detection_config.apple_package->qualification_id;
+          std::optional<CreationReason> creation_reason;
+          auto apple_detection = internal::CoreMlSession::create(
+              apple_detection_config, internal::ModelKind::detection,
+              &creation_reason);
+          if (!apple_detection) {
+            return fail_from_error(apple_detection.error(), creation_reason);
+          }
+          auto apple_recognition = internal::CoreMlSession::create(
+              apple_recognition_config, internal::ModelKind::recognition,
+              &creation_reason);
+          if (!apple_recognition) {
+            return fail_from_error(apple_recognition.error(), creation_reason);
+          }
+          created.detection = std::move(apple_detection).value();
+          created.recognition = std::move(apple_recognition).value();
+          created.recognition_width_multiple =
+              apple.recognition_width_multiple;
+          created.recognition_width_buckets =
+              apple.recognition_runtime_width_buckets;
+          created.maximum_backend_batch_size = 1;
+          return internal::CandidateResult<CreatedSessions>::success(
+              std::move(created));
+#else
+          return fail(
+              Error{ErrorCode::unsupported_capability,
+                    "The runtime descriptor and addon Apple capabilities disagree",
+                    {}},
+              CreationReason::provider_abi_mismatch);
+#endif
+        });
+    if (!selection.value) {
+      return Result<std::unique_ptr<Engine>>::failure(std::move(selection.error));
     }
+    auto created = std::move(*selection.value);
+    selected_provider = created.provider;
+    auto detection = std::move(created.detection);
+    auto recognition = std::move(created.recognition);
+    const auto recognition_width_multiple =
+        created.recognition_width_multiple;
+    auto recognition_width_buckets =
+        std::move(created.recognition_width_buckets);
+    const auto maximum_backend_batch_size =
+        created.maximum_backend_batch_size;
 
     EngineInfo info;
     info.core_version = LIGHT_OCR_VERSION;
@@ -826,7 +1057,9 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
     info.execution_provider =
         detection->execution_info().runtime == "Core ML"
             ? "CoreML"
-            : "CPUExecutionProvider";
+            : selected_provider == ExecutionProvider::webgpu
+                  ? "WebGpuExecutionProvider"
+                  : "CPUExecutionProvider";
     info.execution.requested_provider = options.execution.provider;
     info.execution.session_fallback = options.execution.session_fallback;
     info.execution.cpu_partition = options.execution.cpu_partition;
@@ -835,9 +1068,21 @@ Result<std::unique_ptr<Engine>> Engine::create(ModelBundle bundle,
     info.execution.requested_precision = options.execution.precision;
     info.execution.provider_capabilities = {
         ProviderCapabilityInfo{"cpu", true, true, true}};
-    if (bundle.data_->apple_provider) {
+    if (policy_includes_provider(runtime_policy, "webgpu")) {
       info.execution.provider_capabilities.push_back(
-          ProviderCapabilityInfo{"apple", true, apple_device_available,
+          ProviderCapabilityInfo{"webgpu", true,
+                                 selected_provider == ExecutionProvider::webgpu,
+                                 selected_provider == ExecutionProvider::webgpu &&
+                                     runtime_policy.released &&
+                                     !runtime_policy.qualification_only});
+    }
+    info.execution.selection_trace = std::move(selection.trace);
+    if (policy_includes_provider(runtime_policy, "apple") &&
+        bundle.data_->apple_provider) {
+      info.execution.provider_capabilities.push_back(
+          ProviderCapabilityInfo{"apple",
+                                 true,
+                                 apple_device_available,
                                  apple_device_validated});
     }
     info.execution.detection = detection->execution_info();

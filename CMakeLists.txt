@@ -7,7 +7,7 @@ if(APPLE AND (NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET OR
     "Minimum macOS deployment target" FORCE)
 endif()
 
-project(light_ocr VERSION 0.2.1 LANGUAGES CXX)
+project(light_ocr VERSION 0.3.0 LANGUAGES CXX)
 
 if(APPLE)
   enable_language(OBJCXX)
@@ -45,14 +45,23 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(Dependencies)
 light_ocr_configure_dependencies()
 
-# Keep project executables in one predictable directory for both single- and
-# multi-configuration generators. This also gives staged ONNX Runtime files a
-# stable package location on Windows.
+# Keep single-configuration executables in one predictable directory and
+# isolate multi-configuration outputs so concurrent Debug/Release builds cannot
+# overwrite each other's binaries or staged ONNX Runtime files.
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-foreach(_light_ocr_configuration DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${_light_ocr_configuration}
-      "${CMAKE_BINARY_DIR}/bin")
-endforeach()
+get_property(_light_ocr_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if(_light_ocr_multi_config)
+  foreach(_light_ocr_configuration IN LISTS CMAKE_CONFIGURATION_TYPES)
+    string(TOUPPER "${_light_ocr_configuration}" _light_ocr_configuration_upper)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${_light_ocr_configuration_upper}
+        "${CMAKE_BINARY_DIR}/bin/${_light_ocr_configuration}")
+  endforeach()
+else()
+  foreach(_light_ocr_configuration DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${_light_ocr_configuration}
+        "${CMAKE_BINARY_DIR}/bin")
+  endforeach()
+endif()
 
 if(NOT MSVC)
   if(LIGHT_OCR_ENABLE_SANITIZERS)
@@ -66,10 +75,12 @@ endif()
 
 add_library(light_ocr_core STATIC
   src/core/engine.cpp
+  src/core/engine_factory.hpp
   src/detection/db_postprocess.cpp
   src/detection/tiled.cpp
   src/geometry/geometry.cpp
   src/inference/onnxruntime/backend.cpp
+  src/inference/selection.hpp
   src/model/model_bundle.cpp
   src/preprocess/image.cpp
   src/preprocess/tensor.cpp
@@ -112,6 +123,16 @@ if(APPLE)
 endif()
 
 target_compile_definitions(light_ocr_core PRIVATE LIGHT_OCR_VERSION="${PROJECT_VERSION}")
+if(LIGHT_OCR_HAS_WEBGPU)
+  target_compile_definitions(light_ocr_core PRIVATE LIGHT_OCR_HAS_WEBGPU=1)
+  if(LIGHT_OCR_WEBGPU_QUALIFICATION_BUILD)
+    target_compile_definitions(light_ocr_core PRIVATE
+      LIGHT_OCR_WEBGPU_QUALIFICATION_BUILD=1)
+  endif()
+  if(UNIX AND NOT APPLE)
+    target_link_libraries(light_ocr_core PRIVATE ${CMAKE_DL_LIBS})
+  endif()
+endif()
 
 if(MSVC)
   target_compile_options(light_ocr_core PRIVATE /W4 /WX /permissive- /EHsc /fp:strict)
@@ -175,11 +196,16 @@ if(LIGHT_OCR_BUILD_TESTS)
     tests/unit/test_image.cpp
     tests/unit/test_model_bundle.cpp
     tests/unit/test_result.cpp
+    tests/unit/test_selection.cpp
     tests/unit/test_sha256.cpp
   )
   target_link_libraries(light_ocr_unit_tests PRIVATE light_ocr::core nlohmann_json::nlohmann_json
     opencv_core opencv_imgproc)
   target_include_directories(light_ocr_unit_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+  if(LIGHT_OCR_HAS_WEBGPU AND LIGHT_OCR_WEBGPU_QUALIFICATION_BUILD)
+    target_compile_definitions(light_ocr_unit_tests PRIVATE
+      LIGHT_OCR_WEBGPU_QUALIFICATION_BUILD=1)
+  endif()
   light_ocr_stage_onnxruntime(light_ocr_unit_tests)
   add_test(NAME light_ocr_unit_tests COMMAND light_ocr_unit_tests)
 
@@ -204,10 +230,10 @@ if(LIGHT_OCR_BUILD_TESTS)
       COMMAND light_ocr_apple_integration_tests)
     set_tests_properties(light_ocr_apple_integration_tests PROPERTIES
       SKIP_RETURN_CODE 77 LABELS "acceptance;apple" TIMEOUT 180)
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-apple-20260715.1/manifest.json")
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-native-20260719.1/manifest.json")
       set_tests_properties(light_ocr_apple_integration_tests PROPERTIES
         ENVIRONMENT
-          "LIGHT_OCR_APPLE_MODEL_BUNDLE=${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-apple-20260715.1;LIGHT_OCR_APPLE_TEST_PIXELS=${CMAKE_CURRENT_SOURCE_DIR}/corpus/fixtures/generated-hello-123/pixels.bin")
+          "LIGHT_OCR_APPLE_MODEL_BUNDLE=${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-native-20260719.1;LIGHT_OCR_APPLE_TEST_PIXELS=${CMAKE_CURRENT_SOURCE_DIR}/corpus/fixtures/generated-hello-123/pixels.bin")
     endif()
   endif()
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-onnx-20260714.2/manifest.json")

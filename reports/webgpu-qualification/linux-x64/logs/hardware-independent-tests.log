@@ -1,0 +1,18 @@
+Test project /mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427
+    Start 1: light_ocr_unit_tests
+1/4 Test #1: light_ocr_unit_tests ................   Passed    0.03 sec
+    Start 2: light_ocr_integration_tests
+2/4 Test #2: light_ocr_integration_tests .........   Passed    8.25 sec
+    Start 3: light_ocr_tiled_memory_blank_2048
+3/4 Test #3: light_ocr_tiled_memory_blank_2048 ...   Passed    2.18 sec
+    Start 4: light_ocr_tiled_memory_dense_2048
+4/4 Test #4: light_ocr_tiled_memory_dense_2048 ...   Passed    6.08 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Label Time Summary:
+acceptance    =   8.26 sec*proc (2 tests)
+memory        =   8.26 sec*proc (2 tests)
+tiled         =   8.26 sec*proc (2 tests)
+
+Total Test time (real) =  16.55 sec

@@ -9,6 +9,7 @@
 
 #include "light_ocr/core.hpp"
 #include "light_ocr/error.hpp"
+#include "core/engine_factory.hpp"
 #include "test.hpp"
 #include "util/sha256.hpp"
 
@@ -238,7 +239,7 @@ std::vector<BundleFile> valid_apple_bundle_files() {
     if (file.path != "manifest.json") continue;
     auto manifest = Json::parse(std::string(file.bytes->begin(), file.bytes->end()));
     manifest["schemaVersion"] = "1.1";
-    manifest["coreCompatibility"]["minimum"] = "0.2.1";
+    manifest["coreCompatibility"]["minimum"] = "0.3.0";
     for (const auto& payload : files) {
       if (payload.path == "manifest.json") continue;
       manifest["files"][payload.path] = {
@@ -297,6 +298,73 @@ std::vector<BundleFile> valid_apple_bundle_files() {
   return files;
 }
 
+std::vector<BundleFile> valid_webgpu_bundle_files() {
+  auto files = valid_bundle_files(true);
+  files.erase(std::remove_if(files.begin(), files.end(), [](const BundleFile& file) {
+                return file.path == "SHA256SUMS";
+              }),
+              files.end());
+  const std::string detection = "webgpu-fp16-detection";
+  const std::string recognition = "webgpu-fp16-recognition";
+  const std::string provenance = "webgpu-fp16-provenance";
+  files.push_back(BundleFile{"webgpu/det/inference.onnx", bytes(detection)});
+  files.push_back(BundleFile{"webgpu/rec/inference.onnx", bytes(recognition)});
+  files.push_back(BundleFile{"webgpu/provenance.json", bytes(provenance)});
+  for (auto& file : files) {
+    if (file.path != "manifest.json") continue;
+    auto manifest = Json::parse(std::string(file.bytes->begin(), file.bytes->end()));
+    manifest["schemaVersion"] = "1.2";
+    manifest["coreCompatibility"]["minimum"] = "0.3.0";
+    for (const auto& payload : files) {
+      if (payload.path == "manifest.json") continue;
+      manifest["files"][payload.path] = {
+          {"bytes", payload.bytes->size()},
+          {"sha256", internal::sha256_hex(payload.bytes->data(),
+                                           payload.bytes->size())},
+      };
+    }
+    manifest["providers"]["webgpu"] = {
+        {"schemaVersion", "1.0"},
+        {"conversionId", "onnxruntime-float16-1.24.4-20260719.1"},
+        {"precision", "fp16"},
+        {"graphOptimizationLevel", "extended"},
+        {"cpuPartition", "allow-required"},
+        {"requiredCpuOperators", {"Concat", "Gather", "Slice"}},
+        {"provenancePath", "webgpu/provenance.json"},
+        {"provenanceSha256",
+         internal::sha256_hex(
+             reinterpret_cast<const std::uint8_t*>(provenance.data()),
+             provenance.size())},
+        {"detection",
+         {{"modelId", "PP-OCRv6_small_det_onnx_webgpu_fp16"},
+          {"modelPath", "webgpu/det/inference.onnx"},
+          {"modelSha256",
+           internal::sha256_hex(
+               reinterpret_cast<const std::uint8_t*>(detection.data()),
+               detection.size())},
+          {"sourceModelId", "PP-OCRv6_small_det_onnx"},
+          {"sourceModelSha256",
+           manifest["files"]["det/inference.onnx"]["sha256"]},
+          {"tensorType", "float16"}}},
+        {"recognition",
+         {{"modelId", "PP-OCRv6_small_rec_onnx_webgpu_fp16"},
+          {"modelPath", "webgpu/rec/inference.onnx"},
+          {"modelSha256",
+           internal::sha256_hex(
+               reinterpret_cast<const std::uint8_t*>(recognition.data()),
+               recognition.size())},
+          {"sourceModelId", "PP-OCRv6_small_rec_onnx"},
+          {"sourceModelSha256",
+           manifest["files"]["rec/inference.onnx"]["sha256"]},
+          {"tensorType", "float16"}}},
+    };
+    file.bytes = bytes(manifest.dump());
+    break;
+  }
+  refresh_checksums(&files);
+  return files;
+}
+
 }  // namespace
 
 LIGHT_OCR_TEST(model_bundle_accepts_complete_hashed_contract) {
@@ -323,13 +391,74 @@ LIGHT_OCR_TEST(model_bundle_accepts_locked_apple_provider_contract) {
   EXPECT_EQ(result.value().schema_version(), "1.1");
 }
 
+LIGHT_OCR_TEST(model_bundle_accepts_locked_webgpu_fp16_provider_contract) {
+  auto result = ModelBundle::create(valid_webgpu_bundle_files());
+  if (!result) {
+    light_ocr::test::fail("result", __FILE__, __LINE__,
+                          result.error().message + ": " + result.error().detail);
+  }
+  EXPECT_EQ(result.value().schema_version(), "1.2");
+}
+
+LIGHT_OCR_TEST(model_bundle_rejects_mutated_webgpu_fp16_source_binding) {
+  auto files = valid_webgpu_bundle_files();
+  for (auto& file : files) {
+    if (file.path != "manifest.json") continue;
+    auto manifest = Json::parse(std::string(file.bytes->begin(), file.bytes->end()));
+    manifest["providers"]["webgpu"]["detection"]["sourceModelSha256"] =
+        std::string(64, '0');
+    file.bytes = bytes(manifest.dump());
+    break;
+  }
+  refresh_checksums(&files);
+  auto result = ModelBundle::create(std::move(files));
+  EXPECT_FALSE(result);
+  EXPECT_EQ(result.error().code, ErrorCode::invalid_model_bundle);
+}
+
+LIGHT_OCR_TEST(model_bundle_rejects_unknown_provider_payload) {
+  auto files = valid_webgpu_bundle_files();
+  for (auto& file : files) {
+    if (file.path != "manifest.json") continue;
+    auto manifest = Json::parse(std::string(file.bytes->begin(), file.bytes->end()));
+    manifest["providers"]["future"] = Json::object();
+    file.bytes = bytes(manifest.dump());
+    break;
+  }
+  refresh_checksums(&files);
+  auto result = ModelBundle::create(std::move(files));
+  EXPECT_FALSE(result);
+  EXPECT_EQ(result.error().code, ErrorCode::invalid_model_bundle);
+}
+
+LIGHT_OCR_TEST(webgpu_fp16_is_not_a_public_execution_profile) {
+  auto bundle = ModelBundle::create(valid_webgpu_bundle_files());
+  EXPECT_TRUE(bundle);
+  EngineOptions options;
+  options.execution.provider = ExecutionProvider::webgpu;
+  options.execution.precision = Precision::fp16;
+  options.execution.cpu_partition = CpuPartition::forbid;
+  internal::RuntimePolicy policy;
+  policy.id = "test-webgpu-v1";
+  policy.version = 1;
+  policy.ordered_candidates = {"webgpu", "cpu"};
+  policy.available_providers = {"webgpu", "cpu"};
+  policy.provider_qualification_ids = {"test-webgpu-v1", "test-cpu-v1"};
+  auto engine = internal::EngineFactory::create(
+      std::move(bundle).value(), options, std::move(policy));
+  EXPECT_FALSE(engine);
+  EXPECT_EQ(engine.error().code, ErrorCode::invalid_argument);
+  EXPECT_EQ(engine.error().message, "Execution options are unsupported");
+  EXPECT_FALSE(engine.error().creation_trace.has_value());
+}
+
 LIGHT_OCR_TEST(model_bundle_rejects_schema_1_1_without_apple_provider) {
   auto files = valid_bundle_files(true);
   for (auto& file : files) {
     if (file.path != "manifest.json") continue;
     auto manifest = Json::parse(std::string(file.bytes->begin(), file.bytes->end()));
     manifest["schemaVersion"] = "1.1";
-    manifest["coreCompatibility"]["minimum"] = "0.2.1";
+    manifest["coreCompatibility"]["minimum"] = "0.3.0";
     file.bytes = bytes(manifest.dump());
     break;
   }

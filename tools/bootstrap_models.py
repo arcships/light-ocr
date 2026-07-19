@@ -22,14 +22,19 @@ LOCK_PATH = ROOT / "models" / "bundles.lock.json"
 DEFAULT_OUTPUT = ROOT / "models" / "generated" / "ppocrv6-small-onnx-20260714.2"
 
 
+class OfflineCacheMiss(RuntimeError):
+    """A locked model input is absent while network access is disabled."""
+
+
 def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
 def canonical_json(value: object) -> bytes:
-    return (json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode(
-        "utf-8"
-    )
+    return (
+        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        + "\n"
+    ).encode("utf-8")
 
 
 def verify(data: bytes, record: dict[str, object], label: str) -> None:
@@ -39,14 +44,20 @@ def verify(data: bytes, record: dict[str, object], label: str) -> None:
         raise RuntimeError(f"{label}: SHA-256 mismatch")
 
 
-def obtain(record: dict[str, object], cache_dir: Path) -> bytes:
+def obtain(
+    record: dict[str, object], cache_dir: Path, *, offline: bool = False
+) -> bytes:
     cache_dir.mkdir(parents=True, exist_ok=True)
     destination = cache_dir / str(record["filename"])
     if destination.exists():
         data = destination.read_bytes()
         verify(data, record, destination.name)
         return data
-    request = urllib.request.Request(str(record["url"]), headers={"User-Agent": "light-ocr-bootstrap/1"})
+    if offline:
+        raise OfflineCacheMiss(f"offline model cache is missing {destination.name}")
+    request = urllib.request.Request(
+        str(record["url"]), headers={"User-Agent": "light-ocr-bootstrap/1"}
+    )
     with urllib.request.urlopen(request, timeout=300) as response:
         data = response.read()
     verify(data, record, destination.name)
@@ -72,7 +83,9 @@ def read_archive_members(archive: bytes, record: dict[str, object]) -> dict[str,
                 raise RuntimeError(f"unexpected archive member: {member.name}")
             leaf = member.name[len(prefix) :]
             if leaf not in expected or "/" in leaf or leaf in result:
-                raise RuntimeError(f"unexpected or duplicate archive member: {member.name}")
+                raise RuntimeError(
+                    f"unexpected or duplicate archive member: {member.name}"
+                )
             extracted = source.extractfile(member)
             if extracted is None:
                 raise RuntimeError(f"cannot read archive member: {member.name}")
@@ -85,11 +98,13 @@ def read_archive_members(archive: bytes, record: dict[str, object]) -> dict[str,
 
 
 def obtain_artifact_members(
-    artifact: dict[str, object], cache_dir: Path
+    artifact: dict[str, object], cache_dir: Path, *, offline: bool = False
 ) -> dict[str, bytes]:
     try:
-        return read_archive_members(obtain(artifact, cache_dir), artifact)
-    except (urllib.error.URLError, TimeoutError) as error:
+        return read_archive_members(
+            obtain(artifact, cache_dir, offline=offline), artifact
+        )
+    except (urllib.error.URLError, TimeoutError, OfflineCacheMiss) as error:
         members = artifact["members"]
         if not all("url" in record for record in members.values()):
             raise
@@ -104,7 +119,7 @@ def obtain_artifact_members(
                 **member,
                 "filename": f"{artifact['name']}-{name}",
             }
-            result[name] = obtain(member_record, cache_dir)
+            result[name] = obtain(member_record, cache_dir, offline=offline)
         return result
 
 
@@ -119,7 +134,9 @@ def parse_yaml_scalar(raw: str) -> str:
 
 def extract_dictionary(config: bytes) -> list[str]:
     lines = config.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n").split("\n")
-    start = next((index for index, line in enumerate(lines) if line == "  character_dict:"), None)
+    start = next(
+        (index for index, line in enumerate(lines) if line == "  character_dict:"), None
+    )
     if start is None:
         raise RuntimeError("recognition YAML has no PostProcess.character_dict")
     characters: list[str] = []
@@ -200,7 +217,11 @@ def normalized_config(bundle_id: str, dictionary_entries: int) -> dict[str, obje
             }
         },
         "detection": {
-            "input": {"colorOrder": "BGR", "tensorLayout": "NCHW", "tensorType": "float32"},
+            "input": {
+                "colorOrder": "BGR",
+                "tensorLayout": "NCHW",
+                "tensorType": "float32",
+            },
             "normalize": {
                 "scale": 1 / 255,
                 "mean": [0.485, 0.456, 0.406],
@@ -259,19 +280,22 @@ def normalized_config(bundle_id: str, dictionary_entries: int) -> dict[str, obje
     }
 
 
-def write_bundle(output: Path, cache_dir: Path, force: bool) -> None:
+def write_bundle(
+    output: Path, cache_dir: Path, force: bool, *, offline: bool = False
+) -> None:
     lock = json.loads(LOCK_PATH.read_text("utf-8"))
     bundle = lock["bundles"][0]
     if output.exists():
         if not force:
-            raise RuntimeError(f"output already exists: {output}; use --force to replace it")
-        shutil.rmtree(output)
+            raise RuntimeError(
+                f"output already exists: {output}; use --force to replace it"
+            )
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=output.name + ".", dir=output.parent))
     try:
         payloads: dict[str, bytes] = {}
         for artifact in bundle["artifacts"]:
-            members = obtain_artifact_members(artifact, cache_dir)
+            members = obtain_artifact_members(artifact, cache_dir, offline=offline)
             target = "det" if artifact["name"] == "detection" else "rec"
             payloads[f"{target}/inference.onnx"] = members["inference.onnx"]
             payloads[f"{target}/inference.yml"] = members["inference.yml"]
@@ -283,7 +307,9 @@ def write_bundle(output: Path, cache_dir: Path, force: bool) -> None:
         payloads["normalized-config.json"] = canonical_json(
             normalized_config(bundle["bundleId"], len(characters))
         )
-        payloads["LICENSES/PaddleOCR-Apache-2.0.txt"] = obtain(bundle["license"], cache_dir)
+        payloads["LICENSES/PaddleOCR-Apache-2.0.txt"] = obtain(
+            bundle["license"], cache_dir, offline=offline
+        )
         notice = (
             "PP-OCRv6 small ONNX model bundle\n"
             f"PaddleOCR revision: {bundle['paddleOcrRevision']}\n"
@@ -341,8 +367,12 @@ def write_bundle(output: Path, cache_dir: Path, force: bool) -> None:
             destination = temporary / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(data)
-        sums = "".join(f"{sha256(data)}  {path}\n" for path, data in sorted(all_files.items()))
+        sums = "".join(
+            f"{sha256(data)}  {path}\n" for path, data in sorted(all_files.items())
+        )
         (temporary / "SHA256SUMS").write_bytes(sums.encode("utf-8"))
+        if output.exists():
+            shutil.rmtree(output)
         os.replace(temporary, output)
     except Exception:
         shutil.rmtree(temporary, ignore_errors=True)
@@ -354,8 +384,18 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--cache-dir", type=Path, default=ROOT / ".cache" / "models")
     parser.add_argument("--force", action="store_true")
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="require every locked model input to already exist in the cache",
+    )
     arguments = parser.parse_args()
-    write_bundle(arguments.output.resolve(), arguments.cache_dir.resolve(), arguments.force)
+    write_bundle(
+        arguments.output.resolve(),
+        arguments.cache_dir.resolve(),
+        arguments.force,
+        offline=arguments.offline,
+    )
     print(arguments.output.resolve())
     return 0
 

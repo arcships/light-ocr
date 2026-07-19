@@ -12,9 +12,9 @@ import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_BASE = ROOT / "models" / "generated" / "ppocrv6-small-onnx-20260714.2"
+DEFAULT_BASE = ROOT / "models" / "generated" / "ppocrv6-small-webgpu-20260719.1"
 DEFAULT_APPLE = ROOT / "models" / "generated" / "apple-fp16-20260715.1"
-DEFAULT_OUTPUT = ROOT / "models" / "generated" / "ppocrv6-small-apple-20260715.1"
+DEFAULT_OUTPUT = ROOT / "models" / "generated" / "ppocrv6-small-native-20260719.1"
 ACCEPTANCE = ROOT / "tools" / "apple" / "acceptance.json"
 
 
@@ -187,41 +187,44 @@ def main() -> int:
             json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
             encoding="utf-8",
         )
-        manifest["schemaVersion"] = "1.1"
+        if (
+            manifest.get("schemaVersion") != "1.2"
+            or manifest.get("providers", {}).get("webgpu", {}).get("precision")
+            != "fp16"
+        ):
+            raise RuntimeError("base bundle does not contain the WebGPU FP16 contract")
         manifest["bundleId"] = output.name
-        manifest["coreCompatibility"]["minimum"] = "0.2.1"
-        manifest["providers"] = {
-            "apple": {
-                "schemaVersion": "1.1",
-                "minimumMacOS": "15.0",
-                "devicePolicy": arguments.device_policy,
-                "architectures": ["arm64", "x86_64"],
-                "validatedDeviceFamilies": validated_device_families,
-                "qualificationId": qualification_id,
-                "detection": {
-                    **provenance["detection"],
-                    "packagePath": "apple/" + provenance["detection"]["package"],
-                    "preferredComputeUnit": "ane",
-                    "strictComputeUnit": "gpu",
-                    "intelComputeUnit": "cpu+gpu",
-                    "qualifiedMLCPUOperations": {"ios18.relu": 1, "pad": 1},
+        manifest["coreCompatibility"]["minimum"] = "0.3.0"
+        manifest["providers"]["apple"] = {
+            "schemaVersion": "1.1",
+            "minimumMacOS": "15.0",
+            "devicePolicy": arguments.device_policy,
+            "architectures": ["arm64", "x86_64"],
+            "validatedDeviceFamilies": validated_device_families,
+            "qualificationId": qualification_id,
+            "detection": {
+                **provenance["detection"],
+                "packagePath": "apple/" + provenance["detection"]["package"],
+                "preferredComputeUnit": "ane",
+                "strictComputeUnit": "gpu",
+                "intelComputeUnit": "cpu+gpu",
+                "qualifiedMLCPUOperations": {"ios18.relu": 1, "pad": 1},
+            },
+            "recognition": {
+                **provenance["recognition"],
+                "packagePath": "apple/" + provenance["recognition"]["package"],
+                "widthMultiple": routing["recognitionWidthMultiple"],
+                "aneMaximumWidth": routing["recognitionAneMaximumWidth"],
+                "runtimeWidthBuckets": routing["recognitionRuntimeWidthBuckets"],
+                "maximumCachedFunctions": routing["maximumCachedFunctions"],
+                "intelComputeUnit": "cpu+gpu",
+                "qualifiedMLCPUOperations": {
+                    "ios18.cast": 1,
+                    "ios18.conv": 3,
+                    "ios18.relu": 3,
+                    "pad": 3,
                 },
-                "recognition": {
-                    **provenance["recognition"],
-                    "packagePath": "apple/" + provenance["recognition"]["package"],
-                    "widthMultiple": routing["recognitionWidthMultiple"],
-                    "aneMaximumWidth": routing["recognitionAneMaximumWidth"],
-                    "runtimeWidthBuckets": routing["recognitionRuntimeWidthBuckets"],
-                    "maximumCachedFunctions": routing["maximumCachedFunctions"],
-                    "intelComputeUnit": "cpu+gpu",
-                    "qualifiedMLCPUOperations": {
-                        "ios18.cast": 1,
-                        "ios18.conv": 3,
-                        "ios18.relu": 3,
-                        "pad": 3,
-                    },
-                },
-            }
+            },
         }
         manifest["files"] = inventory(temporary)
         manifest_path.write_text(

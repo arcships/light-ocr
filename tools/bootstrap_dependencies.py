@@ -137,21 +137,110 @@ def download(record: dict[str, object], destination: Path) -> None:
     ) from last_error
 
 
+def select_dependencies(
+    lock: dict[str, object], *, platform_id: str | None, runtime_flavor: str
+) -> list[dict[str, object]]:
+    if runtime_flavor not in {"cpu", "webgpu"}:
+        raise RuntimeError(f"unsupported ONNX Runtime flavor: {runtime_flavor}")
+    dependencies = lock.get("dependencies")
+    if not isinstance(dependencies, list):
+        raise RuntimeError("dependency lock must contain a dependencies array")
+    selected: list[dict[str, object]] = []
+    runtime_matches: list[dict[str, object]] = []
+    seen_ids: set[str] = set()
+    for value in dependencies:
+        if not isinstance(value, dict):
+            raise RuntimeError("dependency records must be objects")
+        record_id = value.get("id")
+        flavor = value.get("runtimeFlavor")
+        platforms = value.get("platforms")
+        if not isinstance(record_id, str) or not record_id or record_id in seen_ids:
+            raise RuntimeError(f"dependency IDs must be unique non-empty strings: {record_id!r}")
+        seen_ids.add(record_id)
+        if not isinstance(platforms, list) or not all(isinstance(item, str) for item in platforms):
+            raise RuntimeError(f"dependency {record_id} has invalid platforms")
+        if flavor == "common":
+            selected.append(value)
+        elif flavor == runtime_flavor and (
+            platform_id is None or platform_id in platforms
+        ):
+            runtime_matches.append(value)
+    if len(runtime_matches) != 1:
+        identity = platform_id or "unspecified platform"
+        if runtime_flavor == "webgpu" and not runtime_matches:
+            raise RuntimeError(
+                "the WebGPU runtime is an externally verified SDK and is not downloaded "
+                "from deps.lock.json; build it with tools/webgpu/build_runtime.py and "
+                "configure CMake with LIGHT_OCR_WEBGPU_SDK_DIR "
+                f"(target {identity})"
+            )
+        raise RuntimeError(
+            f"expected exactly one {runtime_flavor} runtime dependency for {identity}, "
+            f"found {len(runtime_matches)}"
+        )
+    return [*runtime_matches, *selected]
+
+
+def write_selection(
+    path: Path,
+    records: list[dict[str, object]],
+    *,
+    platform_id: str | None,
+    runtime_flavor: str,
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "platformId": platform_id,
+                "runtimeFlavor": runtime_flavor,
+                "dependencies": [
+                    {
+                        "id": record["id"],
+                        "filename": record["filename"],
+                        "sha256": record["sha256"],
+                    }
+                    for record in records
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+        "utf-8",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cache-dir", type=Path, default=ROOT / ".cache" / "dependencies")
     parser.add_argument("--offline", action="store_true", help="verify only; never download")
+    parser.add_argument("--platform-id")
+    parser.add_argument("--runtime-flavor", choices=("cpu", "webgpu"), default="cpu")
+    parser.add_argument("--selection-output", type=Path)
     arguments = parser.parse_args()
     arguments.cache_dir.mkdir(parents=True, exist_ok=True)
     lock = json.loads(LOCK.read_text("utf-8"))
-    for record in lock["dependencies"]:
-        destination = arguments.cache_dir / record["filename"]
+    records = select_dependencies(
+        lock,
+        platform_id=arguments.platform_id,
+        runtime_flavor=arguments.runtime_flavor,
+    )
+    for record in records:
+        destination = arguments.cache_dir / str(record["filename"])
         if destination.exists():
             verify(destination, record)
             continue
         if arguments.offline:
             raise RuntimeError(f"offline dependency archive is missing: {destination}")
         download(record, destination)
+    if arguments.selection_output is not None:
+        write_selection(
+            arguments.selection_output,
+            records,
+            platform_id=arguments.platform_id,
+            runtime_flavor=arguments.runtime_flavor,
+        )
     print(arguments.cache_dir.resolve())
     return 0
 

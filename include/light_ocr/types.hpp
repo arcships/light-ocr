@@ -7,13 +7,15 @@
 #include <string>
 #include <vector>
 
+#include "light_ocr/error.hpp"
+
 namespace light_ocr {
 
 enum class PixelFormat { gray8, rgb8, bgr8, rgba8 };
 
 enum class DetectionStrategy { bounded, tiled, upstream_exact };
 
-enum class ExecutionProvider { cpu, apple };
+enum class ExecutionProvider { automatic, cpu, apple, webgpu };
 
 enum class SessionFallback { error, cpu };
 
@@ -135,7 +137,7 @@ struct DetectionOptions {
 };
 
 struct ExecutionOptions {
-  ExecutionProvider provider = ExecutionProvider::cpu;
+  ExecutionProvider provider = ExecutionProvider::automatic;
   SessionFallback session_fallback = SessionFallback::error;
   CpuPartition cpu_partition = CpuPartition::allow;
   std::optional<std::uint32_t> device_id;
@@ -207,13 +209,14 @@ struct SessionExecutionInfo {
 };
 
 struct ExecutionInfo {
-  ExecutionProvider requested_provider = ExecutionProvider::cpu;
+  ExecutionProvider requested_provider = ExecutionProvider::automatic;
   SessionFallback session_fallback = SessionFallback::error;
   CpuPartition cpu_partition = CpuPartition::allow;
   std::optional<std::uint32_t> device_id;
   PerformanceHint performance_hint = PerformanceHint::latency;
   Precision requested_precision = Precision::automatic;
   std::vector<ProviderCapabilityInfo> provider_capabilities;
+  CreationTrace selection_trace;
   SessionExecutionInfo detection;
   SessionExecutionInfo recognition;
 };

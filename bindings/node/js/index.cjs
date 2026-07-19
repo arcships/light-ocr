@@ -9,6 +9,8 @@ const DEFAULT_MODEL = 'ppocrv6-small';
 const MODEL_PACKAGE = '@arcships/light-ocr-model-ppocrv6-small';
 const CPU_BUNDLE_ID = 'ppocrv6-small-onnx-20260714.2';
 const APPLE_BUNDLE_ID = 'ppocrv6-small-apple-20260715.1';
+const WEBGPU_BUNDLE_ID = 'ppocrv6-small-webgpu-20260719.1';
+const NATIVE_BUNDLE_ID = 'ppocrv6-small-native-20260719.1';
 
 class OcrError extends Error {
   constructor(code, message, detail) {
@@ -78,8 +80,8 @@ function resolveBuiltInBundle(model, requireApple) {
     );
   }
   const compatibleBundleIds = requireApple
-    ? [APPLE_BUNDLE_ID]
-    : [CPU_BUNDLE_ID, APPLE_BUNDLE_ID];
+    ? [APPLE_BUNDLE_ID, NATIVE_BUNDLE_ID]
+    : [CPU_BUNDLE_ID, APPLE_BUNDLE_ID, WEBGPU_BUNDLE_ID, NATIVE_BUNDLE_ID];
   if (!compatibleBundleIds.includes(manifest.bundleId)) {
     throw new OcrError(
       'package_load_failed',
@@ -201,13 +203,16 @@ class OcrEngineImpl {
   }
 }
 
-let binding;
+let nativeRuntime;
 
 async function createEngine(options) {
   try {
     const resolvedOptions = resolveCreateOptions(options);
-    if (!binding) binding = loadNative();
-    const nativeEngine = await binding.createEngine(resolvedOptions);
+    if (!nativeRuntime) nativeRuntime = loadNative();
+    const nativeEngine = await nativeRuntime.binding.createEngine(
+      resolvedOptions,
+      nativeRuntime.runtimePolicy,
+    );
     return new OcrEngineImpl(nativeEngine);
   } catch (error) {
     throw normalizeNativeError(error);

@@ -1,0 +1,125 @@
+if(NOT STAGE_DIR OR NOT ADDON_FILE OR NOT RUNTIME_FILES OR
+   NOT PLATFORM_ID OR NOT PLATFORM_OS OR NOT PLATFORM_ARCH OR
+   NOT RUNTIME_FLAVOR)
+  message(FATAL_ERROR "Node runtime staging arguments are incomplete")
+endif()
+
+set(_native "${STAGE_DIR}/native")
+# POST_BUILD may run repeatedly in one tree. Recreate the private payload so
+# stale files from another runtime flavor cannot survive into the descriptor.
+file(REMOVE_RECURSE "${_native}")
+file(MAKE_DIRECTORY "${_native}")
+
+function(_light_ocr_copy_record source output_name out_record out_bytes out_sha256)
+  if(NOT EXISTS "${source}" OR IS_DIRECTORY "${source}")
+    message(FATAL_ERROR "Node runtime artifact is missing or not regular: ${source}")
+  endif()
+  set(_destination "${_native}/${output_name}")
+  file(COPY_FILE "${source}" "${_destination}" ONLY_IF_DIFFERENT)
+  file(SIZE "${_destination}" _size)
+  file(SHA256 "${_destination}" _sha256)
+  set(${out_record}
+    "{\"path\":\"native/${output_name}\",\"bytes\":${_size},\"sha256\":\"${_sha256}\"}"
+    PARENT_SCOPE)
+  set(${out_bytes} "${_size}" PARENT_SCOPE)
+  set(${out_sha256} "${_sha256}" PARENT_SCOPE)
+endfunction()
+
+_light_ocr_copy_record(
+  "${ADDON_FILE}" "light_ocr_node.node" _addon_record _addon_bytes _addon_sha256)
+
+if(PLATFORM_OS STREQUAL "win32")
+  set(_core_name "onnxruntime.dll")
+elseif(PLATFORM_OS STREQUAL "darwin")
+  set(_core_name "libonnxruntime.1.22.0.dylib")
+else()
+  set(_core_name "libonnxruntime.so.1")
+endif()
+if(PLATFORM_OS STREQUAL "win32")
+  set(_provider_name "onnxruntime_providers_webgpu.dll")
+else()
+  set(_provider_name "libonnxruntime_providers_webgpu.so")
+endif()
+
+set(_runtime_records "")
+set(_webgpu_records "")
+set(_staged_names "")
+set(_core_record "")
+set(_provider_record "")
+set(_provider_bytes 0)
+set(_provider_sha256 "")
+foreach(_runtime_file IN LISTS RUNTIME_FILES)
+  cmake_path(GET _runtime_file FILENAME _runtime_name)
+  if(RUNTIME_FLAVOR STREQUAL "cpu" AND NOT _runtime_name STREQUAL _core_name)
+    continue()
+  endif()
+  list(FIND _staged_names "${_runtime_name}" _duplicate_index)
+  if(NOT _duplicate_index EQUAL -1)
+    message(FATAL_ERROR "Duplicate Node runtime artifact basename: ${_runtime_name}")
+  endif()
+  list(APPEND _staged_names "${_runtime_name}")
+  _light_ocr_copy_record(
+    "${_runtime_file}" "${_runtime_name}" _record _record_bytes _record_sha256)
+  if(_runtime_records)
+    string(APPEND _runtime_records ",")
+  endif()
+  string(APPEND _runtime_records "${_record}")
+  if(_runtime_name STREQUAL _core_name)
+    set(_core_record "${_record}")
+  elseif(RUNTIME_FLAVOR STREQUAL "webgpu")
+    if(_webgpu_records)
+      string(APPEND _webgpu_records ",")
+    endif()
+    string(APPEND _webgpu_records "${_record}")
+  endif()
+  if(RUNTIME_FLAVOR STREQUAL "webgpu" AND
+     _runtime_name STREQUAL _provider_name)
+    set(_provider_record "${_record}")
+    set(_provider_bytes "${_record_bytes}")
+    set(_provider_sha256 "${_record_sha256}")
+  endif()
+endforeach()
+if(NOT _core_record)
+  message(FATAL_ERROR
+    "Node runtime core artifact ${_core_name} is absent from: ${RUNTIME_FILES}")
+endif()
+
+set(_runtime_kind "onnxruntime-cpu")
+set(_runtime_version "1.22.0")
+set(_runtime_abi "onnxruntime-c-api-22")
+set(_qualification_only false)
+set(_released true)
+set(_available_policy "[\"cpu\"]")
+set(_provider_records
+  "\"cpu\":{\"runtimeProvider\":\"CPUExecutionProvider\",\"qualificationId\":\"cpu-baseline-v1\",\"artifacts\":[${_core_record}]}")
+if(RUNTIME_FLAVOR STREQUAL "webgpu")
+  if(NOT WEBGPU_QUALIFICATION_ID OR NOT _provider_record)
+    message(FATAL_ERROR
+      "WebGPU staging requires a qualification identity and provider library")
+  endif()
+  set(_runtime_kind "onnxruntime-plugin-webgpu")
+  set(_runtime_version "1.24.4")
+  set(_runtime_abi "onnxruntime-c-api-24-plugin-ep-0.1")
+  set(_available_policy "[\"webgpu\",\"cpu\"]")
+  if(QUALIFICATION_ONLY)
+    set(_qualification_only true)
+    set(_released false)
+  endif()
+  set(_provider_records
+    "\"webgpu\":{\"runtimeProvider\":\"WebGpuExecutionProvider\",\"providerVersion\":\"0.1.0\",\"qualificationId\":\"${WEBGPU_QUALIFICATION_ID}\",\"providerLibrary\":${_provider_record},\"artifacts\":[${_webgpu_records}]},${_provider_records}")
+endif()
+if(HAS_COREML)
+  set(_provider_records
+    "${_provider_records},\"apple\":{\"runtimeProvider\":\"CoreML\",\"qualificationId\":\"apple-open-macos-v1\",\"artifacts\":[${_addon_record}]}"
+  )
+  set(_available_policy "[\"apple\",\"cpu\"]")
+endif()
+
+set(_libc_field "")
+if(PLATFORM_LIBC)
+  set(_libc_field ",\"libc\":\"${PLATFORM_LIBC}\"")
+endif()
+set(_descriptor
+  "{\"schemaVersion\":\"2.0\",\"platform\":{\"id\":\"${PLATFORM_ID}\",\"os\":\"${PLATFORM_OS}\",\"architecture\":\"${PLATFORM_ARCH}\"${_libc_field}},\"runtime\":{\"flavor\":\"${RUNTIME_FLAVOR}\",\"kind\":\"${_runtime_kind}\",\"version\":\"${_runtime_version}\",\"abi\":\"${_runtime_abi}\",\"artifacts\":[${_runtime_records}]},\"qualificationOnly\":${_qualification_only},\"released\":${_released},\"autoPolicy\":{\"id\":\"${PLATFORM_ID}-v1\",\"version\":1,\"providers\":${_available_policy}},\"providers\":{${_provider_records}},\"addon\":${_addon_record}}\n"
+)
+file(WRITE "${_native}/runtime-descriptor.json" "${_descriptor}")

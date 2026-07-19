@@ -59,7 +59,13 @@ std::string stable_result_hash(const light_ocr::OcrResult& result) {
 }
 
 const char* provider_name(light_ocr::ExecutionProvider provider) {
-  return provider == light_ocr::ExecutionProvider::apple ? "apple" : "cpu";
+  switch (provider) {
+    case light_ocr::ExecutionProvider::automatic: return "auto";
+    case light_ocr::ExecutionProvider::cpu: return "cpu";
+    case light_ocr::ExecutionProvider::apple: return "apple";
+    case light_ocr::ExecutionProvider::webgpu: return "webgpu";
+  }
+  return "auto";
 }
 
 nlohmann::json session_execution_json(
@@ -83,6 +89,48 @@ nlohmann::json session_execution_json(
       {"sessionFallback", info.session_fallback},
   };
   if (info.fallback_reason) result["fallbackReason"] = *info.fallback_reason;
+  return result;
+}
+
+nlohmann::json creation_trace_json(const light_ocr::CreationTrace& trace) {
+  auto attempts = nlohmann::json::array();
+  for (const auto& attempt : trace.attempts) {
+    nlohmann::json value = {
+        {"provider", attempt.provider},
+        {"status", light_ocr::to_string(attempt.status)},
+    };
+    if (attempt.creation_reason) {
+      value["creationReason"] = light_ocr::to_string(*attempt.creation_reason);
+    }
+    if (attempt.error_code) {
+      value["errorCode"] = light_ocr::to_string(*attempt.error_code);
+    }
+    attempts.push_back(std::move(value));
+  }
+  nlohmann::json result = {
+      {"requestedProvider", trace.requested_provider},
+      {"orderedCandidates", trace.ordered_candidates},
+      {"attempts", std::move(attempts)},
+  };
+  if (trace.policy_id) result["policyId"] = *trace.policy_id;
+  if (trace.policy_version) result["policyVersion"] = *trace.policy_version;
+  if (trace.selected_provider) {
+    result["selectedProvider"] = *trace.selected_provider;
+  }
+  return result;
+}
+
+nlohmann::json provider_capabilities_json(
+    const std::vector<light_ocr::ProviderCapabilityInfo>& capabilities) {
+  auto result = nlohmann::json::array();
+  for (const auto& capability : capabilities) {
+    result.push_back({
+        {"provider", capability.provider},
+        {"packageIncluded", capability.package_included},
+        {"deviceAvailable", capability.device_available},
+        {"deviceValidated", capability.device_validated},
+    });
+  }
   return result;
 }
 
@@ -245,6 +293,11 @@ int main(int argc, char** argv) {
         {"execution",
          {{"requestedProvider",
            provider_name(engine_info.execution.requested_provider)},
+          {"selectionTrace",
+           creation_trace_json(engine_info.execution.selection_trace)},
+          {"providerCapabilities",
+           provider_capabilities_json(
+               engine_info.execution.provider_capabilities)},
           {"detection",
            session_execution_json(engine_info.execution.detection)},
           {"recognition",

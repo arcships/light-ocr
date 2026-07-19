@@ -1,0 +1,235 @@
+{
+  "schemaVersion": "1.1",
+  "ok": true,
+  "started": "2026-07-19T09:52:37.424Z",
+  "finished": "2026-07-19T09:52:43.480Z",
+  "host": {
+    "platform": "win32",
+    "architecture": "x64",
+    "node": "24.14.1",
+    "osName": "Windows_NT",
+    "osRelease": "10.0.26200",
+    "osVersion": "Windows 11 Pro for Workstations"
+  },
+  "fixture": "generated-japanese-rotated",
+  "mode": "allow",
+  "warmup": 2,
+  "iterations": 10,
+  "cycles": 3,
+  "result": {
+    "sha256": "f87ea7040628db5f35ec41f4dae79b7a19d4feb978630cd0442ee2e9b1459244",
+    "deterministic": true,
+    "lines": [
+      {
+        "text": "日本語テスト・東京2026",
+        "confidence": 0.999559223651886,
+        "box": [
+          [
+            44,
+            87
+          ],
+          [
+            142,
+            87
+          ],
+          [
+            142,
+            1024
+          ],
+          [
+            44,
+            1024
+          ]
+        ]
+      }
+    ]
+  },
+  "latencyUs": {
+    "minimum": 31435,
+    "p50": 34229,
+    "p95": 46528,
+    "maximum": 46872
+  },
+  "engineInitializationUs": {
+    "minimum": 592879,
+    "p50": 610832,
+    "maximum": 789504,
+    "values": [
+      789504,
+      592879,
+      610832
+    ]
+  },
+  "firstPredictionUs": 866027,
+  "firstPredictionUsByCycle": [
+    866027,
+    867200,
+    836102
+  ],
+  "processCpuUs": 5187000,
+  "measuredWallUs": 5997979,
+  "averageProcessCpuCores": 0.8647912905330278,
+  "lifecycle": {
+    "rssBytes": [
+      365002752,
+      367128576,
+      368934912,
+      370454528,
+      371531776,
+      372977664,
+      373821440,
+      375312384,
+      376868864,
+      378228736,
+      379547648,
+      380833792,
+      346808320,
+      461582336,
+      464236544,
+      464449536,
+      465686528,
+      465805312,
+      467423232,
+      468758528,
+      470257664,
+      471281664,
+      471830528,
+      473698304,
+      474423296,
+      442634240,
+      519868416,
+      523169792,
+      523427840,
+      523857920,
+      523931648,
+      524914688,
+      525590528,
+      526909440,
+      527745024,
+      529043456,
+      530571264,
+      531832832,
+      501358592
+    ],
+    "residentMinimumBytes": 346808320,
+    "residentMaximumBytes": 531832832,
+    "residentFinalBytes": 501358592,
+    "retainedGrowthBytes": 136355840
+  },
+  "engine": {
+    "coreVersion": "0.2.1",
+    "modelBundleId": "ppocrv6-small-webgpu-20260719.1",
+    "modelBundleSchemaVersion": "1.2",
+    "normalizedConfigSchemaVersion": "1.2",
+    "backend": "ONNX Runtime 1.24.4",
+    "executionProvider": "WebGpuExecutionProvider",
+    "execution": {
+      "requestedProvider": "webgpu",
+      "sessionFallback": "error",
+      "cpuPartition": "allow",
+      "performanceHint": "latency",
+      "requestedPrecision": "fp32",
+      "providerCapabilities": [
+        {
+          "provider": "cpu",
+          "packageIncluded": true,
+          "deviceAvailable": true,
+          "deviceValidated": true
+        },
+        {
+          "provider": "webgpu",
+          "packageIncluded": true,
+          "deviceAvailable": true,
+          "deviceValidated": false
+        }
+      ],
+      "selectionTrace": {
+        "requestedProvider": "webgpu",
+        "orderedCandidates": [
+          "webgpu"
+        ],
+        "attempts": [
+          {
+            "provider": "webgpu",
+            "status": "selected"
+          }
+        ],
+        "selectedProvider": "webgpu"
+      },
+      "sessions": {
+        "detection": {
+          "requestedProvider": "webgpu",
+          "actualProviderChain": [
+            "WebGpuExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "device": "webgpu:Advanced Micro Devices, Inc.:4098:6400",
+          "deviceFamily": "",
+          "operatingSystem": "windows",
+          "precision": "fp32",
+          "shapePolicy": "dynamic",
+          "modelId": "PP-OCRv6_small_det_onnx",
+          "modelSha256": "d73e0058b7a8086bbd57f3d10b8bcd4ff95363f67e06e2762b5e814fe9c9410e",
+          "runtime": "ONNX Runtime",
+          "runtimeVersion": "1.24.4",
+          "providerVersion": "0.1.0",
+          "modelCacheStatus": "not_applicable",
+          "qualificationId": "native-webgpu-plugin-0.1.0-ort-1.24.4-dev2",
+          "deviceValidated": false,
+          "sessionFallback": false
+        },
+        "recognition": {
+          "requestedProvider": "webgpu",
+          "actualProviderChain": [
+            "WebGpuExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "device": "webgpu:Advanced Micro Devices, Inc.:4098:6400",
+          "deviceFamily": "",
+          "operatingSystem": "windows",
+          "precision": "fp32",
+          "shapePolicy": "dynamic",
+          "modelId": "PP-OCRv6_small_rec_onnx",
+          "modelSha256": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634",
+          "runtime": "ONNX Runtime",
+          "runtimeVersion": "1.24.4",
+          "providerVersion": "0.1.0",
+          "modelCacheStatus": "not_applicable",
+          "qualificationId": "native-webgpu-plugin-0.1.0-ort-1.24.4-dev2",
+          "deviceValidated": false,
+          "sessionFallback": false
+        }
+      }
+    },
+    "capabilities": {
+      "detection": true,
+      "recognition": true,
+      "textlineOrientation": false,
+      "tiledDetection": true
+    },
+    "concurrencyMode": "serialized_reject_when_busy",
+    "limits": {
+      "maxWidth": 10000,
+      "maxHeight": 10000,
+      "maxPixels": 40000000,
+      "maxDetectionSide": 4000,
+      "maxDetectionCandidates": 3000,
+      "maxDetectionTiles": 100,
+      "maxRecognitionBatchSize": 8,
+      "maxRecognitionWidth": 3200,
+      "maxTemporaryBytes": 536870912,
+      "maxConcurrentCalls": 1
+    },
+    "intraOpThreads": 1,
+    "interOpThreads": 1,
+    "detectionStrategy": "bounded",
+    "detectionMaxSide": 960,
+    "defaultRecognitionScoreThreshold": 0,
+    "defaultRecognitionBatchSize": 1,
+    "adapter": {
+      "scheduler": "dedicated_fifo",
+      "queueCapacity": 4,
+      "maxPendingInputBytes": 268435456
+    }
+  }
+}

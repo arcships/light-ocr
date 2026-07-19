@@ -347,6 +347,7 @@ class StageProbe {
     detection_config.model_id = data.detection_model_id;
     detection_config.model_sha256 = data.detection_model_sha256;
     detection_config.shape_policy = "dynamic";
+    detection_config.qualification_id = "builtin-cpu-v1";
     auto recognition_config = detection_config;
     recognition_config.model_id = data.recognition_model_id;
     recognition_config.model_sha256 = data.recognition_model_sha256;

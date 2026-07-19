@@ -24,15 +24,19 @@ jobs:
           - id: macos-arm64
             runner: macos-15
             executable_suffix: ""
+            binary_dir: build-ci/bin
           - id: macos-x64
             runner: macos-15-intel
             executable_suffix: ""
+            binary_dir: build-ci/bin
           - id: windows-x64
             runner: windows-2022
             executable_suffix: ".exe"
+            binary_dir: build-ci/bin/Release
           - id: linux-x64
             runner: ubuntu-24.04
             executable_suffix: ""
+            binary_dir: build-ci/bin
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -59,7 +63,7 @@ jobs:
         shell: bash
         run: >-
           python tools/run_offline_check.py
-          --validate build-ci/bin/light_ocr_validate${{ matrix.executable_suffix }}
+          --validate ${{ matrix.binary_dir }}/light_ocr_validate${{ matrix.executable_suffix }}
           --bundle models/generated/ppocrv6-small-onnx-20260714.2
           --fixture corpus/fixtures/generated-hello-123/fixture.json
       - name: Runtime check with the network namespace disabled
@@ -75,7 +79,7 @@ jobs:
       - name: Repeated lifecycle RSS gate
         shell: bash
         run: >-
-          ./build-ci/bin/light_ocr_leak_check${{ matrix.executable_suffix }}
+          ./${{ matrix.binary_dir }}/light_ocr_leak_check${{ matrix.executable_suffix }}
           --bundle models/generated/ppocrv6-small-onnx-20260714.2
           --pixels corpus/fixtures/generated-hello-123/pixels.bin
           --width 800 --height 180 --stride 2400 --format bgr8
@@ -88,9 +92,9 @@ jobs:
         with:
           name: light-ocr-core-${{ matrix.id }}
           path: |
-            build-ci/bin/light_ocr_*
-            build-ci/bin/onnxruntime*
-            build-ci/bin/libonnxruntime*
+            ${{ matrix.binary_dir }}/light_ocr_*
+            ${{ matrix.binary_dir }}/onnxruntime*
+            ${{ matrix.binary_dir }}/libonnxruntime*
             build-ci/**/light_ocr_core.lib
             build-ci/**/liblight_ocr_core.a
             reports/release/${{ matrix.id }}

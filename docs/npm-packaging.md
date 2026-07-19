@@ -1,7 +1,7 @@
 # @arcships/light-ocr npm Package Design
 
-状态：六包设计与 `0.2.0` lockstep 发布已完成；0.2.1 Apple superset bundle release candidate 已接入同一流程<br>
-更新时间：2026-07-16<br>
+状态：六包设计与 `0.2.0` lockstep 发布已完成；0.3.0 Apple/WebGPU native superset bundle release candidate 已接入同一流程<br>
+更新时间：2026-07-19<br>
 Authority：npm 包名、包拆分、依赖关系、内置模型、版本与发布门槛<br>
 Node API：[napi-design.md](napi-design.md)<br>
 Model contract：[model-bundle.md](model-bundle.md)<br>
@@ -9,11 +9,11 @@ Decision：[decisions.md](decisions.md) D105
 
 0.2.0 继续使用本文六包 lockstep 规则，并强校验 schema 1.2、`tiled-v1`、新 bundle ID、minimum package version，以及 native package 中 JPEG/PNG decoder 的 license/SBOM identity。额外的类型、四平台基线和发布证据见 [Tiled Detection 技术设计与验收规格](tiled-design-and-acceptance.md)。这些增量不改变已发布 `0.1.0` 的不可变包内容。
 
-0.2.1 候选不增加第七个包或第二个安装入口。model package 改为
-`ppocrv6-small-apple-20260715.1` 自包含 superset：所有平台继续使用其中的
-ONNX CPU payload；macOS 15+ arm64/x86_64 使用 `open-macos` 策略，均可显式请求 Core ML。`validatedDeviceFamilies` 只标记已有真机证据，不阻塞其他 Mac 的实验兼容。
-release workflow 在 macOS 以哈希锁 Python 3.12 工具链派生固定 Core ML 工件，
-Linux assemble job 只消费该 artifact；运行时和 postinstall 都不转换或下载模型。
+0.3.0 候选不增加第七个包或第二个安装入口。model package 改为
+`ppocrv6-small-native-20260719.1` 自包含 superset：所有平台继续使用其中的
+ONNX FP32 CPU/WebGPU payload；锁定的 WebGPU FP16 variants 仅作为内部可复现工件保留；
+macOS 15+ arm64/x86_64 使用 `open-macos` 策略，均可显式请求 Core ML。`validatedDeviceFamilies` 只标记已有真机证据，不阻塞其他 Mac 的实验兼容。
+release workflow 在 Linux 复现内部 WebGPU FP16 ONNX 工件、在 macOS 以哈希锁 Python 3.12 工具链派生固定 Core ML 工件，Linux assemble job 只消费这些已验证 artifacts；公共 WebGPU 只使用 FP32，运行时和 postinstall 都不转换或下载模型。
 
 ## 1. 用户契约
 
@@ -48,7 +48,7 @@ const engine = await createEngine();
 | 包 | 类型 | 内容 | 安装关系 |
 | --- | --- | --- | --- |
 | `@arcships/light-ocr` | facade | CJS、ESM、TypeScript types、平台与模型解析器 | 用户直接安装 |
-| `@arcships/light-ocr-model-ppocrv6-small` | model | 0.2.0 为 CPU bundle；0.2.1 候选为包含同一 ONNX payload 与 Core ML FP16 工件的 `ppocrv6-small-apple-20260715.1`、模型 license、可解析 manifest | facade 的普通 dependency |
+| `@arcships/light-ocr-model-ppocrv6-small` | model | 0.2.0 为 CPU bundle；0.3.0 候选为包含同一 FP32 ONNX payload、锁定的内部 WebGPU FP16 派生工件与 Core ML FP16 工件的 `ppocrv6-small-native-20260719.1`、模型 license、可解析 manifest；WebGPU 公共执行 profile 只发布 FP32 | facade 的普通 dependency |
 | `@arcships/light-ocr-darwin-arm64` | native | arm64 `.node`、ONNX Runtime dylib、licenses、SBOM、hashes | facade 的 optional dependency |
 | `@arcships/light-ocr-darwin-x64` | native | x64 `.node`、ONNX Runtime dylib、licenses、SBOM、hashes | facade 的 optional dependency |
 | `@arcships/light-ocr-win32-x64` | native | x64 `.node`、`onnxruntime.dll`、licenses、SBOM、hashes | facade 的 optional dependency |
@@ -182,9 +182,11 @@ Facade 只按固定映射加载 package：
 
 未知组合以 `unsupported_platform` 拒绝 `createEngine()`。已支持组合但 native package 缺失时，以 `package_load_failed` 拒绝，并提示重新安装且不要使用 `--omit=optional`；不能静默源码编译或在线下载二进制。开发环境仍可显式设置 `LIGHT_OCR_NODE_BINARY`，但 published README 不把它当作生产配置。
 
-### 5.1 未来硬件加速的分发约束
+### 5.1 硬件加速的分发约束
 
-未来 CoreML、DirectML、OpenVINO、TensorRT、VitisAI、QNN 或其他 provider 不得改变本节的用户契约：正常用户仍只运行 `npm install @arcships/light-ocr`，不能被要求另装或配置 ONNX Runtime、Windows ML framework runtime、CUDA、TensorRT、OpenVINO、Ryzen AI/VitisAI、QNN SDK、Python 或编译工具链。正常操作系统和硬件 driver 是唯一允许的系统前置条件。
+当前源码已经为 Linux x64 glibc 与 Windows x64 实现 Native WebGPU qualification payload：Linux package 自带 ORT Core 1.24.4 与 official WebGPU plugin 0.1.0；Windows 还自带 plugin 所需的 `dxcompiler.dll`、`dxil.dll`。schema 2 runtime descriptor 从实际 staging 文件生成，逐文件记录 bytes/SHA-256、provider library、ORT/plugin ABI、qualification identity 与 `webgpu → cpu` Auto policy；共享 loader 拒绝缺失、额外、hash 漂移或 symlink payload，并从 sterile cwd 加载。当前 lock 仍为 `development-pending-device-validation`，因此这些制品只允许 `--qualification-build` staging，不能进入普通 npm release。
+
+后续 CoreML、DirectML、OpenVINO、TensorRT、VitisAI、QNN 或其他 provider 也不得改变本节的用户契约：正常用户仍只运行 `npm install @arcships/light-ocr`，不能被要求另装或配置 ONNX Runtime、Windows ML framework runtime、CUDA、TensorRT、OpenVINO、Ryzen AI/VitisAI、QNN SDK、Python 或编译工具链。正常操作系统和硬件 driver 是唯一允许的系统前置条件；Windows official runtime 依赖的 Microsoft Visual C++ 2015-2022 x64 系统 runtime 需作为平台前置条件明确说明。
 
 加速 payload 遵守以下规则：
 

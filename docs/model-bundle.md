@@ -1,6 +1,6 @@
 # light-ocr Model Bundle
 
-Status: normalized schema 1.2 / `tiled-v1` published in npm `0.2.0`; manifest schema 1.1 Apple provider implemented and locally qualified for M4 in 0.2.1 source<br>
+Status: normalized schema 1.2 / `tiled-v1` published in npm `0.2.0`; manifest schema 1.2 native provider superset implemented in the 0.3.0 source candidate<br>
 Authority: model identity, bundle schema, normalized configuration, integrity, and licensing  
 Requirements: [requirements.md](requirements.md)
 
@@ -16,11 +16,12 @@ recognition: PP-OCRv6_small_rec_onnx
 text-line orientation: unavailable
 ```
 
-The 0.2.1 Apple candidate is a self-contained superset named
-`ppocrv6-small-apple-20260715.1`. It preserves the same ONNX CPU payload and
-normalized configuration while adding hash-locked FP16 Core ML packages and a
-macOS-wide open compatibility policy. The reviewed M4 device list is evidence
-metadata, not a runtime allow-list.
+The immutable `ppocrv6-small-webgpu-20260719.1` candidate preserves the
+published FP32 payload and adds hash-locked ONNX FP16 variants. The final
+platform-independent npm candidate, `ppocrv6-small-native-20260719.1`, extends
+that bundle with FP16 Core ML packages and a macOS-wide open compatibility
+policy. The reviewed M4 device list is evidence metadata, not a runtime
+allow-list.
 
 PP-OCRv6 tiny is a future independent bundle. PP-OCRv6 medium is architecture-compatible but is not a release target until an official ONNX artifact is pinned and validated.
 
@@ -86,7 +87,16 @@ ppocrv6-small-onnx-20260714.2/
   SHA256SUMS
 ```
 
-The Apple bundle additionally contains:
+The WebGPU bundle additionally contains:
+
+```text
+webgpu/
+  det/inference.onnx
+  rec/inference.onnx
+  provenance.json
+```
+
+The native npm superset also contains:
 
 ```text
 apple/
@@ -117,9 +127,12 @@ Runtime bundle validation verifies:
 - Path normalization and uniqueness.
 - Required files.
 - Complete `SHA256SUMS` coverage, including `manifest.json`.
-- Manifest schema `1.0` for CPU-only bundles or `1.1` for the explicit Apple provider payload, plus Core compatibility.
+- Manifest schema `1.0` for CPU-only bundles, legacy `1.1` for an Apple-only payload, or `1.2` for the native provider superset and optional Apple payload, plus Core compatibility. The locked WebGPU FP16 derivation in schema 1.2 is internal in `0.3.0`; public WebGPU execution remains FP32-only.
 - Every manifest payload hash.
 - Model ID and configuration agreement.
+- WebGPU derived-model source binding, output/provenance hashes, conversion ID,
+  FP16 tensor type, Extended optimization policy, and the bounded
+  `Concat/Gather/Slice` CPU operator contract.
 - Tensor contract and dictionary identity.
 
 A hash mismatch returns `model_integrity_failed`. A structurally invalid but correctly hashed bundle returns `invalid_model_bundle`.
@@ -177,11 +190,27 @@ A hash mismatch returns `model_integrity_failed`. A structurally invalid but cor
 }
 ```
 
-The real manifest lists every payload file. Core `0.1.x` and `0.2.0` accept manifest schema `1.0`; the 0.2.1 source accepts schema `1.1` only when the complete, versioned Apple provider object below validates. Normalized configuration evolves independently. Any other manifest schema revision is rejected instead of being silently accepted.
+The real manifest lists every payload file. Core `0.1.x` and `0.2.0` accept manifest schema `1.0`; the 0.3.0 source retains legacy Apple-only schema `1.1` and adds schema `1.2`. Schema `1.2` can carry the locked internal WebGPU FP16 derivation and the Apple provider, while the 0.3.0 public WebGPU execution profile remains FP32-only. Normalized configuration evolves independently. Unknown schemas or provider keys are rejected.
 
-### 6.1 Apple provider extension
+### 6.1 WebGPU provider extension
 
-Schema 1.1 adds a top-level `providers.apple` object. The provider sub-contract is version 1.1 and fixes:
+Schema 1.2 adds `providers.webgpu` sub-contract 1.0. It binds:
+
+- conversion ID `onnxruntime-float16-1.24.4-20260719.1`, native float16 graph
+  I/O, and Extended graph optimization;
+- detector and recognizer model IDs, paths, hashes, and their exact source FP32
+  model IDs/hashes;
+- the converter provenance file and hash;
+- `cpuPartition: "allow-required"` with exactly `Concat`, `Gather`, and `Slice`.
+
+The locked FP16 derivations remain available for reproducibility and provenance
+checks, but `0.3.0` does not select them through the public WebGPU API. CPU,
+explicit WebGPU, and Auto use the immutable source FP32 models. The graph contract rejects strict
+CPU-partition prohibition before ORT session creation.
+
+### 6.2 Apple provider extension
+
+Schema 1.1, or schema 1.2 in the combined native superset, adds a top-level `providers.apple` object. The provider sub-contract is version 1.1 and fixes:
 
 - `minimumMacOS: "15.0"`, `devicePolicy: "open-macos"`,
   `architectures: ["arm64", "x86_64"]`, a non-empty

@@ -165,6 +165,7 @@ jobs:
           python tools/npm_release.py stage-native \
             --platform-id "${{ matrix.id }}" \
             --build-dir build-npm \
+            --configuration Release \
             --metadata-dir "reports/npm/${{ matrix.id }}" \
             --output-dir "dist/native-input/${{ matrix.id }}"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -182,6 +183,31 @@ jobs:
             build-npm/reports/tiled
           if-no-files-found: error
           retention-days: 90
+
+  reproduce-webgpu-models:
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+      - name: Install the hash-locked WebGPU model toolchain
+        run: python -m pip install --require-hashes -r tools/webgpu/requirements.lock
+      - name: Reproduce and verify the deterministic WebGPU models
+        shell: bash
+        run: |
+          python tools/bootstrap_models.py --cache-dir .cache/models
+          python tools/package_model_bundle.py
+          python tools/webgpu/convert_models.py \
+            --output .cache/reproduced/webgpu-fp16-20260719.1
+          cmp models/derived/webgpu-fp16-20260719.1/det/inference.onnx \
+            .cache/reproduced/webgpu-fp16-20260719.1/det/inference.onnx
+          cmp models/derived/webgpu-fp16-20260719.1/rec/inference.onnx \
+            .cache/reproduced/webgpu-fp16-20260719.1/rec/inference.onnx
+          cmp models/derived/webgpu-fp16-20260719.1/provenance.json \
+            .cache/reproduced/webgpu-fp16-20260719.1/provenance.json
 
   derive-apple-models:
     needs: validate
@@ -208,7 +234,7 @@ jobs:
           retention-days: 30
 
   assemble:
-    needs: [build-native, derive-apple-models]
+    needs: [build-native, reproduce-webgpu-models, derive-apple-models]
     runs-on: ubuntu-24.04
     env:
       RELEASE_VERSION: ${{ inputs.version }}
@@ -228,11 +254,12 @@ jobs:
         with:
           name: npm-apple-fp16-models
           path: models/generated/apple-fp16-20260715.1
-      - name: Bootstrap and package the self-contained Apple model bundle
+      - name: Bootstrap and package the self-contained native model bundle
         shell: bash
         run: |
           python tools/bootstrap_models.py --cache-dir .cache/models
           python tools/package_model_bundle.py
+          python tools/webgpu/package_bundle.py
           python tools/apple/package_bundle.py \
             --qualification-report contracts/apple-provider-baselines.json
       - name: Assemble and deterministically pack six packages
@@ -240,7 +267,7 @@ jobs:
         run: |
           python tools/npm_release.py assemble \
             --version "$RELEASE_VERSION" \
-            --bundle models/generated/ppocrv6-small-apple-20260715.1 \
+            --bundle models/generated/ppocrv6-small-native-20260719.1 \
             --native-root dist/native-input \
             --output-dir dist/npm/staging
           python tools/npm_release.py pack \

@@ -32,6 +32,30 @@ const char* to_string(ErrorCode code) noexcept {
   return "internal_error";
 }
 
+const char* to_string(CreationReason reason) noexcept {
+  switch (reason) {
+    case CreationReason::adapter_unavailable: return "adapter_unavailable";
+    case CreationReason::model_compute_unsupported: return "model_compute_unsupported";
+    case CreationReason::device_memory_insufficient: return "device_memory_insufficient";
+    case CreationReason::driver_version_unsupported: return "driver_version_unsupported";
+    case CreationReason::package_corrupt: return "package_corrupt";
+    case CreationReason::artifact_hash_mismatch: return "artifact_hash_mismatch";
+    case CreationReason::provider_abi_mismatch: return "provider_abi_mismatch";
+    case CreationReason::internal_assertion_failed: return "internal_assertion_failed";
+    case CreationReason::unrecoverable_load_failed: return "unrecoverable_load_failed";
+  }
+  return "internal_assertion_failed";
+}
+
+const char* to_string(CreationAttemptStatus status) noexcept {
+  switch (status) {
+    case CreationAttemptStatus::selected: return "selected";
+    case CreationAttemptStatus::skipped: return "skipped";
+    case CreationAttemptStatus::fatal: return "fatal";
+  }
+  return "fatal";
+}
+
 }  // namespace light_ocr
 
 namespace light_ocr::internal {

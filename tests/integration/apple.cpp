@@ -27,6 +27,17 @@ using light_ocr::Precision;
 using light_ocr::SessionFallback;
 namespace fs = std::filesystem;
 
+EngineOptions apple_options(CpuPartition partition, SessionFallback fallback) {
+  EngineOptions options;
+  options.execution.provider = ExecutionProvider::apple;
+  options.execution.session_fallback = fallback;
+  options.execution.cpu_partition = partition;
+  options.execution.precision = Precision::fp16;
+  options.detection.strategy = light_ocr::DetectionStrategy::bounded;
+  options.recognition_batch_size = 1;
+  return options;
+}
+
 std::unique_ptr<Engine> create_engine(const std::string& bundle_path,
                                       CpuPartition partition,
                                       SessionFallback fallback) {
@@ -36,14 +47,8 @@ std::unique_ptr<Engine> create_engine(const std::string& bundle_path,
     throw std::runtime_error(bundle.error().message + ": " +
                              bundle.error().detail);
   }
-  EngineOptions options;
-  options.execution.provider = ExecutionProvider::apple;
-  options.execution.session_fallback = fallback;
-  options.execution.cpu_partition = partition;
-  options.execution.precision = Precision::fp16;
-  options.detection.strategy = light_ocr::DetectionStrategy::bounded;
-  options.recognition_batch_size = 1;
-  auto engine = Engine::create(std::move(bundle).value(), options);
+  auto engine = Engine::create(
+      std::move(bundle).value(), apple_options(partition, fallback));
   if (!engine) {
     throw std::runtime_error(engine.error().message + ": " +
                              engine.error().detail);
@@ -157,18 +162,17 @@ int main() {
     return 77;
   }
   try {
-    auto availability_probe = create_engine(
-        bundle_path, CpuPartition::allow, SessionFallback::cpu);
-    if (availability_probe->info().execution.detection.session_fallback) {
-      const auto& execution = availability_probe->info().execution;
-      require(execution.detection.session_fallback,
-              "Unavailable Apple device did not report CPU fallback");
-      require(execution.detection.fallback_reason.has_value(),
-              "Unavailable Apple device reported the wrong fallback reason");
-      require_hello(availability_probe.get(), pixels_path, "cpu");
-      return 0;
-    }
-    availability_probe->close();
+    auto legacy_bundle = ModelBundle::create(
+        light_ocr::tools::load_bundle_directory(bundle_path));
+    require(static_cast<bool>(legacy_bundle),
+            "Legacy fallback rejection bundle did not validate");
+    auto legacy_fallback = Engine::create(
+        std::move(legacy_bundle).value(),
+        apple_options(CpuPartition::allow, SessionFallback::cpu));
+    require(!legacy_fallback &&
+                legacy_fallback.error().code ==
+                    light_ocr::ErrorCode::invalid_argument,
+            "Legacy explicit Apple CPU fallback was not rejected");
 
     require_wide_recognizer(bundle_path);
 

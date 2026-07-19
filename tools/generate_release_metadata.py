@@ -14,6 +14,11 @@ import shutil
 import subprocess
 from typing import Any
 
+try:
+    from tools.webgpu import build_runtime as webgpu_runtime
+except ModuleNotFoundError:  # Direct execution sets sys.path to tools/.
+    from webgpu import build_runtime as webgpu_runtime
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -31,7 +36,7 @@ def command(arguments: list[str]) -> str:
         completed = subprocess.run(
             arguments, check=True, capture_output=True, text=True, encoding="utf-8"
         )
-        return (completed.stdout.strip() or completed.stderr.strip())
+        return completed.stdout.strip() or completed.stderr.strip()
     except (OSError, subprocess.CalledProcessError):
         return "unavailable"
 
@@ -48,7 +53,11 @@ def tool_version(executable: str) -> str:
         arguments = [executable, "--version"]
     try:
         completed = subprocess.run(
-            arguments, check=False, capture_output=True, text=True, encoding="utf-8",
+            arguments,
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
             errors="replace",
         )
         output = completed.stdout.strip() or completed.stderr.strip()
@@ -60,7 +69,12 @@ def tool_version(executable: str) -> str:
 def cache_values(path: Path) -> dict[str, str]:
     values: dict[str, str] = {}
     for line in path.read_text("utf-8", errors="replace").splitlines():
-        if not line or line.startswith(("#", "//")) or "=" not in line or ":" not in line:
+        if (
+            not line
+            or line.startswith(("#", "//"))
+            or "=" not in line
+            or ":" not in line
+        ):
             continue
         key_type, value = line.split("=", 1)
         key = key_type.split(":", 1)[0]
@@ -75,9 +89,15 @@ def source_snapshot() -> dict[str, Any]:
         if not path.is_file():
             continue
         relative = path.relative_to(ROOT).as_posix()
-        if any(relative == root or relative.startswith(root + "/") for root in excluded_roots):
+        if any(
+            relative == root or relative.startswith(root + "/")
+            for root in excluded_roots
+        ):
             continue
-        if any(part.startswith("build-") or part == "__pycache__" for part in path.relative_to(ROOT).parts):
+        if any(
+            part.startswith("build-") or part == "__pycache__"
+            for part in path.relative_to(ROOT).parts
+        ):
             continue
         if path.name == ".DS_Store":
             continue
@@ -107,18 +127,28 @@ def compile_commands(build: Path) -> dict[str, Any]:
         command_text = command_text.replace(str(build), "${BUILD_DIR}").replace(
             str(ROOT), "${SOURCE_DIR}"
         )
-        project_records.append({
-            "file": str(Path(source).relative_to(ROOT)),
-            "command": command_text,
-        })
+        project_records.append(
+            {
+                "file": str(Path(source).relative_to(ROOT)),
+                "command": command_text,
+            }
+        )
     project_records.sort(key=lambda record: record["file"])
-    normalized = json.dumps(project_records, sort_keys=True, separators=(",", ":")).encode()
-    return {"available": True, "sha256": hashlib.sha256(normalized).hexdigest(),
-            "project": project_records}
+    normalized = json.dumps(
+        project_records, sort_keys=True, separators=(",", ":")
+    ).encode()
+    return {
+        "available": True,
+        "sha256": hashlib.sha256(normalized).hexdigest(),
+        "project": project_records,
+    }
 
 
 def source_dir(build: Path, name: str) -> Path:
-    candidates = [build / "_deps" / f"{name}-src", ROOT / "build" / "_deps" / f"{name}-src"]
+    candidates = [
+        build / "_deps" / f"{name}-src",
+        ROOT / "build" / "_deps" / f"{name}-src",
+    ]
     for candidate in candidates:
         if candidate.exists():
             return candidate
@@ -126,42 +156,112 @@ def source_dir(build: Path, name: str) -> Path:
 
 
 def copy_licenses(
-    build: Path, output: Path, include_stb: bool
+    build: Path, output: Path, include_stb: bool, webgpu_sdk: Path | None
 ) -> list[dict[str, str]]:
     license_dir = output / "licenses"
     license_dir.mkdir(parents=True, exist_ok=True)
     sources = [
-        (source_dir(build, "onnxruntime_package") / "LICENSE", "onnxruntime-MIT.txt", "onnxruntime"),
-        (source_dir(build, "onnxruntime_package") / "ThirdPartyNotices.txt", "onnxruntime-ThirdPartyNotices.txt", "onnxruntime"),
         (source_dir(build, "opencv") / "LICENSE", "opencv-Apache-2.0.txt", "opencv"),
         (source_dir(build, "opencv") / "COPYRIGHT", "opencv-COPYRIGHT.txt", "opencv"),
-        (source_dir(build, "opencv") / "3rdparty" / "zlib" / "LICENSE", "opencv-zlib.txt", "zlib"),
+        (
+            source_dir(build, "opencv") / "3rdparty" / "zlib" / "LICENSE",
+            "opencv-zlib.txt",
+            "zlib",
+        ),
         (source_dir(build, "clipper") / "LICENSE", "clipper-BSL-1.0.txt", "clipper"),
-        (source_dir(build, "nlohmann_json") / "LICENSE.MIT", "nlohmann-json-MIT.txt", "nlohmann-json"),
+        (
+            source_dir(build, "nlohmann_json") / "LICENSE.MIT",
+            "nlohmann-json-MIT.txt",
+            "nlohmann-json",
+        ),
     ]
+    if webgpu_sdk is None:
+        sources.extend(
+            [
+                (
+                    source_dir(build, "onnxruntime_package") / "LICENSE",
+                    "onnxruntime-MIT.txt",
+                    "onnxruntime",
+                ),
+                (
+                    source_dir(build, "onnxruntime_package") / "ThirdPartyNotices.txt",
+                    "onnxruntime-ThirdPartyNotices.txt",
+                    "onnxruntime",
+                ),
+            ]
+        )
+    else:
+        sources.extend(
+            [
+                (
+                    webgpu_sdk / "licenses" / "onnxruntime-LICENSE.txt",
+                    "onnxruntime-MIT.txt",
+                    "onnxruntime",
+                ),
+                (
+                    webgpu_sdk / "licenses" / "onnxruntime-ThirdPartyNotices.txt",
+                    "onnxruntime-ThirdPartyNotices.txt",
+                    "onnxruntime",
+                ),
+                (
+                    webgpu_sdk / "licenses" / "webgpu-LICENSE.txt",
+                    "onnxruntime-webgpu-MIT.txt",
+                    "onnxruntime-webgpu",
+                ),
+                (
+                    webgpu_sdk / "licenses" / "webgpu-ThirdPartyNotices.txt",
+                    "onnxruntime-webgpu-ThirdPartyNotices.txt",
+                    "onnxruntime-webgpu",
+                ),
+            ]
+        )
     if include_stb:
         sources.append(
             (source_dir(build, "stb") / "LICENSE", "stb-MIT-or-Unlicense.txt", "stb")
         )
     bundle = ROOT / "models" / "generated" / "ppocrv6-small-onnx-20260714.2"
-    sources.extend([
-        (bundle / "LICENSES" / "PaddleOCR-Apache-2.0.txt", "PP-OCRv6-Apache-2.0.txt", "PP-OCRv6-models"),
-        (bundle / "LICENSES" / "MODEL-NOTICE.md", "PP-OCRv6-MODEL-NOTICE.md", "PP-OCRv6-models"),
-    ])
+    sources.extend(
+        [
+            (
+                bundle / "LICENSES" / "PaddleOCR-Apache-2.0.txt",
+                "PP-OCRv6-Apache-2.0.txt",
+                "PP-OCRv6-models",
+            ),
+            (
+                bundle / "LICENSES" / "MODEL-NOTICE.md",
+                "PP-OCRv6-MODEL-NOTICE.md",
+                "PP-OCRv6-models",
+            ),
+        ]
+    )
     inventory: list[dict[str, str]] = []
     for source, filename, component in sources:
         destination = license_dir / filename
         shutil.copyfile(source, destination)
-        inventory.append({"component": component, "file": f"licenses/{filename}", "sha256": sha256(destination)})
+        inventory.append(
+            {
+                "component": component,
+                "file": f"licenses/{filename}",
+                "sha256": sha256(destination),
+            }
+        )
 
-    carotene_source = source_dir(build, "opencv") / "3rdparty" / "carotene" / "src" / "common.hpp"
+    carotene_source = (
+        source_dir(build, "opencv") / "3rdparty" / "carotene" / "src" / "common.hpp"
+    )
     text = carotene_source.read_text("utf-8")
     end = text.find("*/")
     if end < 0:
         raise RuntimeError("cannot extract Carotene license block")
     destination = license_dir / "opencv-carotene-BSD-3-Clause.txt"
     destination.write_text(text[: end + 2] + "\n", encoding="utf-8")
-    inventory.append({"component": "carotene", "file": f"licenses/{destination.name}", "sha256": sha256(destination)})
+    inventory.append(
+        {
+            "component": "carotene",
+            "file": f"licenses/{destination.name}",
+            "sha256": sha256(destination),
+        }
+    )
     return inventory
 
 
@@ -194,6 +294,19 @@ def main() -> int:
     output = arguments.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
     cache = cache_values(build / "CMakeCache.txt")
+    runtime_flavor = cache.get("LIGHT_OCR_ONNXRUNTIME_FLAVOR", "cpu")
+    webgpu_sdk = (
+        Path(cache["LIGHT_OCR_WEBGPU_SDK_DIR"]).resolve()
+        if runtime_flavor == "webgpu" and cache.get("LIGHT_OCR_WEBGPU_SDK_DIR")
+        else None
+    )
+    webgpu_manifest = None
+    if runtime_flavor == "webgpu":
+        if webgpu_sdk is None:
+            raise RuntimeError("WebGPU build metadata has no SDK directory")
+        webgpu_manifest = webgpu_runtime.validate_sdk(
+            webgpu_sdk, webgpu_runtime.load_lock()
+        )
     include_stb = (
         cache.get("LIGHT_OCR_BUILD_NODE") == "ON"
         or cache.get("LIGHT_OCR_BUILD_FUZZERS") == "ON"
@@ -208,10 +321,22 @@ def main() -> int:
     for path in build.rglob("*"):
         if not path.is_file() or "CMakeFiles" in path.parts or "_deps" in path.parts:
             continue
-        if path.name.startswith("light_ocr_") or "light_ocr_core" in path.name or "onnxruntime" in path.name:
+        if (
+            path.name.startswith("light_ocr_")
+            or "light_ocr_core" in path.name
+            or "onnxruntime" in path.name
+            or (
+                runtime_flavor == "webgpu"
+                and path.name in {"dxcompiler.dll", "dxil.dll"}
+            )
+        ):
             artifact_candidates.append(path)
     artifacts = [
-        {"path": str(path.relative_to(build)), "bytes": path.stat().st_size, "sha256": sha256(path)}
+        {
+            "path": str(path.relative_to(build)),
+            "bytes": path.stat().st_size,
+            "sha256": sha256(path),
+        }
         for path in sorted(artifact_candidates)
         if path.is_file()
     ]
@@ -237,7 +362,11 @@ def main() -> int:
         "schemaVersion": "1.0",
         "platformId": arguments.platform_id,
         "source": {"gitRevision": revision, "snapshot": source_snapshot()},
-        "host": {"system": platform.system(), "release": platform.release(), "machine": platform.machine()},
+        "host": {
+            "system": platform.system(),
+            "release": platform.release(),
+            "machine": platform.machine(),
+        },
         "toolchain": {
             "cmake": command(["cmake", "--version"]).splitlines()[0],
             "compilerPath": compiler,
@@ -251,75 +380,173 @@ def main() -> int:
             "systemProcessor": cache.get("CMAKE_SYSTEM_PROCESSOR", platform.machine()),
             "sysroot": sdk_path,
             "sdkVersion": sdk_version,
-            "deploymentTarget": cache.get("CMAKE_OSX_DEPLOYMENT_TARGET", cache.get("CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION", "")),
+            "deploymentTarget": cache.get(
+                "CMAKE_OSX_DEPLOYMENT_TARGET",
+                cache.get("CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION", ""),
+            ),
             "cxxFlags": {
                 "common": cache.get("CMAKE_CXX_FLAGS", ""),
                 "configuration": cache.get(f"CMAKE_CXX_FLAGS_{build_type.upper()}", ""),
             },
             "linkerFlags": {
                 "common": cache.get("CMAKE_EXE_LINKER_FLAGS", ""),
-                "configuration": cache.get(f"CMAKE_EXE_LINKER_FLAGS_{build_type.upper()}", ""),
+                "configuration": cache.get(
+                    f"CMAKE_EXE_LINKER_FLAGS_{build_type.upper()}", ""
+                ),
             },
         },
         "compileCommands": compile_commands(build),
         "locks": {
             "dependenciesSha256": sha256(dependency_lock_path),
             "bundlesSha256": sha256(bundle_lock_path),
+            **(
+                {
+                    "webgpuContractId": webgpu_manifest["contractId"],
+                    "webgpuArtifactSetSha256": webgpu_manifest["artifacts"][
+                        "artifactSetSha256"
+                    ],
+                    "webgpuManifestSha256": sha256(
+                        webgpu_sdk / "artifact-manifest.json"
+                    ),
+                }
+                if webgpu_manifest is not None and webgpu_sdk is not None
+                else {}
+            ),
         },
         "artifacts": artifacts,
     }
     archive_record = bundle_lock["bundles"][0]["bundleArchive"]
     archive_path = ROOT / "models" / "generated" / archive_record["filename"]
-    if not archive_path.is_file() or archive_path.stat().st_size != archive_record["bytes"] or sha256(archive_path) != archive_record["sha256"]:
-        raise RuntimeError("locked model bundle archive is missing or has the wrong identity")
+    if (
+        not archive_path.is_file()
+        or archive_path.stat().st_size != archive_record["bytes"]
+        or sha256(archive_path) != archive_record["sha256"]
+    ):
+        raise RuntimeError(
+            "locked model bundle archive is missing or has the wrong identity"
+        )
     manifest["modelBundleArchive"] = archive_record
     (output / "build-manifest.json").write_text(
-        json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8"
+        json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n",
+        encoding="utf-8",
     )
 
-    inventory = copy_licenses(build, output, include_stb)
+    inventory = copy_licenses(build, output, include_stb, webgpu_sdk)
     (output / "license-inventory.json").write_text(
-        json.dumps({"schemaVersion": "1.0", "files": inventory}, sort_keys=True, separators=(",", ":")) + "\n",
+        json.dumps(
+            {"schemaVersion": "1.0", "files": inventory},
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n",
         encoding="utf-8",
     )
 
     namespace_seed = hashlib.sha256(
         f"{arguments.platform_id}:{revision}:{sha256(dependency_lock_path)}".encode()
     ).hexdigest()
-    packages = [{
-        "name": "light-ocr-core", "SPDXID": "SPDXRef-Package-light-ocr-core",
-        "versionInfo": "0.1.0", "downloadLocation": "NOASSERTION", "filesAnalyzed": False,
-        "licenseConcluded": "Apache-2.0", "licenseDeclared": "Apache-2.0",
-        "copyrightText": "Copyright 2026 light-ocr contributors",
-    }]
+    packages = [
+        {
+            "name": "light-ocr-core",
+            "SPDXID": "SPDXRef-Package-light-ocr-core",
+            "versionInfo": "0.1.0",
+            "downloadLocation": "NOASSERTION",
+            "filesAnalyzed": False,
+            "licenseConcluded": "Apache-2.0",
+            "licenseDeclared": "Apache-2.0",
+            "copyrightText": "Copyright 2026 light-ocr contributors",
+        }
+    ]
     relationships: list[dict[str, str]] = []
     for record in dependency_lock["dependencies"]:
+        if runtime_flavor == "webgpu" and record.get("runtimeFlavor") == "cpu":
+            continue
         if record["name"] == "stb" and not include_stb:
             continue
         identifier = "SPDXRef-Package-" + record["name"].replace("_", "-")
         packages.append(spdx_package(identifier, record))
-        relationships.append({"spdxElementId": "SPDXRef-Package-light-ocr-core", "relationshipType": "DEPENDS_ON", "relatedSpdxElement": identifier})
+        relationships.append(
+            {
+                "spdxElementId": "SPDXRef-Package-light-ocr-core",
+                "relationshipType": "DEPENDS_ON",
+                "relatedSpdxElement": identifier,
+            }
+        )
         for component in record.get("buildOptions", {}).get("bundledComponents", []):
             component_id = "SPDXRef-Package-opencv-" + component["name"]
-            packages.append({
-                "name": component["name"], "SPDXID": component_id,
-                "versionInfo": component["version"], "downloadLocation": record["source"],
-                "filesAnalyzed": False, "licenseConcluded": component["license"],
-                "licenseDeclared": component["license"], "copyrightText": "NOASSERTION",
-            })
-            relationships.append({"spdxElementId": identifier, "relationshipType": "CONTAINS", "relatedSpdxElement": component_id})
+            packages.append(
+                {
+                    "name": component["name"],
+                    "SPDXID": component_id,
+                    "versionInfo": component["version"],
+                    "downloadLocation": record["source"],
+                    "filesAnalyzed": False,
+                    "licenseConcluded": component["license"],
+                    "licenseDeclared": component["license"],
+                    "copyrightText": "NOASSERTION",
+                }
+            )
+            relationships.append(
+                {
+                    "spdxElementId": identifier,
+                    "relationshipType": "CONTAINS",
+                    "relatedSpdxElement": component_id,
+                }
+            )
+
+    if webgpu_manifest is not None:
+        for record in webgpu_manifest["packages"]:
+            identifier = "SPDXRef-Package-" + record["name"].replace("_", "-")
+            packages.append(
+                {
+                    "name": record["id"],
+                    "SPDXID": identifier,
+                    "versionInfo": record["version"],
+                    "downloadLocation": record["source"],
+                    "filesAnalyzed": False,
+                    "checksums": [
+                        {"algorithm": "SHA512", "checksumValue": record["sha512"]}
+                    ],
+                    "licenseConcluded": "MIT",
+                    "licenseDeclared": "MIT",
+                    "copyrightText": "NOASSERTION",
+                }
+            )
+            relationships.append(
+                {
+                    "spdxElementId": "SPDXRef-Package-light-ocr-core",
+                    "relationshipType": "DEPENDS_ON",
+                    "relatedSpdxElement": identifier,
+                }
+            )
 
     bundle_record = bundle_lock["bundles"][0]
     model_id = "SPDXRef-Package-PP-OCRv6-small-models"
-    packages.append({
-        "name": "PP-OCRv6-small-ONNX-models", "SPDXID": model_id,
-        "versionInfo": bundle_record["bundleId"],
-        "downloadLocation": bundle_record["artifacts"][0]["url"], "filesAnalyzed": False,
-        "checksums": [{"algorithm": "SHA256", "checksumValue": bundle_record["bundleArchive"]["sha256"]}],
-        "licenseConcluded": bundle_record["license"]["spdx"],
-        "licenseDeclared": "Apache-2.0", "copyrightText": "NOASSERTION",
-    })
-    relationships.append({"spdxElementId": "SPDXRef-Package-light-ocr-core", "relationshipType": "DEPENDS_ON", "relatedSpdxElement": model_id})
+    packages.append(
+        {
+            "name": "PP-OCRv6-small-ONNX-models",
+            "SPDXID": model_id,
+            "versionInfo": bundle_record["bundleId"],
+            "downloadLocation": bundle_record["artifacts"][0]["url"],
+            "filesAnalyzed": False,
+            "checksums": [
+                {
+                    "algorithm": "SHA256",
+                    "checksumValue": bundle_record["bundleArchive"]["sha256"],
+                }
+            ],
+            "licenseConcluded": bundle_record["license"]["spdx"],
+            "licenseDeclared": "Apache-2.0",
+            "copyrightText": "NOASSERTION",
+        }
+    )
+    relationships.append(
+        {
+            "spdxElementId": "SPDXRef-Package-light-ocr-core",
+            "relationshipType": "DEPENDS_ON",
+            "relatedSpdxElement": model_id,
+        }
+    )
     revision_time = command(["git", "show", "-s", "--format=%cI", revision])
     if revision_time == "unavailable":
         raise RuntimeError("cannot determine the release commit timestamp")
@@ -331,12 +558,18 @@ def main() -> int:
         .replace("+00:00", "Z")
     )
     sbom = {
-        "spdxVersion": "SPDX-2.3", "dataLicense": "CC0-1.0", "SPDXID": "SPDXRef-DOCUMENT",
+        "spdxVersion": "SPDX-2.3",
+        "dataLicense": "CC0-1.0",
+        "SPDXID": "SPDXRef-DOCUMENT",
         "name": f"light-ocr-core-{arguments.platform_id}",
         "documentNamespace": f"https://light-ocr.invalid/spdx/{namespace_seed}",
-        "creationInfo": {"created": created, "creators": ["Tool: light-ocr-generate-release-metadata/1.0"]},
+        "creationInfo": {
+            "created": created,
+            "creators": ["Tool: light-ocr-generate-release-metadata/1.0"],
+        },
         "documentDescribes": ["SPDXRef-Package-light-ocr-core"],
-        "packages": packages, "relationships": relationships,
+        "packages": packages,
+        "relationships": relationships,
     }
     (output / "sbom.spdx.json").write_text(
         json.dumps(sbom, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8"

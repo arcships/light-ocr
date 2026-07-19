@@ -1,9 +1,12 @@
 #pragma once
 
+#include <cstdint>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace light_ocr {
 
@@ -23,13 +26,55 @@ enum class ErrorCode {
   internal_error,
 };
 
+enum class CreationReason {
+  adapter_unavailable,
+  model_compute_unsupported,
+  device_memory_insufficient,
+  driver_version_unsupported,
+  package_corrupt,
+  artifact_hash_mismatch,
+  provider_abi_mismatch,
+  internal_assertion_failed,
+  unrecoverable_load_failed,
+};
+
+enum class CreationAttemptStatus { selected, skipped, fatal };
+
+struct CreationAttempt {
+  std::string provider;
+  CreationAttemptStatus status = CreationAttemptStatus::fatal;
+  std::optional<CreationReason> creation_reason;
+  std::optional<ErrorCode> error_code;
+};
+
+struct CreationTrace {
+  std::string requested_provider;
+  std::optional<std::string> policy_id;
+  std::optional<std::uint32_t> policy_version;
+  std::vector<std::string> ordered_candidates;
+  std::vector<CreationAttempt> attempts;
+  std::optional<std::string> selected_provider;
+};
+
 struct Error {
+  Error() = default;
+  Error(ErrorCode error_code, std::string error_message,
+        std::string error_detail = {},
+        std::optional<CreationTrace> trace = std::nullopt)
+      : code(error_code),
+        message(std::move(error_message)),
+        detail(std::move(error_detail)),
+        creation_trace(std::move(trace)) {}
+
   ErrorCode code = ErrorCode::internal_error;
   std::string message;
   std::string detail;
+  std::optional<CreationTrace> creation_trace;
 };
 
 const char* to_string(ErrorCode code) noexcept;
+const char* to_string(CreationReason reason) noexcept;
+const char* to_string(CreationAttemptStatus status) noexcept;
 
 template <class T>
 class Result {

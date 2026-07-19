@@ -13,6 +13,7 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <system_error>
@@ -71,6 +72,11 @@ template <class T>
 Result<T> failure(ErrorCode code, const char* message,
                   std::string detail = {}) {
   return Result<T>::failure(Error{code, message, std::move(detail)});
+}
+
+void set_creation_reason(std::optional<CreationReason>* output,
+                         CreationReason reason) {
+  if (output != nullptr) *output = reason;
 }
 
 std::string ns_string(NSString* value) {
@@ -680,9 +686,13 @@ CoreMlSession::CoreMlSession(std::unique_ptr<Impl> impl,
 CoreMlSession::~CoreMlSession() noexcept = default;
 
 Result<std::unique_ptr<CoreMlSession>> CoreMlSession::create(
-    const InferenceSessionConfig& config, ModelKind kind) {
+    const InferenceSessionConfig& config, ModelKind kind,
+    std::optional<CreationReason>* creation_reason) {
+  if (creation_reason != nullptr) creation_reason->reset();
   try {
     if (!coreml_device_available()) {
+      set_creation_reason(creation_reason,
+                          CreationReason::adapter_unavailable);
       return failure<std::unique_ptr<CoreMlSession>>(
           ErrorCode::unsupported_capability,
           "The Apple provider requires macOS 15 or newer");
@@ -693,6 +703,8 @@ Result<std::unique_ptr<CoreMlSession>> CoreMlSession::create(
         config.device_id || config.performance_hint != PerformanceHint::latency ||
         config.model_id.empty() || config.model_sha256.size() != 64 ||
         config.shape_policy.empty()) {
+      set_creation_reason(creation_reason,
+                          CreationReason::internal_assertion_failed);
       return failure<std::unique_ptr<CoreMlSession>>(
           ErrorCode::invalid_argument,
           "Apple Core ML session options are invalid");
@@ -701,12 +713,16 @@ Result<std::unique_ptr<CoreMlSession>> CoreMlSession::create(
             config.apple_package->device_policy,
             config.apple_package->architectures,
             config.apple_package->validated_device_families)) {
+      set_creation_reason(creation_reason,
+                          CreationReason::model_compute_unsupported);
       return failure<std::unique_ptr<CoreMlSession>>(
           ErrorCode::unsupported_capability,
           "The Apple provider device policy does not allow this Mac");
     }
     if (!coreml_device_has_neural_engine() &&
         config.cpu_partition == CpuPartition::forbid) {
+      set_creation_reason(creation_reason,
+                          CreationReason::model_compute_unsupported);
       return failure<std::unique_ptr<CoreMlSession>>(
           ErrorCode::invalid_argument,
           "Intel Mac requires cpuPartition=allow for Core ML CPU+GPU routing");

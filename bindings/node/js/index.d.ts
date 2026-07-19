@@ -3,10 +3,11 @@
 export type PixelFormat = 'gray8' | 'rgb8' | 'bgr8' | 'rgba8';
 export type DetectionStrategy = 'bounded' | 'tiled' | 'upstreamExact';
 export type BuiltInModel = 'ppocrv6-small';
-export type ExecutionProvider = 'cpu' | 'apple';
+export type ExecutionProvider = 'auto' | 'cpu' | 'apple' | 'webgpu';
 export type SessionFallback = 'error' | 'cpu';
 export type CpuPartition = 'allow' | 'forbid';
 export type PerformanceHint = 'latency' | 'throughput';
+/** WebGPU accepts auto/fp32; fp16 is reserved for the Apple provider. */
 export type Precision = 'auto' | 'fp32' | 'fp16';
 
 export interface DetectionOptions {
@@ -167,6 +168,26 @@ export interface SessionExecutionInfo {
   readonly sessionFallback: boolean;
   readonly fallbackReason?: string;
 }
+export type CreationReason =
+  | 'adapter_unavailable' | 'model_compute_unsupported'
+  | 'device_memory_insufficient' | 'driver_version_unsupported'
+  | 'package_corrupt' | 'artifact_hash_mismatch' | 'provider_abi_mismatch'
+  | 'internal_assertion_failed' | 'unrecoverable_load_failed';
+export type CreationAttemptStatus = 'selected' | 'skipped' | 'fatal';
+export interface CreationAttempt {
+  readonly provider: string;
+  readonly status: CreationAttemptStatus;
+  readonly creationReason?: CreationReason;
+  readonly errorCode?: CoreErrorCode;
+}
+export interface CreationTrace {
+  readonly requestedProvider: string;
+  readonly policyId?: string;
+  readonly policyVersion?: number;
+  readonly orderedCandidates: readonly string[];
+  readonly attempts: readonly CreationAttempt[];
+  readonly selectedProvider?: string;
+}
 export interface ExecutionInfo {
   readonly requestedProvider: ExecutionProvider;
   readonly sessionFallback: SessionFallback;
@@ -175,6 +196,7 @@ export interface ExecutionInfo {
   readonly performanceHint: PerformanceHint;
   readonly requestedPrecision: Precision;
   readonly providerCapabilities: readonly ProviderCapabilityInfo[];
+  readonly selectionTrace: CreationTrace;
   readonly sessions: {
     readonly detection: SessionExecutionInfo;
     readonly recognition: SessionExecutionInfo;
@@ -227,6 +249,7 @@ export class OcrError extends Error {
   readonly name: 'OcrError';
   readonly code: OcrErrorCode;
   readonly detail?: string;
+  readonly creationTrace?: CreationTrace;
 }
 
 export interface OcrEngine {

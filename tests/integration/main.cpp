@@ -13,10 +13,37 @@
 #include <opencv2/imgproc.hpp>
 
 #include "common/bundle_files.hpp"
+#include "core/engine_factory.hpp"
 #include "inference/onnxruntime/backend.hpp"
 #include "light_ocr/core.hpp"
 
 int main() {
+  try {
+    Ort::SessionOptions webgpu_options;
+    light_ocr::internal::add_webgpu_session_config_entries(webgpu_options);
+    const std::vector<std::pair<const char*, const char*>> expected_webgpu_config{
+#if defined(_WIN32)
+        {"ep.webgpuexecutionprovider.dawnBackendType", "D3D12"},
+#else
+        {"ep.webgpuexecutionprovider.dawnBackendType", "Vulkan"},
+#endif
+        {"ep.webgpuexecutionprovider.preferredLayout", "NHWC"},
+        {"ep.webgpuexecutionprovider.enableGraphCapture", "0"},
+        {"ep.webgpuexecutionprovider.validationMode", "basic"},
+        {"ep.webgpuexecutionprovider.powerPreference", "high-performance"},
+    };
+    for (const auto& entry : expected_webgpu_config) {
+      if (!webgpu_options.HasConfigEntry(entry.first) ||
+          webgpu_options.GetConfigEntry(entry.first) != entry.second) {
+        std::cerr << "WebGPU session config entry mismatch: " << entry.first << '\n';
+        return 1;
+      }
+    }
+  } catch (const std::exception& exception) {
+    std::cerr << "failed to inspect WebGPU session config: " << exception.what() << '\n';
+    return 1;
+  }
+
   const char* bundle_path = std::getenv("LIGHT_OCR_MODEL_BUNDLE");
   if (bundle_path == nullptr || bundle_path[0] == '\0') {
     std::cout << "SKIP LIGHT_OCR_MODEL_BUNDLE is not set\n";
@@ -39,6 +66,7 @@ int main() {
     detection_config.model_id = "integration-detection";
     detection_config.model_sha256 = std::string(64, '0');
     detection_config.shape_policy = "dynamic";
+    detection_config.qualification_id = "integration-cpu-v1";
     auto recognition_config = detection_config;
     recognition_config.model_id = "integration-recognition";
     auto corrupt_session = light_ocr::internal::OnnxSession::create(
@@ -85,7 +113,19 @@ int main() {
                 << bundle.error().message << ": " << bundle.error().detail << '\n';
       return 1;
     }
-    auto engine = light_ocr::Engine::create(std::move(bundle).value());
+    const auto builtin_policy = light_ocr::internal::builtin_runtime_policy();
+    const bool webgpu_runtime =
+        std::find(builtin_policy.available_providers.begin(),
+                  builtin_policy.available_providers.end(), "webgpu") !=
+        builtin_policy.available_providers.end();
+    light_ocr::EngineOptions integration_options;
+    if (webgpu_runtime) {
+      // The ordinary integration suite is hardware-independent. Direct C++
+      // Auto is exercised by the real-device WebGPU qualification runner.
+      integration_options.execution.provider = light_ocr::ExecutionProvider::cpu;
+    }
+    auto engine = light_ocr::Engine::create(std::move(bundle).value(),
+                                            integration_options);
     if (!engine) {
       std::cerr << "engine: " << light_ocr::to_string(engine.error().code) << ": "
                 << engine.error().message << ": " << engine.error().detail << '\n';
@@ -99,16 +139,49 @@ int main() {
       return 1;
     }
     const auto& execution = engine.value()->info().execution;
-    if (execution.requested_provider != light_ocr::ExecutionProvider::cpu ||
+    const bool cpu_capability_valid =
+        !execution.provider_capabilities.empty() &&
+        execution.provider_capabilities[0].provider == "cpu" &&
+        execution.provider_capabilities[0].package_included &&
+        execution.provider_capabilities[0].device_available &&
+        execution.provider_capabilities[0].device_validated;
+    const bool provider_capabilities_valid =
+        cpu_capability_valid &&
+        (webgpu_runtime
+             ? execution.provider_capabilities.size() == 2 &&
+                   execution.provider_capabilities[1].provider == "webgpu" &&
+                   execution.provider_capabilities[1].package_included &&
+                   !execution.provider_capabilities[1].device_available &&
+                   !execution.provider_capabilities[1].device_validated
+             : execution.provider_capabilities.size() == 1);
+    const auto expected_requested =
+        webgpu_runtime ? light_ocr::ExecutionProvider::cpu
+                       : light_ocr::ExecutionProvider::automatic;
+    const auto expected_policy_id =
+        webgpu_runtime ? std::optional<std::string>{}
+                       : std::optional<std::string>{"builtin-cpu-v1"};
+    const auto expected_policy_version =
+        webgpu_runtime ? std::optional<std::uint32_t>{}
+                       : std::optional<std::uint32_t>{1};
+    if (execution.requested_provider != expected_requested ||
+        execution.selection_trace.requested_provider !=
+            (webgpu_runtime ? "cpu" : "auto") ||
+        execution.selection_trace.policy_id != expected_policy_id ||
+        execution.selection_trace.policy_version !=
+            expected_policy_version ||
+        execution.selection_trace.ordered_candidates !=
+            std::vector<std::string>{"cpu"} ||
+        execution.selection_trace.attempts.size() != 1 ||
+        execution.selection_trace.attempts.front().provider != "cpu" ||
+        execution.selection_trace.attempts.front().status !=
+            light_ocr::CreationAttemptStatus::selected ||
+        execution.selection_trace.selected_provider !=
+            std::optional<std::string>{"cpu"} ||
         execution.session_fallback != light_ocr::SessionFallback::error ||
         execution.cpu_partition != light_ocr::CpuPartition::allow ||
         execution.performance_hint != light_ocr::PerformanceHint::latency ||
         execution.requested_precision != light_ocr::Precision::automatic ||
-        execution.provider_capabilities.size() != 1 ||
-        execution.provider_capabilities.front().provider != "cpu" ||
-        !execution.provider_capabilities.front().package_included ||
-        !execution.provider_capabilities.front().device_available ||
-        !execution.provider_capabilities.front().device_validated ||
+        !provider_capabilities_valid ||
         execution.detection.actual_provider_chain !=
             std::vector<std::string>{"CPUExecutionProvider"} ||
         execution.recognition.actual_provider_chain !=
@@ -117,13 +190,15 @@ int main() {
         execution.recognition.model_id != "PP-OCRv6_small_rec_onnx" ||
         execution.detection.model_sha256.size() != 64 ||
         execution.recognition.model_sha256.size() != 64 ||
+        execution.detection.qualification_id != "builtin-cpu-v1" ||
+        execution.recognition.qualification_id != "builtin-cpu-v1" ||
         !execution.detection.device_validated ||
         !execution.recognition.device_validated ||
         execution.detection.precision != "fp32" ||
         execution.recognition.shape_policy != "dynamic" ||
         execution.detection.session_fallback ||
         execution.detection.fallback_reason.has_value()) {
-      std::cerr << "default CPU execution summary is invalid\n";
+      std::cerr << "hardware-independent CPU execution summary is invalid\n";
       return 1;
     }
     const std::uint8_t tiny_pixel = 255;
@@ -272,13 +347,14 @@ int main() {
       return 1;
     }
 
-    auto make_engine = [&bundle_files]() {
+    auto make_engine = [&bundle_files, &integration_options]() {
       auto next_bundle = light_ocr::ModelBundle::create(bundle_files);
       if (!next_bundle) {
         return light_ocr::Result<std::unique_ptr<light_ocr::Engine>>::failure(
             next_bundle.error());
       }
-      return light_ocr::Engine::create(std::move(next_bundle).value());
+      return light_ocr::Engine::create(std::move(next_bundle).value(),
+                                       integration_options);
     };
     auto first = make_engine();
     auto second = make_engine();
@@ -306,7 +382,7 @@ int main() {
     }
 
     auto invalid_bundle = light_ocr::ModelBundle::create(bundle_files);
-    light_ocr::EngineOptions invalid_options;
+    light_ocr::EngineOptions invalid_options = integration_options;
     invalid_options.intra_op_threads = 0;
     auto invalid_engine = light_ocr::Engine::create(
         std::move(invalid_bundle).value(), invalid_options);
@@ -316,7 +392,7 @@ int main() {
     }
 
     auto invalid_execution_bundle = light_ocr::ModelBundle::create(bundle_files);
-    light_ocr::EngineOptions invalid_execution_options;
+    light_ocr::EngineOptions invalid_execution_options = integration_options;
     invalid_execution_options.execution.device_id = 0;
     auto invalid_execution_engine = light_ocr::Engine::create(
         std::move(invalid_execution_bundle).value(), invalid_execution_options);
@@ -328,7 +404,7 @@ int main() {
     }
 
     auto exact_bundle = light_ocr::ModelBundle::create(bundle_files);
-    light_ocr::EngineOptions exact_options;
+    light_ocr::EngineOptions exact_options = integration_options;
     exact_options.detection.strategy = light_ocr::DetectionStrategy::upstream_exact;
     exact_options.recognition_batch_size = 8;
     auto exact_engine = light_ocr::Engine::create(
@@ -344,7 +420,7 @@ int main() {
     exact_engine.value()->close();
 
     auto tiled_bundle = light_ocr::ModelBundle::create(bundle_files);
-    light_ocr::EngineOptions tiled_options;
+    light_ocr::EngineOptions tiled_options = integration_options;
     tiled_options.detection.strategy = light_ocr::DetectionStrategy::tiled;
     auto tiled_engine = light_ocr::Engine::create(
         std::move(tiled_bundle).value(), tiled_options);

@@ -12,6 +12,28 @@
         "bytes": 31334400,
         "sha256": "e543b93bc4882f35b1564a71961e5bc55439ede6c2f33b4166acc15e6348712f"
       },
+      "providerArtifacts": {
+        "webgpuFp16": {
+          "artifactId": "webgpu-fp16-20260719.1",
+          "conversionId": "onnxruntime-float16-1.24.4-20260719.1",
+          "directory": "models/derived/webgpu-fp16-20260719.1",
+          "provenance": {
+            "path": "provenance.json",
+            "bytes": 1790,
+            "sha256": "3ace9d0c0ead2d94971bdaaa1cafee32cfacf3718f2e0c7c651b9a22a0ecd58b"
+          },
+          "detection": {
+            "path": "det/inference.onnx",
+            "bytes": 4973761,
+            "sha256": "2f0463ba51af55a9f49cae1f18cf905c578d4752236c30456325c817d8e47a1b"
+          },
+          "recognition": {
+            "path": "rec/inference.onnx",
+            "bytes": 10624002,
+            "sha256": "f6ee9c86013fdd02cf9dfdf311813e1f2fe56e83d2b5f12994617dfa05d3b9cb"
+          }
+        }
+      },
       "artifacts": [
         {
           "name": "detection",

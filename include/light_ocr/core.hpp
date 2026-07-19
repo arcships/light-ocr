@@ -19,6 +19,7 @@ struct BundleFile {
 
 namespace internal {
 struct BundleData;
+class EngineFactory;
 class StageProbe;
 }
 
@@ -41,6 +42,7 @@ class ModelBundle {
   std::shared_ptr<const internal::BundleData> data_;
 
   friend class Engine;
+  friend class internal::EngineFactory;
   friend class internal::StageProbe;
 };
 

@@ -27,15 +27,23 @@ jobs:
           - id: macos-arm64
             runner: macos-15
             executable_suffix: ""
+            binary_dir: build-qualification/bin
+            node_runtime_dir: build-qualification/node-runtime
           - id: macos-x64
             runner: macos-15-intel
             executable_suffix: ""
+            binary_dir: build-qualification/bin
+            node_runtime_dir: build-qualification/node-runtime
           - id: linux-x64
             runner: ubuntu-24.04
             executable_suffix: ""
+            binary_dir: build-qualification/bin
+            node_runtime_dir: build-qualification/node-runtime
           - id: windows-x64
             runner: windows-2022
             executable_suffix: ".exe"
+            binary_dir: build-qualification/bin/Release
+            node_runtime_dir: build-qualification/node-runtime/Release
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 180
     steps:
@@ -123,8 +131,9 @@ jobs:
           bundle="$PWD/models/generated/ppocrv6-small-onnx-20260714.2"
           root="$PWD/reports/qualification/${{ matrix.id }}"
           executable="${{ matrix.executable_suffix }}"
+          binary_dir="${{ matrix.binary_dir }}"
           fixture_root="$PWD/corpus/tiled-v1/fixtures"
-          ./build-qualification/bin/light_ocr_leak_check${executable} \
+          ./${binary_dir}/light_ocr_leak_check${executable} \
             --bundle "$bundle" \
             --pixels "$fixture_root/tiled-four-way-intersection-2048/pixels.bin" \
             --width 2048 --height 2048 --stride 6144 --format bgr8 \
@@ -136,14 +145,14 @@ jobs:
             tiled-four-way-intersection-2048
           do
             python oracle/run_tiled_benchmark.py \
-              --native-benchmark "build-qualification/bin/light_ocr_benchmark${executable}" \
+              --native-benchmark "${binary_dir}/light_ocr_benchmark${executable}" \
               --bundle "$bundle" \
               --fixture "$fixture_root/$fixture/fixture.json" \
               --platform-id "${{ matrix.id }}" \
               --build-metadata "$root/build-manifest.json" \
               --report "$root/core/$fixture.json"
             for diagnostics in on off; do
-              ./build-qualification/bin/light_ocr_memory_gate${executable} \
+              ./${binary_dir}/light_ocr_memory_gate${executable} \
                 --bundle "$bundle" \
                 --pixels "$fixture_root/$fixture/pixels.bin" \
                 --width 2048 --height 2048 --stride 6144 --format bgr8 \
@@ -156,7 +165,8 @@ jobs:
       - name: Capture Node 22 latency and peak reports
         shell: bash
         env:
-          LIGHT_OCR_NODE_BINARY: ${{ github.workspace }}/build-qualification/bin/light_ocr_node.node
+          LIGHT_OCR_NODE_BINARY: ${{ github.workspace }}/${{ matrix.node_runtime_dir }}/native/light_ocr_node.node
+          LIGHT_OCR_RUNTIME_DESCRIPTOR: ${{ github.workspace }}/${{ matrix.node_runtime_dir }}/native/runtime-descriptor.json
           LIGHT_OCR_MODEL_BUNDLE: ${{ github.workspace }}/models/generated/ppocrv6-small-onnx-20260714.2
         run: |
           set -euo pipefail
@@ -182,7 +192,8 @@ jobs:
       - name: Capture Node 24 latency and peak reports
         shell: bash
         env:
-          LIGHT_OCR_NODE_BINARY: ${{ github.workspace }}/build-qualification/bin/light_ocr_node.node
+          LIGHT_OCR_NODE_BINARY: ${{ github.workspace }}/${{ matrix.node_runtime_dir }}/native/light_ocr_node.node
+          LIGHT_OCR_RUNTIME_DESCRIPTOR: ${{ github.workspace }}/${{ matrix.node_runtime_dir }}/native/runtime-descriptor.json
           LIGHT_OCR_MODEL_BUNDLE: ${{ github.workspace }}/models/generated/ppocrv6-small-onnx-20260714.2
         run: |
           set -euo pipefail

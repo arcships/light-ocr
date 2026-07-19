@@ -51,12 +51,15 @@ inline PixelFormat parse_format(const std::string& value) {
 inline EngineOptions engine_options_for_profile(const std::string& profile) {
   EngineOptions options;
   if (profile == "cpu_fast") {
+    options.execution.provider = ExecutionProvider::cpu;
     options.intra_op_threads = std::max(
         1u, std::min(12u, std::thread::hardware_concurrency()));
   } else if (profile == "upstream_exact") {
+    options.execution.provider = ExecutionProvider::cpu;
     options.detection.strategy = DetectionStrategy::upstream_exact;
     options.recognition_batch_size = 8;
   } else if (profile == "tiled_v1") {
+    options.execution.provider = ExecutionProvider::cpu;
     options.detection.strategy = DetectionStrategy::tiled;
   } else if (profile == "apple_interactive" ||
              profile == "apple_strict" ||
@@ -69,6 +72,14 @@ inline EngineOptions engine_options_for_profile(const std::string& profile) {
         profile == "apple_strict" ? CpuPartition::forbid
                                    : CpuPartition::allow;
     options.execution.precision = Precision::fp16;
+    options.detection.strategy = DetectionStrategy::bounded;
+    options.recognition_batch_size = 1;
+  } else if (profile == "webgpu_allow" || profile == "webgpu_strict") {
+    options.execution.provider = ExecutionProvider::webgpu;
+    options.execution.cpu_partition =
+        profile == "webgpu_strict" ? CpuPartition::forbid
+                                    : CpuPartition::allow;
+    options.execution.precision = Precision::fp32;
     options.detection.strategy = DetectionStrategy::bounded;
     options.recognition_batch_size = 1;
   }
@@ -119,10 +130,13 @@ inline Arguments parse_arguments(int argc, char** argv, bool benchmark) {
       result.profile != "bounded_default" && result.profile != "runtime_default" &&
       result.profile != "tiled_v1" && result.profile != "apple_interactive" &&
       result.profile != "apple_strict" &&
-      result.profile != "apple_cpu_fallback") {
+      result.profile != "apple_cpu_fallback" &&
+      result.profile != "webgpu_allow" &&
+      result.profile != "webgpu_strict") {
     throw std::runtime_error(
         "profile must be upstream_exact, cpu_fast, bounded_default, runtime_default, "
-        "tiled_v1, apple_interactive, apple_strict, or apple_cpu_fallback");
+        "tiled_v1, apple_interactive, apple_strict, apple_cpu_fallback, "
+        "webgpu_allow, or webgpu_strict");
   }
   if (result.diagnostics_mode != "on" && result.diagnostics_mode != "off") {
     throw std::runtime_error("diagnostics-mode must be on or off");

@@ -1,0 +1,185 @@
+name: native webgpu
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-webgpu-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: ${{ matrix.id }} contract
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: linux-x64
+            runner: ubuntu-24.04
+            node_runtime: build-webgpu/node-runtime/native
+          - id: windows-x64
+            runner: windows-2022
+            node_runtime: build-webgpu/node-runtime/Release/native
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - name: Validate contract unit tests
+        run: >-
+          python -m unittest
+          tests.python.test_webgpu_runtime
+          tests.python.test_webgpu_models
+          tests.python.test_npm_release
+          tests.python.test_webgpu_qualification
+          tests.python.test_webgpu_report_review
+      - name: Validate the checked-in real-device report pair
+        if: matrix.id == 'linux-x64'
+        shell: bash
+        run: >-
+          python tools/webgpu/review_reports.py
+          --reports-root reports/webgpu-qualification
+          --output "$RUNNER_TEMP/webgpu-review-candidate.json"
+      - name: Bootstrap common dependencies and model
+        shell: bash
+        run: |
+          python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies
+          python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies --offline
+          python tools/bootstrap_models.py --cache-dir .cache/models
+          python tools/package_model_bundle.py
+          python tools/webgpu/package_bundle.py
+      - name: Reproduce the locked internal FP16 derivations (Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          python -m pip install --require-hashes -r tools/webgpu/requirements.lock
+          python tools/webgpu/convert_models.py \
+            --output .cache/reproduced/webgpu-fp16-20260719.1
+          cmp models/derived/webgpu-fp16-20260719.1/det/inference.onnx \
+            .cache/reproduced/webgpu-fp16-20260719.1/det/inference.onnx
+          cmp models/derived/webgpu-fp16-20260719.1/rec/inference.onnx \
+            .cache/reproduced/webgpu-fp16-20260719.1/rec/inference.onnx
+          cmp models/derived/webgpu-fp16-20260719.1/provenance.json \
+            .cache/reproduced/webgpu-fp16-20260719.1/provenance.json
+      - name: Assemble and revalidate the locked SDK
+        shell: bash
+        run: |
+          python tools/webgpu/build_runtime.py \
+            --platform "${{ matrix.id }}" \
+            --package-cache .cache/webgpu-packages \
+            --output-dir "dist/webgpu-sdk/${{ matrix.id }}"
+          python tools/webgpu/build_runtime.py \
+            --validate-sdk "dist/webgpu-sdk/${{ matrix.id }}"
+          python tools/webgpu/build_runtime.py \
+            --platform "${{ matrix.id }}" \
+            --offline \
+            --package-cache .cache/webgpu-packages \
+            --output-dir "dist/webgpu-sdk-offline/${{ matrix.id }}"
+      - name: Install Node development files (Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          node_version="$(node -p process.versions.node)"
+          npx --yes node-gyp@11.4.2 install "$node_version" --devdir "$PWD/.cache/node-gyp"
+          node_root="$PWD/.cache/node-gyp/$node_version"
+          test -f "$node_root/include/node/node_api.h"
+          echo "NODE_INCLUDE_DIR=$node_root/include/node" >> "$GITHUB_ENV"
+      - name: Install Node development files (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $nodeVersion = node -p process.versions.node
+          $devDir = Join-Path $env:GITHUB_WORKSPACE ".cache/node-gyp"
+          npx --yes node-gyp@11.4.2 install $nodeVersion --devdir $devDir
+          $nodeRoot = Join-Path $devDir $nodeVersion
+          $headers = Join-Path $nodeRoot "include/node"
+          $library = Get-ChildItem $nodeRoot -Recurse -Filter node.lib | Select-Object -First 1
+          if (-not (Test-Path (Join-Path $headers "node_api.h")) -or $null -eq $library) {
+            throw "Verified Node development files are incomplete"
+          }
+          "NODE_INCLUDE_DIR=$headers" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "NODE_LIBRARY=$($library.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Configure WebGPU qualification build (Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: >-
+          cmake -S . -B build-webgpu -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
+          -DLIGHT_OCR_ONNXRUNTIME_FLAVOR=webgpu
+          -DLIGHT_OCR_WEBGPU_SDK_DIR="$PWD/dist/webgpu-sdk/${{ matrix.id }}"
+          -DLIGHT_OCR_WEBGPU_QUALIFICATION_BUILD=ON
+          -DLIGHT_OCR_BUILD_NODE=ON
+          -DLIGHT_OCR_BUILD_TESTS=ON
+          -DLIGHT_OCR_BUILD_TOOLS=ON
+          -DLIGHT_OCR_NODE_INCLUDE_DIR="$NODE_INCLUDE_DIR"
+          -DLIGHT_OCR_NODE_EXECUTABLE="$(command -v node)"
+      - name: Configure WebGPU qualification build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: >-
+          cmake -S . -B build-webgpu -G "Visual Studio 17 2022" -A x64
+          "-DLIGHT_OCR_DEPENDENCY_CACHE_DIR=$env:GITHUB_WORKSPACE/.cache/dependencies"
+          -DLIGHT_OCR_ONNXRUNTIME_FLAVOR=webgpu
+          "-DLIGHT_OCR_WEBGPU_SDK_DIR=$env:GITHUB_WORKSPACE/dist/webgpu-sdk/${{ matrix.id }}"
+          -DLIGHT_OCR_WEBGPU_QUALIFICATION_BUILD=ON
+          -DLIGHT_OCR_BUILD_NODE=ON
+          -DLIGHT_OCR_BUILD_TESTS=ON
+          -DLIGHT_OCR_BUILD_TOOLS=ON
+          "-DLIGHT_OCR_NODE_INCLUDE_DIR=$env:NODE_INCLUDE_DIR"
+          "-DLIGHT_OCR_NODE_LIBRARY=$env:NODE_LIBRARY"
+          "-DLIGHT_OCR_NODE_EXECUTABLE=$((Get-Command node).Source)"
+      - name: Compile, link, and run hardware-independent tests
+        shell: bash
+        run: |
+          cmake --build build-webgpu --config Release --parallel
+          ctest --test-dir build-webgpu -C Release --output-on-failure -LE node
+      - name: Verify the staged addon and descriptor from a sterile directory
+        shell: bash
+        env:
+          LIGHT_OCR_NODE_BINARY: ${{ github.workspace }}/${{ matrix.node_runtime }}/light_ocr_node.node
+          LIGHT_OCR_RUNTIME_DESCRIPTOR: ${{ github.workspace }}/${{ matrix.node_runtime }}/runtime-descriptor.json
+        run: |
+          sterile="$(mktemp -d)"
+          cd "$sterile"
+          node -e "const x=require(process.env.GITHUB_WORKSPACE+'/bindings/node/js/load-native.cjs').loadNative(); console.log(JSON.stringify(x.binding.runtimeContract))"
+      - name: Generate license, SBOM, and native package input
+        shell: bash
+        run: |
+          python tools/generate_release_metadata.py \
+            --build-dir build-webgpu \
+            --configuration Release \
+            --platform-id "${{ matrix.id }}" \
+            --output-dir "reports/webgpu/${{ matrix.id }}"
+          python tools/npm_release.py stage-native \
+            --platform-id "${{ matrix.id }}" \
+            --build-dir build-webgpu \
+            --configuration Release \
+            --metadata-dir "reports/webgpu/${{ matrix.id }}" \
+            --output-dir "dist/webgpu-native/${{ matrix.id }}" \
+            --runtime-flavor webgpu \
+            --webgpu-artifact-manifest "dist/webgpu-sdk/${{ matrix.id }}/artifact-manifest.json" \
+            --qualification-build
+          LIGHT_OCR_NODE_BINARY="$PWD/dist/webgpu-native/${{ matrix.id }}/native/light_ocr_node.node" \
+          LIGHT_OCR_RUNTIME_DESCRIPTOR="$PWD/dist/webgpu-native/${{ matrix.id }}/native/runtime-descriptor.json" \
+          node -e "const x=require('./bindings/node/js/load-native.cjs').loadNative(); console.log(JSON.stringify(x.runtimePolicy))"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-webgpu-${{ matrix.id }}
+          path: |
+            dist/webgpu-sdk/${{ matrix.id }}
+            dist/webgpu-native/${{ matrix.id }}
+            reports/webgpu/${{ matrix.id }}
+          if-no-files-found: error
+          retention-days: 30

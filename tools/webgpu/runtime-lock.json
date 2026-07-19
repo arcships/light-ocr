@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 2,
+  "contractId": "native-webgpu-plugin-0.1.0-ort-1.24.4-v1",
+  "topology": {
+    "kind": "plugin-ep",
+    "coreRuntime": "onnxruntime",
+    "providers": [
+      "cpu",
+      "webgpu"
+    ],
+    "providerName": "WebGpuExecutionProvider",
+    "registrationName": "light-ocr-webgpu",
+    "webgpuImplementation": "Dawn Native"
+  },
+  "packages": {
+    "onnxruntime": {
+      "id": "Microsoft.ML.OnnxRuntime",
+      "version": "1.24.4",
+      "filename": "microsoft.ml.onnxruntime.1.24.4.nupkg",
+      "source": "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.24.4/microsoft.ml.onnxruntime.1.24.4.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.03.21.08.32.20/microsoft.ml.onnxruntime.1.24.4.json",
+      "bytes": 125194303,
+      "sha512": "f5dd415dfcafcb3a7461f10a08f0337ea22c1ba8f8af81316daabf7496075add181aecb0de3cabebebdb9f5da3afbe507480aaf34b76e1189409088ccc5c2eac",
+      "license": "MIT"
+    },
+    "webgpu": {
+      "id": "Microsoft.ML.OnnxRuntime.EP.WebGpu",
+      "version": "0.1.0",
+      "filename": "microsoft.ml.onnxruntime.ep.webgpu.0.1.0.nupkg",
+      "source": "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime.ep.webgpu/0.1.0/microsoft.ml.onnxruntime.ep.webgpu.0.1.0.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.05.27.20.11.11/microsoft.ml.onnxruntime.ep.webgpu.0.1.0.json",
+      "bytes": 33754099,
+      "sha512": "d048cfb4a687d82547338cdf36649c95dfac0a254a752e2e53b5f2faeccfacf4e7b2ed3125e03e5f58bc1c23c6c7cbe356fa513c99b3ad217f491ac1c80bb92a",
+      "license": "MIT",
+      "upstreamTag": "plugin-ep-webgpu/v0.1.0",
+      "upstreamCommit": "d2ede0adeb300958cfb5a256c09d27c66c3a6d71",
+      "minimumOnnxRuntimeVersion": "1.24.4"
+    }
+  },
+  "headers": [
+    "onnxruntime_c_api.h",
+    "onnxruntime_cxx_api.h",
+    "onnxruntime_cxx_inline.h",
+    "onnxruntime_env_config_keys.h",
+    "onnxruntime_ep_c_api.h",
+    "onnxruntime_ep_device_ep_metadata_keys.h",
+    "onnxruntime_float16.h",
+    "onnxruntime_run_options_config_keys.h",
+    "onnxruntime_session_options_config_keys.h"
+  ],
+  "platforms": {
+    "linux-x64": {
+      "operatingSystem": "linux",
+      "architecture": "x86_64",
+      "libc": "glibc",
+      "graphicsBackend": "Vulkan",
+      "linkLibrary": {
+        "package": "onnxruntime",
+        "sourcePath": "runtimes/linux-x64/native/libonnxruntime.so",
+        "outputPath": "lib/libonnxruntime.so.1"
+      },
+      "runtimeFiles": [
+        {
+          "role": "onnxruntime-core",
+          "package": "onnxruntime",
+          "sourcePath": "runtimes/linux-x64/native/libonnxruntime.so",
+          "outputPath": "lib/libonnxruntime.so.1"
+        },
+        {
+          "role": "webgpu-plugin",
+          "package": "webgpu",
+          "sourcePath": "runtimes/linux-x64/native/libonnxruntime_providers_webgpu.so",
+          "outputPath": "lib/libonnxruntime_providers_webgpu.so"
+        }
+      ]
+    },
+    "windows-x64": {
+      "operatingSystem": "windows",
+      "architecture": "x86_64",
+      "graphicsBackend": "D3D12",
+      "linkLibrary": {
+        "package": "onnxruntime",
+        "sourcePath": "runtimes/win-x64/native/onnxruntime.lib",
+        "outputPath": "lib/onnxruntime.lib"
+      },
+      "runtimeFiles": [
+        {
+          "role": "onnxruntime-core",
+          "package": "onnxruntime",
+          "sourcePath": "runtimes/win-x64/native/onnxruntime.dll",
+          "outputPath": "lib/onnxruntime.dll"
+        },
+        {
+          "role": "webgpu-plugin",
+          "package": "webgpu",
+          "sourcePath": "runtimes/win-x64/native/onnxruntime_providers_webgpu.dll",
+          "outputPath": "lib/onnxruntime_providers_webgpu.dll"
+        },
+        {
+          "role": "dawn-dxcompiler",
+          "package": "webgpu",
+          "sourcePath": "runtimes/win-x64/native/dxcompiler.dll",
+          "outputPath": "lib/dxcompiler.dll"
+        },
+        {
+          "role": "dawn-dxil",
+          "package": "webgpu",
+          "sourcePath": "runtimes/win-x64/native/dxil.dll",
+          "outputPath": "lib/dxil.dll"
+        }
+      ]
+    }
+  },
+  "sessionOptions": {
+    "preferredLayout": "NHWC",
+    "enableGraphCapture": "0",
+    "validationMode": "basic",
+    "powerPreference": "high-performance",
+    "deviceIdSupported": false
+  },
+  "qualification": {
+    "status": "development-pending-device-validation",
+    "evidenceId": "native-webgpu-plugin-0.1.0-ort-1.24.4-dev2",
+    "providerGatePassed": false,
+    "productionArtifactQualified": false,
+    "qualifiedArtifactSetSha256": {
+      "linux-x64": null,
+      "windows-x64": null
+    },
+    "qualificationReportSha256": {
+      "linux-x64": null,
+      "windows-x64": null
+    },
+    "requiredPlatforms": [
+      "linux-x64",
+      "windows-x64"
+    ],
+    "knownLimitations": [
+      "Linux and Windows real-device FP32/FP16 placement, quality, performance, memory, and lifecycle reports are pending.",
+      "The qualified FP16 models use native float16 graph I/O but retain converter-blocked operations at float32; Concat, Gather, and Slice require the bounded CPU partition, so cpuPartition=forbid fails closed.",
+      "The released WebGPU plugin does not expose a typed driver-compatibility failure for every Dawn initialization error; unknown provider failures remain fatal instead of being inferred from text.",
+      "No production compatibility range or released Auto policy may be claimed until both platform qualification reports are reviewed."
+    ]
+  }
+}

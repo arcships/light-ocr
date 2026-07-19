@@ -9,6 +9,7 @@ const { Worker } = require('node:worker_threads');
 const zlib = require('node:zlib');
 
 const { createEngine, OcrError } = require('../js/index.cjs');
+const { validateRuntimeDescriptor } = require('../js/load-native.cjs');
 
 const repositoryRoot = path.resolve(__dirname, '../../..');
 const bundlePath = path.resolve(
@@ -17,6 +18,9 @@ const bundlePath = path.resolve(
 );
 const appleBundlePath = process.env.LIGHT_OCR_APPLE_MODEL_BUNDLE
   ? path.resolve(process.env.LIGHT_OCR_APPLE_MODEL_BUNDLE)
+  : undefined;
+const runtimePolicy = process.env.LIGHT_OCR_RUNTIME_DESCRIPTOR
+  ? validateRuntimeDescriptor(path.resolve(process.env.LIGHT_OCR_RUNTIME_DESCRIPTOR)).runtimePolicy
   : undefined;
 
 const encodedBlankPng = Buffer.from(
@@ -93,6 +97,199 @@ function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+
+test('validates runtime descriptor artifacts before native loading', () => {
+  const os = require('node:os');
+  const crypto = require('node:crypto');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'light-ocr-descriptor-'));
+  try {
+    const native = path.join(directory, 'native');
+    fs.mkdirSync(native);
+    const addon = path.join(native, 'light_ocr_node.node');
+    const runtimeName = process.platform === 'win32'
+      ? 'onnxruntime.dll'
+      : process.platform === 'darwin'
+        ? 'libonnxruntime.1.22.0.dylib'
+        : 'libonnxruntime.so.1';
+    const runtime = path.join(native, runtimeName);
+    fs.writeFileSync(addon, 'addon');
+    fs.writeFileSync(runtime, 'runtime');
+    const record = (filename) => ({
+      path: path.relative(directory, filename).replaceAll(path.sep, '/'),
+      bytes: fs.statSync(filename).size,
+      sha256: crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex'),
+    });
+    const machine = process.arch === 'arm64' ? 'arm64' : 'x86_64';
+    const platformId = process.platform === 'darwin'
+      ? `macos-${process.arch}`
+      : process.platform === 'win32'
+        ? 'windows-x64'
+        : 'linux-x64';
+    const descriptor = {
+      schemaVersion: '2.0',
+      platform: {
+        id: platformId,
+        os: process.platform,
+        architecture: machine,
+        ...(process.platform === 'linux' ? { libc: 'glibc' } : {}),
+      },
+      runtime: {
+        flavor: 'cpu',
+        kind: 'onnxruntime-cpu',
+        version: '1.22.0',
+        abi: 'onnxruntime-c-api-22',
+        artifacts: [record(runtime)],
+      },
+      qualificationOnly: false,
+      released: true,
+      autoPolicy: {
+        id: `${platformId}-v1`,
+        version: 1,
+        providers: process.platform === 'darwin' ? ['apple', 'cpu'] : ['cpu'],
+      },
+      providers: {
+        cpu: {
+          runtimeProvider: 'CPUExecutionProvider',
+          qualificationId: 'cpu-baseline-v1',
+          artifacts: [record(runtime)],
+        },
+        ...(process.platform === 'darwin'
+          ? {
+              apple: {
+                runtimeProvider: 'CoreML',
+                qualificationId: 'apple-open-macos-v1',
+                artifacts: [record(addon)],
+              },
+            }
+          : {}),
+      },
+      addon: record(addon),
+    };
+    const descriptorPath = path.join(native, 'runtime-descriptor.json');
+    fs.writeFileSync(descriptorPath, `${JSON.stringify(descriptor)}\n`);
+    assert.equal(validateRuntimeDescriptor(descriptorPath).addon, addon);
+    const nested = path.join(native, 'providers', 'unexpected.bin');
+    fs.mkdirSync(path.dirname(nested), { recursive: true });
+    fs.writeFileSync(nested, 'untracked');
+    assert.throws(
+      () => validateRuntimeDescriptor(descriptorPath),
+      (error) => error.name === 'OcrError' && error.code === 'package_load_failed',
+    );
+    fs.rmSync(path.dirname(nested), { recursive: true });
+    fs.writeFileSync(runtime, 'mutated');
+    assert.throws(
+      () => validateRuntimeDescriptor(descriptorPath),
+      (error) => error.name === 'OcrError' && error.code === 'package_load_failed',
+    );
+    descriptor.providers.cpu.artifacts[0].path = '../outside';
+    fs.writeFileSync(descriptorPath, `${JSON.stringify(descriptor)}\n`);
+    assert.throws(
+      () => validateRuntimeDescriptor(descriptorPath),
+      (error) => error.name === 'OcrError' && error.code === 'package_load_failed',
+    );
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test(
+  'validates the self-contained WebGPU plugin runtime descriptor',
+  { skip: process.platform !== 'linux' || process.arch !== 'x64' },
+  () => {
+    const os = require('node:os');
+    const crypto = require('node:crypto');
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'light-ocr-webgpu-descriptor-'));
+    try {
+      const native = path.join(directory, 'native');
+      fs.mkdirSync(native);
+      const addon = path.join(native, 'light_ocr_node.node');
+      const runtime = path.join(native, 'libonnxruntime.so.1');
+      const provider = path.join(native, 'libonnxruntime_providers_webgpu.so');
+      fs.writeFileSync(addon, 'addon');
+      fs.writeFileSync(runtime, 'webgpu-runtime');
+      fs.writeFileSync(provider, 'webgpu-provider');
+      const record = (filename) => ({
+        path: path.relative(directory, filename).replaceAll(path.sep, '/'),
+        bytes: fs.statSync(filename).size,
+        sha256: crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex'),
+      });
+      const runtimeRecord = record(runtime);
+      const providerRecord = record(provider);
+      const descriptor = {
+        schemaVersion: '2.0',
+        platform: {
+          id: 'linux-x64',
+          os: 'linux',
+          architecture: 'x86_64',
+          libc: 'glibc',
+        },
+        runtime: {
+          flavor: 'webgpu',
+          kind: 'onnxruntime-plugin-webgpu',
+          version: '1.24.4',
+          abi: 'onnxruntime-c-api-24-plugin-ep-0.1',
+          artifacts: [runtimeRecord, providerRecord],
+        },
+        qualificationOnly: true,
+        released: false,
+        autoPolicy: { id: 'linux-x64-v1', version: 1, providers: ['webgpu', 'cpu'] },
+        providers: {
+          webgpu: {
+            runtimeProvider: 'WebGpuExecutionProvider',
+            providerVersion: '0.1.0',
+            qualificationId: 'webgpu-poc-v1',
+            providerLibrary: providerRecord,
+            artifacts: [providerRecord],
+          },
+          cpu: {
+            runtimeProvider: 'CPUExecutionProvider',
+            qualificationId: 'cpu-baseline-v1',
+            artifacts: [runtimeRecord],
+          },
+        },
+        addon: record(addon),
+      };
+      const descriptorPath = path.join(native, 'runtime-descriptor.json');
+      fs.writeFileSync(descriptorPath, `${JSON.stringify(descriptor)}\n`);
+      assert.equal(
+        validateRuntimeDescriptor(descriptorPath).runtimePolicy.runtimeFlavor,
+        'webgpu',
+      );
+
+      descriptor.providers.webgpu.providerLibrary.sha256 = '0'.repeat(64);
+      fs.writeFileSync(descriptorPath, `${JSON.stringify(descriptor)}\n`);
+      assert.throws(
+        () => validateRuntimeDescriptor(descriptorPath),
+        (error) =>
+          error.name === 'OcrError' &&
+          error.code === 'package_load_failed' &&
+          /hash mismatch|library contract/.test(error.message),
+      );
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  },
+);
+
+test('native addon rejects a forged runtime ABI before candidate creation', () => {
+  const binary = process.env.LIGHT_OCR_NODE_BINARY;
+  const descriptorPath = process.env.LIGHT_OCR_RUNTIME_DESCRIPTOR;
+  assert.ok(binary);
+  assert.ok(descriptorPath);
+  const binding = require(path.resolve(binary));
+  const policy = validateRuntimeDescriptor(path.resolve(descriptorPath)).runtimePolicy;
+  assert.ok(Object.isFrozen(binding.runtimeContract));
+  assert.ok(Object.isFrozen(binding.runtimeContract.orderedCandidates));
+  assert.deepEqual(binding.runtimeContract.orderedCandidates, policy.orderedCandidates);
+  assert.throws(
+    () => binding.createEngine({ bundlePath }, { ...policy, runtimeAbi: 'forged-abi' }),
+    (error) =>
+      error.name === 'OcrError' &&
+      error.code === 'package_load_failed' &&
+      error.creationTrace === undefined,
+  );
+});
+
 test('ESM and CommonJS facades expose the same API', async () => {
   const esm = await import(pathToFileURL(path.join(repositoryRoot, 'bindings/node/js/index.mjs')));
   assert.strictEqual(esm.createEngine, createEngine);
@@ -112,7 +309,26 @@ test('loads PP-OCRv6, snapshots pixels, maps results, and closes idempotently', 
   assert.equal(engine.info.capabilities.tiledDetection, true);
   assert.equal(engine.info.tiledDetection, undefined);
   assert.equal(engine.info.executionProvider, 'CPUExecutionProvider');
-  assert.equal(engine.info.execution.requestedProvider, 'cpu');
+  assert.equal(engine.info.execution.requestedProvider, 'auto');
+  assert.ok(runtimePolicy);
+  const expectedAutoAttempts = runtimePolicy.orderedCandidates[0] === 'apple'
+    ? [
+        {
+          provider: 'apple',
+          status: 'skipped',
+          creationReason: 'model_compute_unsupported',
+        },
+        { provider: 'cpu', status: 'selected' },
+      ]
+    : [{ provider: 'cpu', status: 'selected' }];
+  assert.deepEqual(engine.info.execution.selectionTrace, {
+    requestedProvider: 'auto',
+    policyId: runtimePolicy.id,
+    policyVersion: runtimePolicy.version,
+    orderedCandidates: runtimePolicy.orderedCandidates,
+    attempts: expectedAutoAttempts,
+    selectedProvider: 'cpu',
+  });
   assert.equal(engine.info.execution.sessionFallback, 'error');
   assert.equal(engine.info.execution.cpuPartition, 'allow');
   assert.equal(engine.info.execution.performanceHint, 'latency');
@@ -380,6 +596,15 @@ test('validates input and reports adapter errors as OcrError', async () => {
   await assert.rejects(
     createEngine({ bundlePath, execution: { provider: 'apple' } }),
     (error) => error instanceof OcrError && error.code === 'unsupported_capability',
+  );
+  await assert.rejects(
+    createEngine({ bundlePath, execution: { provider: 'webgpu' } }),
+    (error) => {
+      assert.ok(error instanceof OcrError);
+      assert.equal(error.code, 'unsupported_capability');
+      assert.equal(error.creationTrace, undefined);
+      return true;
+    },
   );
   await assert.rejects(
     createEngine({ bundlePath, execution: { precision: 'fp16' } }),

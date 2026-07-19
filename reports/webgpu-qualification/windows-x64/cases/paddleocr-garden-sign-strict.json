@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.1",
+  "ok": true,
+  "started": "2026-07-19T09:56:12.905Z",
+  "finished": "2026-07-19T09:56:13.344Z",
+  "fixture": "paddleocr-garden-sign",
+  "mode": "strict",
+  "expectedRejection": true,
+  "error": {
+    "name": "OcrError",
+    "code": "unsupported_capability",
+    "message": "The WebGPU model requires a bounded CPU operator partition",
+    "detail": "required operators: Concat, Gather, Slice",
+    "creationTrace": {
+      "requestedProvider": "webgpu",
+      "orderedCandidates": [
+        "webgpu"
+      ],
+      "attempts": [
+        {
+          "provider": "webgpu",
+          "status": "fatal",
+          "creationReason": "model_compute_unsupported"
+        }
+      ]
+    }
+  }
+}
