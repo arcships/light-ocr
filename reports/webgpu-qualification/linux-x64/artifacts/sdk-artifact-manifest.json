@@ -1,0 +1,280 @@
+{
+  "schemaVersion": 2,
+  "contractId": "native-webgpu-plugin-0.1.0-ort-1.24.4-v1",
+  "platform": {
+    "id": "linux-x64",
+    "operatingSystem": "linux",
+    "architecture": "x86_64",
+    "libc": "glibc"
+  },
+  "runtime": {
+    "flavor": "webgpu",
+    "kind": "onnxruntime-plugin-webgpu",
+    "version": "1.24.4",
+    "abi": "onnxruntime-c-api-24-plugin-ep-0.1",
+    "providerName": "WebGpuExecutionProvider",
+    "providerVersion": "0.1.0",
+    "registrationName": "light-ocr-webgpu",
+    "graphicsBackend": "Vulkan"
+  },
+  "artifacts": {
+    "linkLibrary": "lib/libonnxruntime.so.1",
+    "providerLibrary": "lib/libonnxruntime_providers_webgpu.so",
+    "runtimeFiles": [
+      "lib/libonnxruntime.so.1",
+      "lib/libonnxruntime_providers_webgpu.so"
+    ],
+    "files": [
+      {
+        "path": "include/onnxruntime_c_api.h",
+        "bytes": 382197,
+        "sha256": "7f03541b0233c53b8c91855910c9382c4fb4a26b8fe099965c7c3cad1af2ced6",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_c_api.h"
+      },
+      {
+        "path": "include/onnxruntime_cxx_api.h",
+        "bytes": 160295,
+        "sha256": "e87667c6b012dbc558d30f9ba20c0c45409115250cf464d239289ffdaad64af2",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_cxx_api.h"
+      },
+      {
+        "path": "include/onnxruntime_cxx_inline.h",
+        "bytes": 148288,
+        "sha256": "4384055d20a0f329e5201c26a3b8cc39961c19aa0816bbe7062de21919261696",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_cxx_inline.h"
+      },
+      {
+        "path": "include/onnxruntime_env_config_keys.h",
+        "bytes": 1339,
+        "sha256": "e56d37fd1e6497e9c8e8e5bd81732cd5414b4dc0867f3e8badb60101502d0435",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_env_config_keys.h"
+      },
+      {
+        "path": "include/onnxruntime_ep_c_api.h",
+        "bytes": 104606,
+        "sha256": "7de0ebae527f18b39fbeb3129d5781a995e76f685842c2e16aa0468230e6368b",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_ep_c_api.h"
+      },
+      {
+        "path": "include/onnxruntime_ep_device_ep_metadata_keys.h",
+        "bytes": 1488,
+        "sha256": "1c38be37547202840fa73207b3e572bbb1d40ce676523ff8ae04254226c75f27",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_ep_device_ep_metadata_keys.h"
+      },
+      {
+        "path": "include/onnxruntime_float16.h",
+        "bytes": 18528,
+        "sha256": "9b45e1bc0fe19d9d53f272b168f5cab616e26eb00136c3a1b78f394c9b1b6757",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_float16.h"
+      },
+      {
+        "path": "include/onnxruntime_run_options_config_keys.h",
+        "bytes": 3006,
+        "sha256": "38cfec5817e67990f242bbf7177db730a4d60f5ed256b4832f02ac38c3fd6d06",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_run_options_config_keys.h"
+      },
+      {
+        "path": "include/onnxruntime_session_options_config_keys.h",
+        "bytes": 28194,
+        "sha256": "c8f53bc7723293fee23fcb606e6a2199d1588abcebd539a50e690d4607e00af5",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_session_options_config_keys.h"
+      },
+      {
+        "path": "lib/libonnxruntime.so.1",
+        "bytes": 22159232,
+        "sha256": "d132535d051344ff5c64c9c200004150559049a81ed330eb4422c1962fb6b7e4",
+        "role": "onnxruntime-core",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "runtimes/linux-x64/native/libonnxruntime.so"
+      },
+      {
+        "path": "lib/libonnxruntime_providers_webgpu.so",
+        "bytes": 10153240,
+        "sha256": "cbdff74e6569e3cf66b46f0d194d87cd3cf49e83b7aa46552c39b0218d58b215",
+        "role": "webgpu-plugin",
+        "sourcePackage": "webgpu",
+        "sourcePath": "runtimes/linux-x64/native/libonnxruntime_providers_webgpu.so"
+      },
+      {
+        "path": "licenses/onnxruntime-LICENSE.txt",
+        "bytes": 1094,
+        "sha256": "c250d6278f0b47a6439fb7592b08b58a55eb9f535aa49a1db63211c3f982b674",
+        "role": "license",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "LICENSE"
+      },
+      {
+        "path": "licenses/onnxruntime-ThirdPartyNotices.txt",
+        "bytes": 331175,
+        "sha256": "fb0af774b4d7cffc5b9d046f2aaeade2f37df2f80abf8033c95dfffcc77a8866",
+        "role": "license",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "ThirdPartyNotices.txt"
+      },
+      {
+        "path": "licenses/webgpu-LICENSE.txt",
+        "bytes": 1094,
+        "sha256": "c250d6278f0b47a6439fb7592b08b58a55eb9f535aa49a1db63211c3f982b674",
+        "role": "license",
+        "sourcePackage": "webgpu",
+        "sourcePath": "LICENSE"
+      },
+      {
+        "path": "licenses/webgpu-ThirdPartyNotices.txt",
+        "bytes": 331175,
+        "sha256": "fb0af774b4d7cffc5b9d046f2aaeade2f37df2f80abf8033c95dfffcc77a8866",
+        "role": "license",
+        "sourcePackage": "webgpu",
+        "sourcePath": "ThirdPartyNotices.txt"
+      }
+    ],
+    "artifactSetSha256": "47caf50e71dad9e7bf6fcf0c15d86df6b97ab8b36b9f7eac3bd25ecaba0e5dd3"
+  },
+  "headers": {
+    "directory": "include",
+    "onnxruntimeVersion": "1.24.4",
+    "files": [
+      {
+        "path": "include/onnxruntime_c_api.h",
+        "bytes": 382197,
+        "sha256": "7f03541b0233c53b8c91855910c9382c4fb4a26b8fe099965c7c3cad1af2ced6",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_c_api.h"
+      },
+      {
+        "path": "include/onnxruntime_cxx_api.h",
+        "bytes": 160295,
+        "sha256": "e87667c6b012dbc558d30f9ba20c0c45409115250cf464d239289ffdaad64af2",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_cxx_api.h"
+      },
+      {
+        "path": "include/onnxruntime_cxx_inline.h",
+        "bytes": 148288,
+        "sha256": "4384055d20a0f329e5201c26a3b8cc39961c19aa0816bbe7062de21919261696",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_cxx_inline.h"
+      },
+      {
+        "path": "include/onnxruntime_env_config_keys.h",
+        "bytes": 1339,
+        "sha256": "e56d37fd1e6497e9c8e8e5bd81732cd5414b4dc0867f3e8badb60101502d0435",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_env_config_keys.h"
+      },
+      {
+        "path": "include/onnxruntime_ep_c_api.h",
+        "bytes": 104606,
+        "sha256": "7de0ebae527f18b39fbeb3129d5781a995e76f685842c2e16aa0468230e6368b",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_ep_c_api.h"
+      },
+      {
+        "path": "include/onnxruntime_ep_device_ep_metadata_keys.h",
+        "bytes": 1488,
+        "sha256": "1c38be37547202840fa73207b3e572bbb1d40ce676523ff8ae04254226c75f27",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_ep_device_ep_metadata_keys.h"
+      },
+      {
+        "path": "include/onnxruntime_float16.h",
+        "bytes": 18528,
+        "sha256": "9b45e1bc0fe19d9d53f272b168f5cab616e26eb00136c3a1b78f394c9b1b6757",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_float16.h"
+      },
+      {
+        "path": "include/onnxruntime_run_options_config_keys.h",
+        "bytes": 3006,
+        "sha256": "38cfec5817e67990f242bbf7177db730a4d60f5ed256b4832f02ac38c3fd6d06",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_run_options_config_keys.h"
+      },
+      {
+        "path": "include/onnxruntime_session_options_config_keys.h",
+        "bytes": 28194,
+        "sha256": "c8f53bc7723293fee23fcb606e6a2199d1588abcebd539a50e690d4607e00af5",
+        "role": "header",
+        "sourcePackage": "onnxruntime",
+        "sourcePath": "build/native/include/onnxruntime_session_options_config_keys.h"
+      }
+    ]
+  },
+  "packages": [
+    {
+      "name": "onnxruntime",
+      "id": "Microsoft.ML.OnnxRuntime",
+      "version": "1.24.4",
+      "source": "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.24.4/microsoft.ml.onnxruntime.1.24.4.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.03.21.08.32.20/microsoft.ml.onnxruntime.1.24.4.json",
+      "bytes": 125194303,
+      "sha512": "f5dd415dfcafcb3a7461f10a08f0337ea22c1ba8f8af81316daabf7496075add181aecb0de3cabebebdb9f5da3afbe507480aaf34b76e1189409088ccc5c2eac"
+    },
+    {
+      "name": "webgpu",
+      "id": "Microsoft.ML.OnnxRuntime.EP.WebGpu",
+      "version": "0.1.0",
+      "source": "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime.ep.webgpu/0.1.0/microsoft.ml.onnxruntime.ep.webgpu.0.1.0.nupkg",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.05.27.20.11.11/microsoft.ml.onnxruntime.ep.webgpu.0.1.0.json",
+      "bytes": 33754099,
+      "sha512": "d048cfb4a687d82547338cdf36649c95dfac0a254a752e2e53b5f2faeccfacf4e7b2ed3125e03e5f58bc1c23c6c7cbe356fa513c99b3ad217f491ac1c80bb92a"
+    }
+  ],
+  "sessionOptions": {
+    "preferredLayout": "NHWC",
+    "enableGraphCapture": "0",
+    "validationMode": "basic",
+    "powerPreference": "high-performance",
+    "deviceIdSupported": false
+  },
+  "qualification": {
+    "status": "development-pending-device-validation",
+    "evidenceId": "native-webgpu-plugin-0.1.0-ort-1.24.4-dev2",
+    "providerGatePassed": false,
+    "productionArtifactQualified": false,
+    "qualifiedArtifactSetSha256": {
+      "linux-x64": null,
+      "windows-x64": null
+    },
+    "qualificationReportSha256": {
+      "linux-x64": null,
+      "windows-x64": null
+    },
+    "requiredPlatforms": [
+      "linux-x64",
+      "windows-x64"
+    ],
+    "knownLimitations": [
+      "Linux and Windows real-device FP32/FP16 placement, quality, performance, memory, and lifecycle reports are pending.",
+      "The qualified FP16 models use native float16 graph I/O but retain converter-blocked operations at float32; Concat, Gather, and Slice require the bounded CPU partition, so cpuPartition=forbid fails closed.",
+      "The released WebGPU plugin does not expose a typed driver-compatibility failure for every Dawn initialization error; unknown provider failures remain fatal instead of being inferred from text.",
+      "No production compatibility range or released Auto policy may be claimed until both platform qualification reports are reviewed."
+    ]
+  }
+}

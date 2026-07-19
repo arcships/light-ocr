@@ -1,0 +1,72 @@
+{
+  "addon": {
+    "bytes": 11117832,
+    "path": "native/light_ocr_node.node",
+    "sha256": "a0cb84a3e62dabea225e961604eb9f87a9a5d7e98268b122e114d9939220114b"
+  },
+  "autoPolicy": {
+    "id": "linux-x64-v1",
+    "providers": [
+      "webgpu",
+      "cpu"
+    ],
+    "version": 1
+  },
+  "platform": {
+    "architecture": "x86_64",
+    "id": "linux-x64",
+    "libc": "glibc",
+    "os": "linux"
+  },
+  "providers": {
+    "cpu": {
+      "artifacts": [
+        {
+          "bytes": 22159232,
+          "path": "native/libonnxruntime.so.1",
+          "sha256": "d132535d051344ff5c64c9c200004150559049a81ed330eb4422c1962fb6b7e4"
+        }
+      ],
+      "qualificationId": "cpu-baseline-v1",
+      "runtimeProvider": "CPUExecutionProvider"
+    },
+    "webgpu": {
+      "artifacts": [
+        {
+          "bytes": 10153240,
+          "path": "native/libonnxruntime_providers_webgpu.so",
+          "sha256": "cbdff74e6569e3cf66b46f0d194d87cd3cf49e83b7aa46552c39b0218d58b215"
+        }
+      ],
+      "providerLibrary": {
+        "bytes": 10153240,
+        "path": "native/libonnxruntime_providers_webgpu.so",
+        "sha256": "cbdff74e6569e3cf66b46f0d194d87cd3cf49e83b7aa46552c39b0218d58b215"
+      },
+      "providerVersion": "0.1.0",
+      "qualificationId": "native-webgpu-plugin-0.1.0-ort-1.24.4-dev2",
+      "runtimeProvider": "WebGpuExecutionProvider"
+    }
+  },
+  "qualificationOnly": true,
+  "released": false,
+  "runtime": {
+    "abi": "onnxruntime-c-api-24-plugin-ep-0.1",
+    "artifacts": [
+      {
+        "bytes": 22159232,
+        "path": "native/libonnxruntime.so.1",
+        "sha256": "d132535d051344ff5c64c9c200004150559049a81ed330eb4422c1962fb6b7e4"
+      },
+      {
+        "bytes": 10153240,
+        "path": "native/libonnxruntime_providers_webgpu.so",
+        "sha256": "cbdff74e6569e3cf66b46f0d194d87cd3cf49e83b7aa46552c39b0218d58b215"
+      }
+    ],
+    "flavor": "webgpu",
+    "kind": "onnxruntime-plugin-webgpu",
+    "version": "1.24.4"
+  },
+  "schemaVersion": "2.0"
+}

@@ -1,0 +1,434 @@
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Populating nlohmann_json
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/nlohmann_json-subbuild
+[1/9] Creating directories for 'nlohmann_json-populate'
+[1/9] Performing download step (verify and extract) for 'nlohmann_json-populate'
+-- verifying file...
+     file='/mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/dependencies/json-3.11.3.tar.gz'
+-- verifying file... done
+-- extracting...
+     src='/mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/dependencies/json-3.11.3.tar.gz'
+     dst='/mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/nlohmann_json-src'
+-- extracting... [tar xf]
+-- extracting... [analysis]
+-- extracting... [rename]
+-- extracting... [clean up]
+-- extracting... done
+[2/9] No update step for 'nlohmann_json-populate'
+[3/9] No patch step for 'nlohmann_json-populate'
+[5/9] No configure step for 'nlohmann_json-populate'
+[6/9] No build step for 'nlohmann_json-populate'
+[7/9] No install step for 'nlohmann_json-populate'
+[8/9] No test step for 'nlohmann_json-populate'
+[9/9] Completed 'nlohmann_json-populate'
+-- Using the multi-header code from /mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/nlohmann_json-src/include/
+-- Populating clipper
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/clipper-subbuild
+[1/9] Creating directories for 'clipper-populate'
+[1/9] Performing download step (verify and extract) for 'clipper-populate'
+-- verifying file...
+     file='/mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/dependencies/pyclipper-1.3.0.post6.tar.gz'
+-- verifying file... done
+-- extracting...
+     src='/mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/dependencies/pyclipper-1.3.0.post6.tar.gz'
+     dst='/mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/clipper-src'
+-- extracting... [tar xf]
+-- extracting... [analysis]
+-- extracting... [rename]
+-- extracting... [clean up]
+-- extracting... done
+[2/9] No update step for 'clipper-populate'
+[3/9] No patch step for 'clipper-populate'
+[5/9] No configure step for 'clipper-populate'
+[6/9] No build step for 'clipper-populate'
+[7/9] No install step for 'clipper-populate'
+[8/9] No test step for 'clipper-populate'
+[9/9] Completed 'clipper-populate'
+-- Populating opencv
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-subbuild
+[1/9] Creating directories for 'opencv-populate'
+[1/9] Performing download step (verify and extract) for 'opencv-populate'
+-- verifying file...
+     file='/mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/dependencies/opencv-4.10.0.tar.gz'
+-- verifying file... done
+-- extracting...
+     src='/mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/dependencies/opencv-4.10.0.tar.gz'
+     dst='/mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src'
+-- extracting... [tar xf]
+-- extracting... [analysis]
+-- extracting... [rename]
+-- extracting... [clean up]
+-- extracting... done
+[2/9] No update step for 'opencv-populate'
+[3/9] No patch step for 'opencv-populate'
+[5/9] No configure step for 'opencv-populate'
+[6/9] No build step for 'opencv-populate'
+[7/9] No install step for 'opencv-populate'
+[8/9] No test step for 'opencv-populate'
+[9/9] Completed 'opencv-populate'
+CMake Deprecation Warning at .cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src/CMakeLists.txt:25 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+
+
+CMake Deprecation Warning at .cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src/CMakeLists.txt:84 (cmake_policy):
+  The OLD behavior for policy CMP0146 will be removed from a future version
+  of CMake.
+
+  The cmake-policies(7) manual explains that the OLD behaviors of all
+  policies are deprecated and that a policy should be set to OLD only under
+  specific short-term circumstances.  Projects should be ported to the NEW
+  behavior and not rely on setting a policy to OLD.
+
+
+CMake Deprecation Warning at .cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src/CMakeLists.txt:88 (cmake_policy):
+  The OLD behavior for policy CMP0148 will be removed from a future version
+  of CMake.
+
+  The cmake-policies(7) manual explains that the OLD behaviors of all
+  policies are deprecated and that a policy should be set to OLD only under
+  specific short-term circumstances.  Projects should be ported to the NEW
+  behavior and not rely on setting a policy to OLD.
+
+
+-- The C compiler identification is GNU 13.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detected processor: x86_64
+-- Found PythonInterp: /usr/bin/python3 (found suitable version "3.12.3", minimum required is "3.2")
+-- Found PythonLibs: /usr/lib/x86_64-linux-gnu/libpython3.12.so (found suitable exact version "3.12.3")
+-- Looking for ccache - not found
+-- Performing Test HAVE_CXX_FSIGNED_CHAR
+-- Performing Test HAVE_CXX_FSIGNED_CHAR - Success
+-- Performing Test HAVE_C_FSIGNED_CHAR
+-- Performing Test HAVE_C_FSIGNED_CHAR - Success
+-- Performing Test HAVE_CXX_W
+-- Performing Test HAVE_CXX_W - Success
+-- Performing Test HAVE_C_W
+-- Performing Test HAVE_C_W - Success
+-- Performing Test HAVE_CXX_WALL
+-- Performing Test HAVE_CXX_WALL - Success
+-- Performing Test HAVE_C_WALL
+-- Performing Test HAVE_C_WALL - Success
+-- Performing Test HAVE_CXX_WRETURN_TYPE
+-- Performing Test HAVE_CXX_WRETURN_TYPE - Success
+-- Performing Test HAVE_C_WRETURN_TYPE
+-- Performing Test HAVE_C_WRETURN_TYPE - Success
+-- Performing Test HAVE_CXX_WNON_VIRTUAL_DTOR
+-- Performing Test HAVE_CXX_WNON_VIRTUAL_DTOR - Success
+-- Performing Test HAVE_C_WNON_VIRTUAL_DTOR
+-- Performing Test HAVE_C_WNON_VIRTUAL_DTOR - Failed
+-- Performing Test HAVE_CXX_WADDRESS
+-- Performing Test HAVE_CXX_WADDRESS - Success
+-- Performing Test HAVE_C_WADDRESS
+-- Performing Test HAVE_C_WADDRESS - Success
+-- Performing Test HAVE_CXX_WSEQUENCE_POINT
+-- Performing Test HAVE_CXX_WSEQUENCE_POINT - Success
+-- Performing Test HAVE_C_WSEQUENCE_POINT
+-- Performing Test HAVE_C_WSEQUENCE_POINT - Success
+-- Performing Test HAVE_CXX_WFORMAT
+-- Performing Test HAVE_CXX_WFORMAT - Success
+-- Performing Test HAVE_C_WFORMAT
+-- Performing Test HAVE_C_WFORMAT - Success
+-- Performing Test HAVE_CXX_WFORMAT_SECURITY
+-- Performing Test HAVE_CXX_WFORMAT_SECURITY - Success
+-- Performing Test HAVE_C_WFORMAT_SECURITY
+-- Performing Test HAVE_C_WFORMAT_SECURITY - Success
+-- Performing Test HAVE_CXX_WMISSING_DECLARATIONS
+-- Performing Test HAVE_CXX_WMISSING_DECLARATIONS - Success
+-- Performing Test HAVE_C_WMISSING_DECLARATIONS
+-- Performing Test HAVE_C_WMISSING_DECLARATIONS - Success
+-- Performing Test HAVE_CXX_WMISSING_PROTOTYPES
+-- Performing Test HAVE_CXX_WMISSING_PROTOTYPES - Failed
+-- Performing Test HAVE_C_WMISSING_PROTOTYPES
+-- Performing Test HAVE_C_WMISSING_PROTOTYPES - Success
+-- Performing Test HAVE_CXX_WSTRICT_PROTOTYPES
+-- Performing Test HAVE_CXX_WSTRICT_PROTOTYPES - Failed
+-- Performing Test HAVE_C_WSTRICT_PROTOTYPES
+-- Performing Test HAVE_C_WSTRICT_PROTOTYPES - Success
+-- Performing Test HAVE_CXX_WUNDEF
+-- Performing Test HAVE_CXX_WUNDEF - Success
+-- Performing Test HAVE_C_WUNDEF
+-- Performing Test HAVE_C_WUNDEF - Success
+-- Performing Test HAVE_CXX_WINIT_SELF
+-- Performing Test HAVE_CXX_WINIT_SELF - Success
+-- Performing Test HAVE_C_WINIT_SELF
+-- Performing Test HAVE_C_WINIT_SELF - Success
+-- Performing Test HAVE_CXX_WPOINTER_ARITH
+-- Performing Test HAVE_CXX_WPOINTER_ARITH - Success
+-- Performing Test HAVE_C_WPOINTER_ARITH
+-- Performing Test HAVE_C_WPOINTER_ARITH - Success
+-- Performing Test HAVE_CXX_WSHADOW
+-- Performing Test HAVE_CXX_WSHADOW - Success
+-- Performing Test HAVE_C_WSHADOW
+-- Performing Test HAVE_C_WSHADOW - Success
+-- Performing Test HAVE_CXX_WSIGN_PROMO
+-- Performing Test HAVE_CXX_WSIGN_PROMO - Success
+-- Performing Test HAVE_C_WSIGN_PROMO
+-- Performing Test HAVE_C_WSIGN_PROMO - Failed
+-- Performing Test HAVE_CXX_WUNINITIALIZED
+-- Performing Test HAVE_CXX_WUNINITIALIZED - Success
+-- Performing Test HAVE_C_WUNINITIALIZED
+-- Performing Test HAVE_C_WUNINITIALIZED - Success
+-- Performing Test HAVE_CXX_WSUGGEST_OVERRIDE
+-- Performing Test HAVE_CXX_WSUGGEST_OVERRIDE - Success
+-- Performing Test HAVE_C_WSUGGEST_OVERRIDE
+-- Performing Test HAVE_C_WSUGGEST_OVERRIDE - Failed
+-- Performing Test HAVE_CXX_WNO_DELETE_NON_VIRTUAL_DTOR
+-- Performing Test HAVE_CXX_WNO_DELETE_NON_VIRTUAL_DTOR - Success
+-- Performing Test HAVE_C_WNO_DELETE_NON_VIRTUAL_DTOR
+-- Performing Test HAVE_C_WNO_DELETE_NON_VIRTUAL_DTOR - Failed
+-- Performing Test HAVE_CXX_WNO_UNNAMED_TYPE_TEMPLATE_ARGS
+-- Performing Test HAVE_CXX_WNO_UNNAMED_TYPE_TEMPLATE_ARGS - Failed
+-- Performing Test HAVE_C_WNO_UNNAMED_TYPE_TEMPLATE_ARGS
+-- Performing Test HAVE_C_WNO_UNNAMED_TYPE_TEMPLATE_ARGS - Failed
+-- Performing Test HAVE_CXX_WNO_COMMENT
+-- Performing Test HAVE_CXX_WNO_COMMENT - Success
+-- Performing Test HAVE_C_WNO_COMMENT
+-- Performing Test HAVE_C_WNO_COMMENT - Success
+-- Performing Test HAVE_CXX_WIMPLICIT_FALLTHROUGH_3
+-- Performing Test HAVE_CXX_WIMPLICIT_FALLTHROUGH_3 - Success
+-- Performing Test HAVE_C_WIMPLICIT_FALLTHROUGH_3
+-- Performing Test HAVE_C_WIMPLICIT_FALLTHROUGH_3 - Success
+-- Performing Test HAVE_CXX_WNO_STRICT_OVERFLOW
+-- Performing Test HAVE_CXX_WNO_STRICT_OVERFLOW - Success
+-- Performing Test HAVE_C_WNO_STRICT_OVERFLOW
+-- Performing Test HAVE_C_WNO_STRICT_OVERFLOW - Success
+-- Performing Test HAVE_CXX_FDIAGNOSTICS_SHOW_OPTION
+-- Performing Test HAVE_CXX_FDIAGNOSTICS_SHOW_OPTION - Success
+-- Performing Test HAVE_C_FDIAGNOSTICS_SHOW_OPTION
+-- Performing Test HAVE_C_FDIAGNOSTICS_SHOW_OPTION - Success
+-- Performing Test HAVE_CXX_WNO_LONG_LONG
+-- Performing Test HAVE_CXX_WNO_LONG_LONG - Success
+-- Performing Test HAVE_C_WNO_LONG_LONG
+-- Performing Test HAVE_C_WNO_LONG_LONG - Success
+-- Performing Test HAVE_CXX_PTHREAD
+-- Performing Test HAVE_CXX_PTHREAD - Success
+-- Performing Test HAVE_C_PTHREAD
+-- Performing Test HAVE_C_PTHREAD - Success
+-- Performing Test HAVE_CXX_FOMIT_FRAME_POINTER
+-- Performing Test HAVE_CXX_FOMIT_FRAME_POINTER - Success
+-- Performing Test HAVE_C_FOMIT_FRAME_POINTER
+-- Performing Test HAVE_C_FOMIT_FRAME_POINTER - Success
+-- Performing Test HAVE_CXX_FFUNCTION_SECTIONS
+-- Performing Test HAVE_CXX_FFUNCTION_SECTIONS - Success
+-- Performing Test HAVE_C_FFUNCTION_SECTIONS
+-- Performing Test HAVE_C_FFUNCTION_SECTIONS - Success
+-- Performing Test HAVE_CXX_FDATA_SECTIONS
+-- Performing Test HAVE_CXX_FDATA_SECTIONS - Success
+-- Performing Test HAVE_C_FDATA_SECTIONS
+-- Performing Test HAVE_C_FDATA_SECTIONS - Success
+-- Performing Test HAVE_CXX_MSSE (check file: .cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src/cmake/checks/cpu_sse.cpp)
+-- Performing Test HAVE_CXX_MSSE - Success
+-- Performing Test HAVE_CXX_MSSE2 (check file: .cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src/cmake/checks/cpu_sse2.cpp)
+-- Performing Test HAVE_CXX_MSSE2 - Success
+-- Performing Test HAVE_CXX_MSSE3 (check file: .cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src/cmake/checks/cpu_sse3.cpp)
+-- Performing Test HAVE_CXX_MSSE3 - Success
+-- Performing Test HAVE_CXX_MSSSE3 (check file: .cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src/cmake/checks/cpu_ssse3.cpp)
+-- Performing Test HAVE_CXX_MSSSE3 - Success
+-- Performing Test HAVE_CXX_MSSE4_1 (check file: .cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src/cmake/checks/cpu_sse41.cpp)
+-- Performing Test HAVE_CXX_MSSE4_1 - Success
+-- Performing Test HAVE_CXX_MPOPCNT (check file: .cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src/cmake/checks/cpu_popcnt.cpp)
+-- Performing Test HAVE_CXX_MPOPCNT - Success
+-- Performing Test HAVE_CXX_MSSE4_2 (check file: .cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src/cmake/checks/cpu_sse42.cpp)
+-- Performing Test HAVE_CXX_MSSE4_2 - Success
+-- Performing Test HAVE_CXX_MF16C (check file: .cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src/cmake/checks/cpu_fp16.cpp)
+-- Performing Test HAVE_CXX_MF16C - Success
+-- Performing Test HAVE_CXX_MFMA
+-- Performing Test HAVE_CXX_MFMA - Success
+-- Performing Test HAVE_CXX_MAVX (check file: .cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src/cmake/checks/cpu_avx.cpp)
+-- Performing Test HAVE_CXX_MAVX - Success
+-- Performing Test HAVE_CXX_MAVX2 (check file: .cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src/cmake/checks/cpu_avx2.cpp)
+-- Performing Test HAVE_CXX_MAVX2 - Success
+-- Performing Test HAVE_CXX_MAVX512F (check file: .cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src/cmake/checks/cpu_avx512.cpp)
+-- Performing Test HAVE_CXX_MAVX512F - Success
+-- Performing Test HAVE_CXX_MAVX512F_MAVX512CD (check file: .cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src/cmake/checks/cpu_avx512common.cpp)
+-- Performing Test HAVE_CXX_MAVX512F_MAVX512CD - Success
+-- Performing Test HAVE_CXX_MAVX512F_MAVX512CD_MAVX512VL_MAVX512BW_MAVX512DQ (check file: .cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/opencv-src/cmake/checks/cpu_avx512skx.cpp)
+-- Performing Test HAVE_CXX_MAVX512F_MAVX512CD_MAVX512VL_MAVX512BW_MAVX512DQ - Success
+-- Performing Test HAVE_CPU_BASELINE_FLAGS
+-- Performing Test HAVE_CPU_BASELINE_FLAGS - Success
+-- Performing Test HAVE_CPU_DISPATCH_FLAGS_SSE4_1
+-- Performing Test HAVE_CPU_DISPATCH_FLAGS_SSE4_1 - Success
+-- Performing Test HAVE_CPU_DISPATCH_FLAGS_SSE4_2
+-- Performing Test HAVE_CPU_DISPATCH_FLAGS_SSE4_2 - Success
+-- Performing Test HAVE_CPU_DISPATCH_FLAGS_FP16
+-- Performing Test HAVE_CPU_DISPATCH_FLAGS_FP16 - Success
+-- Performing Test HAVE_CPU_DISPATCH_FLAGS_AVX
+-- Performing Test HAVE_CPU_DISPATCH_FLAGS_AVX - Success
+-- Performing Test HAVE_CPU_DISPATCH_FLAGS_AVX2
+-- Performing Test HAVE_CPU_DISPATCH_FLAGS_AVX2 - Success
+-- Performing Test HAVE_CPU_DISPATCH_FLAGS_AVX512_SKX
+-- Performing Test HAVE_CPU_DISPATCH_FLAGS_AVX512_SKX - Success
+-- Performing Test HAVE_CXX_FVISIBILITY_HIDDEN
+-- Performing Test HAVE_CXX_FVISIBILITY_HIDDEN - Success
+-- Performing Test HAVE_C_FVISIBILITY_HIDDEN
+-- Performing Test HAVE_C_FVISIBILITY_HIDDEN - Success
+-- Performing Test HAVE_CXX_FVISIBILITY_INLINES_HIDDEN
+-- Performing Test HAVE_CXX_FVISIBILITY_INLINES_HIDDEN - Success
+-- Performing Test HAVE_C_FVISIBILITY_INLINES_HIDDEN
+-- Performing Test HAVE_C_FVISIBILITY_INLINES_HIDDEN - Failed
+-- Performing Test HAVE_LINK_AS_NEEDED
+-- Performing Test HAVE_LINK_AS_NEEDED - Success
+-- Performing Test HAVE_LINK_NO_UNDEFINED
+-- Performing Test HAVE_LINK_NO_UNDEFINED - Success
+-- Looking for pthread.h
+-- Looking for pthread.h - found
+-- Looking for posix_memalign
+-- Looking for posix_memalign - found
+-- Looking for malloc.h
+-- Looking for malloc.h - found
+-- Looking for memalign
+-- Looking for memalign - found
+-- Found ZLIB: /usr/lib/x86_64-linux-gnu/libz.so (found suitable version "1.3", minimum required is "1.2.3")
+-- libva: missing va.h header (VA_INCLUDE_DIR)
+-- Using whitelist: opencv_core;opencv_imgproc
+-- Module opencv_calib3d disabled by whitelist
+-- Module opencv_dnn disabled by whitelist
+-- Module opencv_features2d disabled by whitelist
+-- Module opencv_flann disabled by whitelist
+-- Module opencv_highgui disabled by whitelist
+-- Module opencv_imgcodecs disabled by whitelist
+-- Module opencv_java_bindings_generator disabled by whitelist
+-- Module opencv_js_bindings_generator disabled by whitelist
+-- Module opencv_ml disabled by whitelist
+-- Module opencv_objc_bindings_generator disabled by whitelist
+-- Module opencv_objdetect disabled by whitelist
+-- Module opencv_photo disabled by whitelist
+-- Module opencv_python_tests disabled by whitelist
+-- Module opencv_python3 disabled by whitelist
+-- Module opencv_stitching disabled by whitelist
+-- Module opencv_video disabled by whitelist
+-- Module opencv_videoio disabled by whitelist
+-- Allocator metrics storage type: 'long long'
+-- Excluding from source files list: modules/imgproc/src/imgwarp.lasx.cpp
+-- Excluding from source files list: modules/imgproc/src/resize.lasx.cpp
+-- 
+-- General configuration for OpenCV 4.10.0 =====================================
+--   Version control:               6efea59
+-- 
+--   Platform:
+--     Timestamp:                   2026-07-19T07:19:07Z
+--     Host:                        Linux 6.17.0-40-generic x86_64
+--     CMake:                       4.3.1
+--     CMake generator:             Ninja
+--     CMake build tool:            /home/eric8810/.local/bin/ninja
+--     Configuration:               Release
+-- 
+--   CPU/HW features:
+--     Baseline:                    SSE SSE2 SSE3
+--       requested:                 SSE3
+--     Dispatched code generation:  SSE4_1 SSE4_2 FP16 AVX AVX2 AVX512_SKX
+--       requested:                 SSE4_1 SSE4_2 AVX FP16 AVX2 AVX512_SKX
+--       SSE4_1 (13 files):         + SSSE3 SSE4_1
+--       SSE4_2 (1 files):          + SSSE3 SSE4_1 POPCNT SSE4_2
+--       FP16 (0 files):            + SSSE3 SSE4_1 POPCNT SSE4_2 FP16 AVX
+--       AVX (3 files):             + SSSE3 SSE4_1 POPCNT SSE4_2 AVX
+--       AVX2 (25 files):           + SSSE3 SSE4_1 POPCNT SSE4_2 FP16 FMA3 AVX AVX2
+--       AVX512_SKX (2 files):      + SSSE3 SSE4_1 POPCNT SSE4_2 FP16 FMA3 AVX AVX2 AVX_512F AVX512_COMMON AVX512_SKX
+-- 
+--   C/C++:
+--     Built as dynamic libs?:      NO
+--     C++ standard:                17
+--     C++ Compiler:                /usr/bin/c++  (ver 13.3.0)
+--     C++ flags (Release):         -fsigned-char -W -Wall -Wreturn-type -Wnon-virtual-dtor -Waddress -Wsequence-point -Wformat -Wformat-security -Wmissing-declarations -Wundef -Winit-self -Wpointer-arith -Wshadow -Wsign-promo -Wuninitialized -Wsuggest-override -Wno-delete-non-virtual-dtor -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -fvisibility-inlines-hidden -O3 -DNDEBUG  -DNDEBUG
+--     C++ flags (Debug):           -fsigned-char -W -Wall -Wreturn-type -Wnon-virtual-dtor -Waddress -Wsequence-point -Wformat -Wformat-security -Wmissing-declarations -Wundef -Winit-self -Wpointer-arith -Wshadow -Wsign-promo -Wuninitialized -Wsuggest-override -Wno-delete-non-virtual-dtor -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -fvisibility-inlines-hidden -g  -O0 -DDEBUG -D_DEBUG
+--     C Compiler:                  /usr/bin/cc
+--     C flags (Release):           -fsigned-char -W -Wall -Wreturn-type -Waddress -Wsequence-point -Wformat -Wformat-security -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wshadow -Wuninitialized -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -O3 -DNDEBUG  -DNDEBUG
+--     C flags (Debug):             -fsigned-char -W -Wall -Wreturn-type -Waddress -Wsequence-point -Wformat -Wformat-security -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wundef -Winit-self -Wpointer-arith -Wshadow -Wuninitialized -Wno-comment -Wimplicit-fallthrough=3 -Wno-strict-overflow -fdiagnostics-show-option -Wno-long-long -pthread -fomit-frame-pointer -ffunction-sections -fdata-sections  -msse -msse2 -msse3 -fvisibility=hidden -g  -O0 -DDEBUG -D_DEBUG
+--     Linker flags (Release):      -Wl,--gc-sections -Wl,--as-needed -Wl,--no-undefined  
+--     Linker flags (Debug):        -Wl,--gc-sections -Wl,--as-needed -Wl,--no-undefined  
+--     ccache:                      NO
+--     Precompiled headers:         NO
+--     Extra dependencies:          /usr/lib/x86_64-linux-gnu/libz.so dl m pthread rt
+--     3rdparty dependencies:
+-- 
+--   OpenCV modules:
+--     To be built:                 core imgproc
+--     Disabled:                    python_bindings_generator world
+--     Disabled by dependency:      calib3d dnn features2d flann highgui imgcodecs java_bindings_generator js_bindings_generator ml objc_bindings_generator objdetect photo python3 python_tests stitching video videoio
+--     Unavailable:                 gapi java python2 ts
+--     Applications:                -
+--     Documentation:               NO
+--     Non-free algorithms:         NO
+-- 
+--   GUI: 
+-- 
+--   Media I/O: 
+--     ZLib:                        /usr/lib/x86_64-linux-gnu/libz.so (ver 1.3)
+--     HDR:                         YES
+--     SUNRASTER:                   YES
+--     PXM:                         YES
+--     PFM:                         YES
+-- 
+--   Video I/O:
+--     v4l/v4l2:                    YES (linux/videodev2.h)
+-- 
+--   Parallel framework:            none
+-- 
+--   Other third-party libraries:
+--     VA:                          NO
+--     Custom HAL:                  NO
+-- 
+--   Python 3:
+--     Interpreter:                 /usr/bin/python3 (ver 3.12.3)
+--     Libraries:                   NO
+--     Limited API:                 NO
+--     numpy:                       /home/eric8810/.local/lib/python3.12/site-packages/numpy/_core/include (ver 2.2.6)
+--     install path:                -
+-- 
+--   Python (for build):            /usr/bin/python3
+-- 
+--   Install to:                    /usr/local
+-- -----------------------------------------------------------------
+-- 
+-- Populating stb
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/stb-subbuild
+[1/9] Creating directories for 'stb-populate'
+[1/9] Performing download step (verify and extract) for 'stb-populate'
+-- verifying file...
+     file='/mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/dependencies/stb-31c1ad374564.tar.gz'
+-- verifying file... done
+-- extracting...
+     src='/mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/dependencies/stb-31c1ad374564.tar.gz'
+     dst='/mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427/_deps/stb-src'
+-- extracting... [tar xf]
+-- extracting... [analysis]
+-- extracting... [rename]
+-- extracting... [clean up]
+-- extracting... done
+[2/9] No update step for 'stb-populate'
+[3/9] No patch step for 'stb-populate'
+[5/9] No configure step for 'stb-populate'
+[6/9] No build step for 'stb-populate'
+[7/9] No install step for 'stb-populate'
+[8/9] No test step for 'stb-populate'
+[9/9] Completed 'stb-populate'
+-- Performing Test _target_is_glibc
+-- Performing Test _target_is_glibc - Success
+-- Configuring done (6.9s)
+-- Generating done (0.1s)
+-- Build files have been written to: /mnt/data/code/light-ocr/.cache/webgpu-qualification/linux-x64/build/6efea5922b1f8eca5cec330cfa3cb3fc9be81427

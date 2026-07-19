@@ -1,0 +1,940 @@
+{
+  "schemaVersion": "1.1",
+  "ok": true,
+  "started": "2026-07-19T07:21:13.975Z",
+  "finished": "2026-07-19T07:21:21.743Z",
+  "host": {
+    "platform": "linux",
+    "architecture": "x64",
+    "node": "24.13.1",
+    "osName": "Linux",
+    "osRelease": "6.17.0-40-generic",
+    "osVersion": "#40~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Tue Jun 23 16:48:12 UTC 2",
+    "glibcVersionRuntime": "2.39"
+  },
+  "fixture": "paddleocr-boarding-pass",
+  "mode": "allow",
+  "warmup": 2,
+  "iterations": 10,
+  "cycles": 3,
+  "result": {
+    "sha256": "ce7396790b85b3ceff3a09b620adcb9614bcef07b44e4b15e7140b59cf1501f9",
+    "deterministic": true,
+    "lines": [
+      {
+        "text": "登机牌",
+        "confidence": 0.9999693036079407,
+        "box": [
+          [
+            150,
+            20
+          ],
+          [
+            358,
+            16
+          ],
+          [
+            359,
+            74
+          ],
+          [
+            151,
+            78
+          ]
+        ]
+      },
+      {
+        "text": "BOARDING",
+        "confidence": 0.9999344348907471,
+        "box": [
+          [
+            418,
+            20
+          ],
+          [
+            660,
+            16
+          ],
+          [
+            660,
+            61
+          ],
+          [
+            418,
+            64
+          ]
+        ]
+      },
+      {
+        "text": "PASS",
+        "confidence": 0.9999750852584839,
+        "box": [
+          [
+            699,
+            12
+          ],
+          [
+            824,
+            9
+          ],
+          [
+            825,
+            59
+          ],
+          [
+            700,
+            61
+          ]
+        ]
+      },
+      {
+        "text": "舱位",
+        "confidence": 0.9999282956123352,
+        "box": [
+          [
+            341,
+            105
+          ],
+          [
+            387,
+            105
+          ],
+          [
+            387,
+            127
+          ],
+          [
+            341,
+            127
+          ]
+        ]
+      },
+      {
+        "text": "CLASS",
+        "confidence": 0.9999191761016846,
+        "box": [
+          [
+            394,
+            105
+          ],
+          [
+            456,
+            103
+          ],
+          [
+            457,
+            124
+          ],
+          [
+            395,
+            126
+          ]
+        ]
+      },
+      {
+        "text": "序号 SERIAL NO.",
+        "confidence": 0.9788106679916382,
+        "box": [
+          [
+            487,
+            101
+          ],
+          [
+            649,
+            99
+          ],
+          [
+            649,
+            122
+          ],
+          [
+            487,
+            124
+          ]
+        ]
+      },
+      {
+        "text": "座位号",
+        "confidence": 0.9999757409095764,
+        "box": [
+          [
+            674,
+            97
+          ],
+          [
+            746,
+            95
+          ],
+          [
+            747,
+            119
+          ],
+          [
+            675,
+            122
+          ]
+        ]
+      },
+      {
+        "text": "SEAT NO.",
+        "confidence": 0.9879264831542969,
+        "box": [
+          [
+            748,
+            97
+          ],
+          [
+            834,
+            97
+          ],
+          [
+            834,
+            117
+          ],
+          [
+            748,
+            117
+          ]
+        ]
+      },
+      {
+        "text": "航班 FLIGHT",
+        "confidence": 0.9516444802284241,
+        "box": [
+          [
+            62,
+            110
+          ],
+          [
+            192,
+            108
+          ],
+          [
+            192,
+            131
+          ],
+          [
+            62,
+            133
+          ]
+        ]
+      },
+      {
+        "text": "日期 DATE",
+        "confidence": 0.9439896941184998,
+        "box": [
+          [
+            213,
+            107
+          ],
+          [
+            318,
+            107
+          ],
+          [
+            318,
+            131
+          ],
+          [
+            213,
+            131
+          ]
+        ]
+      },
+      {
+        "text": "03DEC",
+        "confidence": 0.9962363243103027,
+        "box": [
+          [
+            232,
+            136
+          ],
+          [
+            327,
+            134
+          ],
+          [
+            327,
+            158
+          ],
+          [
+            232,
+            160
+          ]
+        ]
+      },
+      {
+        "text": "W",
+        "confidence": 0.9926828742027283,
+        "box": [
+          [
+            405,
+            133
+          ],
+          [
+            429,
+            132
+          ],
+          [
+            430,
+            156
+          ],
+          [
+            406,
+            158
+          ]
+        ]
+      },
+      {
+        "text": "035",
+        "confidence": 0.9998767375946045,
+        "box": [
+          [
+            510,
+            129
+          ],
+          [
+            567,
+            129
+          ],
+          [
+            567,
+            155
+          ],
+          [
+            510,
+            155
+          ]
+        ]
+      },
+      {
+        "text": "X",
+        "confidence": 0.40664464235305786,
+        "box": [
+          [
+            796,
+            127
+          ],
+          [
+            822,
+            127
+          ],
+          [
+            822,
+            149
+          ],
+          [
+            796,
+            149
+          ]
+        ]
+      },
+      {
+        "text": "MU 2379",
+        "confidence": 0.9317285418510437,
+        "box": [
+          [
+            80,
+            138
+          ],
+          [
+            213,
+            136
+          ],
+          [
+            213,
+            162
+          ],
+          [
+            80,
+            164
+          ]
+        ]
+      },
+      {
+        "text": "始发地 FROM",
+        "confidence": 0.9910951852798462,
+        "box": [
+          [
+            341,
+            174
+          ],
+          [
+            470,
+            172
+          ],
+          [
+            470,
+            195
+          ],
+          [
+            341,
+            197
+          ]
+        ]
+      },
+      {
+        "text": "登机口",
+        "confidence": 0.999876081943512,
+        "box": [
+          [
+            488,
+            171
+          ],
+          [
+            554,
+            171
+          ],
+          [
+            554,
+            195
+          ],
+          [
+            488,
+            195
+          ]
+        ]
+      },
+      {
+        "text": "GATE",
+        "confidence": 0.9999786019325256,
+        "box": [
+          [
+            565,
+            172
+          ],
+          [
+            614,
+            172
+          ],
+          [
+            614,
+            193
+          ],
+          [
+            565,
+            193
+          ]
+        ]
+      },
+      {
+        "text": "登机时间BDT",
+        "confidence": 0.9999807476997375,
+        "box": [
+          [
+            675,
+            168
+          ],
+          [
+            812,
+            165
+          ],
+          [
+            812,
+            189
+          ],
+          [
+            675,
+            192
+          ]
+        ]
+      },
+      {
+        "text": "目的地 TO",
+        "confidence": 0.9304612278938293,
+        "box": [
+          [
+            65,
+            179
+          ],
+          [
+            169,
+            176
+          ],
+          [
+            169,
+            201
+          ],
+          [
+            65,
+            203
+          ]
+        ]
+      },
+      {
+        "text": "福州",
+        "confidence": 0.9998064041137695,
+        "box": [
+          [
+            96,
+            205
+          ],
+          [
+            169,
+            205
+          ],
+          [
+            169,
+            230
+          ],
+          [
+            96,
+            230
+          ]
+        ]
+      },
+      {
+        "text": "TAIYUAN",
+        "confidence": 0.9997140765190125,
+        "box": [
+          [
+            336,
+            216
+          ],
+          [
+            477,
+            213
+          ],
+          [
+            477,
+            238
+          ],
+          [
+            336,
+            240
+          ]
+        ]
+      },
+      {
+        "text": "G11",
+        "confidence": 0.9999351501464844,
+        "box": [
+          [
+            506,
+            214
+          ],
+          [
+            553,
+            214
+          ],
+          [
+            553,
+            236
+          ],
+          [
+            506,
+            236
+          ]
+        ]
+      },
+      {
+        "text": "FUZHOU",
+        "confidence": 0.99967360496521,
+        "box": [
+          [
+            89,
+            227
+          ],
+          [
+            204,
+            227
+          ],
+          [
+            204,
+            251
+          ],
+          [
+            89,
+            251
+          ]
+        ]
+      },
+      {
+        "text": "身份识别ID NO.",
+        "confidence": 0.9955347180366516,
+        "box": [
+          [
+            343,
+            237
+          ],
+          [
+            484,
+            235
+          ],
+          [
+            484,
+            258
+          ],
+          [
+            343,
+            260
+          ]
+        ]
+      },
+      {
+        "text": "姓名NAME",
+        "confidence": 0.9998593926429749,
+        "box": [
+          [
+            64,
+            249
+          ],
+          [
+            172,
+            245
+          ],
+          [
+            173,
+            270
+          ],
+          [
+            65,
+            273
+          ]
+        ]
+      },
+      {
+        "text": "ZHANGQIWEI",
+        "confidence": 0.9998869895935059,
+        "box": [
+          [
+            74,
+            274
+          ],
+          [
+            265,
+            272
+          ],
+          [
+            265,
+            298
+          ],
+          [
+            74,
+            300
+          ]
+        ]
+      },
+      {
+        "text": "票号 TKT NO.",
+        "confidence": 0.9716183543205261,
+        "box": [
+          [
+            461,
+            294
+          ],
+          [
+            579,
+            294
+          ],
+          [
+            579,
+            318
+          ],
+          [
+            461,
+            318
+          ]
+        ]
+      },
+      {
+        "text": "张祺伟",
+        "confidence": 0.9986380338668823,
+        "box": [
+          [
+            101,
+            311
+          ],
+          [
+            210,
+            311
+          ],
+          [
+            210,
+            338
+          ],
+          [
+            101,
+            338
+          ]
+        ]
+      },
+      {
+        "text": "票价 FARE",
+        "confidence": 0.9756155610084534,
+        "box": [
+          [
+            67,
+            341
+          ],
+          [
+            165,
+            337
+          ],
+          [
+            166,
+            365
+          ],
+          [
+            68,
+            368
+          ]
+        ]
+      },
+      {
+        "text": "ETKT 7813699238489/1",
+        "confidence": 0.9891592860221863,
+        "box": [
+          [
+            344,
+            348
+          ],
+          [
+            663,
+            343
+          ],
+          [
+            663,
+            367
+          ],
+          [
+            344,
+            371
+          ]
+        ]
+      },
+      {
+        "text": "登机口于起飞前10分钟关闭",
+        "confidence": 0.9998899102210999,
+        "box": [
+          [
+            99,
+            455
+          ],
+          [
+            349,
+            451
+          ],
+          [
+            349,
+            474
+          ],
+          [
+            99,
+            479
+          ]
+        ]
+      },
+      {
+        "text": " GATES CLOSE 10 MINUTES BEFORE DEPARTURE TIME",
+        "confidence": 0.9962593913078308,
+        "box": [
+          [
+            336,
+            451
+          ],
+          [
+            832,
+            442
+          ],
+          [
+            832,
+            465
+          ],
+          [
+            336,
+            474
+          ]
+        ]
+      }
+    ]
+  },
+  "latencyUs": {
+    "minimum": 135520,
+    "p50": 138328,
+    "p95": 143001,
+    "maximum": 146256
+  },
+  "engineInitializationUs": {
+    "minimum": 487159,
+    "p50": 488676,
+    "maximum": 766703,
+    "values": [
+      766703,
+      488676,
+      487159
+    ]
+  },
+  "firstPredictionUs": 220569,
+  "firstPredictionUsByCycle": [
+    220569,
+    234198,
+    220341
+  ],
+  "processCpuUs": 7369773,
+  "measuredWallUs": 7765761,
+  "averageProcessCpuCores": 0.9490084745075209,
+  "lifecycle": {
+    "rssBytes": [
+      381358080,
+      381952000,
+      382738432,
+      389029888,
+      401874944,
+      414720000,
+      427749376,
+      440856576,
+      453701632,
+      466808832,
+      479653888,
+      492498944,
+      471064576,
+      499175424,
+      499904512,
+      500027392,
+      500027392,
+      499904512,
+      499904512,
+      499785728,
+      499785728,
+      499785728,
+      499785728,
+      499785728,
+      499785728,
+      480456704,
+      506863616,
+      506974208,
+      506974208,
+      506974208,
+      507346944,
+      507346944,
+      507346944,
+      507346944,
+      507346944,
+      508919808,
+      508919808,
+      508313600,
+      488984576
+    ],
+    "residentMinimumBytes": 381358080,
+    "residentMaximumBytes": 508919808,
+    "residentFinalBytes": 488984576,
+    "retainedGrowthBytes": 107626496
+  },
+  "engine": {
+    "coreVersion": "0.2.1",
+    "modelBundleId": "ppocrv6-small-webgpu-20260719.1",
+    "modelBundleSchemaVersion": "1.2",
+    "normalizedConfigSchemaVersion": "1.2",
+    "backend": "ONNX Runtime 1.24.4",
+    "executionProvider": "WebGpuExecutionProvider",
+    "execution": {
+      "requestedProvider": "webgpu",
+      "sessionFallback": "error",
+      "cpuPartition": "allow",
+      "performanceHint": "latency",
+      "requestedPrecision": "fp32",
+      "providerCapabilities": [
+        {
+          "provider": "cpu",
+          "packageIncluded": true,
+          "deviceAvailable": true,
+          "deviceValidated": true
+        },
+        {
+          "provider": "webgpu",
+          "packageIncluded": true,
+          "deviceAvailable": true,
+          "deviceValidated": false
+        }
+      ],
+      "selectionTrace": {
+        "requestedProvider": "webgpu",
+        "orderedCandidates": [
+          "webgpu"
+        ],
+        "attempts": [
+          {
+            "provider": "webgpu",
+            "status": "selected"
+          }
+        ],
+        "selectedProvider": "webgpu"
+      },
+      "sessions": {
+        "detection": {
+          "requestedProvider": "webgpu",
+          "actualProviderChain": [
+            "WebGpuExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "device": "webgpu:Microsoft:4098:5710:2-devices",
+          "deviceFamily": "",
+          "operatingSystem": "linux",
+          "precision": "fp32",
+          "shapePolicy": "dynamic",
+          "modelId": "PP-OCRv6_small_det_onnx",
+          "modelSha256": "d73e0058b7a8086bbd57f3d10b8bcd4ff95363f67e06e2762b5e814fe9c9410e",
+          "runtime": "ONNX Runtime",
+          "runtimeVersion": "1.24.4",
+          "providerVersion": "0.1.0",
+          "modelCacheStatus": "not_applicable",
+          "qualificationId": "native-webgpu-plugin-0.1.0-ort-1.24.4-dev2",
+          "deviceValidated": false,
+          "sessionFallback": false
+        },
+        "recognition": {
+          "requestedProvider": "webgpu",
+          "actualProviderChain": [
+            "WebGpuExecutionProvider",
+            "CPUExecutionProvider"
+          ],
+          "device": "webgpu:Microsoft:4098:5710:2-devices",
+          "deviceFamily": "",
+          "operatingSystem": "linux",
+          "precision": "fp32",
+          "shapePolicy": "dynamic",
+          "modelId": "PP-OCRv6_small_rec_onnx",
+          "modelSha256": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634",
+          "runtime": "ONNX Runtime",
+          "runtimeVersion": "1.24.4",
+          "providerVersion": "0.1.0",
+          "modelCacheStatus": "not_applicable",
+          "qualificationId": "native-webgpu-plugin-0.1.0-ort-1.24.4-dev2",
+          "deviceValidated": false,
+          "sessionFallback": false
+        }
+      }
+    },
+    "capabilities": {
+      "detection": true,
+      "recognition": true,
+      "textlineOrientation": false,
+      "tiledDetection": true
+    },
+    "concurrencyMode": "serialized_reject_when_busy",
+    "limits": {
+      "maxWidth": 10000,
+      "maxHeight": 10000,
+      "maxPixels": 40000000,
+      "maxDetectionSide": 4000,
+      "maxDetectionCandidates": 3000,
+      "maxDetectionTiles": 100,
+      "maxRecognitionBatchSize": 8,
+      "maxRecognitionWidth": 3200,
+      "maxTemporaryBytes": 536870912,
+      "maxConcurrentCalls": 1
+    },
+    "intraOpThreads": 1,
+    "interOpThreads": 1,
+    "detectionStrategy": "bounded",
+    "detectionMaxSide": 960,
+    "defaultRecognitionScoreThreshold": 0,
+    "defaultRecognitionBatchSize": 1,
+    "adapter": {
+      "scheduler": "dedicated_fifo",
+      "queueCapacity": 4,
+      "maxPendingInputBytes": 268435456
+    }
+  }
+}
