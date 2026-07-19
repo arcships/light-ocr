@@ -1,6 +1,6 @@
 # light-ocr Node-API adapter
 
-状态：`@arcships/light-ocr@0.2.0` 已发布；当前 0.3.0 源码候选加入 Apple/Core ML，以及 Linux x64 glibc/Vulkan、Windows x64/D3D12 的 official Native WebGPU Plugin EP 产品实现。WebGPU runtime/npm payload、Auto 与双平台真实设备 Gate 已完成；正式 release lock 仍需在发布前绑定已审阅报告和产物哈希。已发布的 0.2.0 仍为 CPU 默认。
+状态：`@arcships/light-ocr@0.3.0` 已发布并提升为 npm `latest`。默认 `createEngine()` 使用 descriptor-driven Auto；macOS arm64 可用 Apple/Core ML，Linux x64 glibc/Vulkan 与 Windows x64/D3D12 可用 official Native WebGPU Plugin EP，macOS x64 保持 CPU-only。
 
 推荐直接安装公开 package：
 
@@ -20,7 +20,7 @@ npm install @arcships/light-ocr
 - `recognize()` 返回前同步复制本次调用实际需要的像素范围；调用返回后可以立即修改或复用原 Buffer。
 - 支持 `AbortSignal` 协作式取消：queued 请求会从队列移除；running 请求立即拒绝 public Promise，但 Core 会安全运行到返回并丢弃结果。
 - native addon 只接收现有绝对 bundle 目录。当前源码开发调用显式传 `bundlePath`；发布后的 facade 默认使用随 npm 安装的 model package 路径。
-- 产品 engine 默认报告 `detectionStrategy: 'bounded'`、`detectionMaxSide: 960` 和 `defaultRecognitionBatchSize: 1`。0.2.0 可通过 `detection: {strategy: 'tiled'}` 显式选择 `tiled-v1`；`upstreamExact` 只用于上游对照，单次 `recognize({detectionMaxSide})` 只能继续降低 bounded engine 的 side。
+- 产品 engine 默认报告 `detectionStrategy: 'bounded'`、`detectionMaxSide: 960` 和 `defaultRecognitionBatchSize: 1`。0.3.0 可通过 `detection: {strategy: 'tiled'}` 显式选择 `tiled-v1`；`upstreamExact` 只用于上游对照，单次 `recognize({detectionMaxSide})` 只能继续降低 bounded engine 的 side。
 - `createEngine({execution})` 接受 `auto`、`cpu`、`apple` 与已交付平台支持的 `webgpu`。macOS 15+ arm64 默认开放：Apple Silicon interactive 使用 FP16 ANE + 宽文本 FP16 GPU，strict 使用全 GPU；macOS x64 package 保持 CPU-only。WebGPU 使用 ORT Core 1.24.4 + official plugin 0.1.0，Linux 为 Vulkan、Windows 为 D3D12；`0.3.0` 公共 WebGPU profile 只接受 `precision: 'auto' | 'fp32'`，FP16 仅用于 Apple provider。当前 WebGPU 模型需要 `Concat/Gather/Slice` 三类有界 CPU partition，因而 `cpuPartition: 'forbid'` 会稳定 fail-closed。只有 Auto 可在创建期按 descriptor 锁定的 typed failure 继续候选；显式 provider 不回退，旧 `sessionFallback: 'cpu'` 返回 `invalid_argument`。`engine.info.execution.sessions` 报告每个模型的实际 provider chain、precision、adapter、runtime/provider/qualification identity，selection trace 则报告 Auto 的每次创建尝试。
 
 ## `0.3.0` 加速证据
