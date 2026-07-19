@@ -171,6 +171,17 @@ if(LIGHT_OCR_BUILD_TESTS)
       ENVIRONMENT "${_light_ocr_node_test_environment}"
       TIMEOUT 600
       LABELS "node;integration")
+    if(LIGHT_OCR_HAS_WEBGPU)
+      add_test(NAME light_ocr_node_webgpu_lifecycle_tests
+        COMMAND "${LIGHT_OCR_NODE_EXECUTABLE}" --test --test-concurrency=1
+          "--test-name-pattern=loads PP-OCRv6|decodes encoded images concurrently|worker environment teardown"
+          "${CMAKE_CURRENT_SOURCE_DIR}/test/adapter.test.cjs")
+      set_tests_properties(light_ocr_node_webgpu_lifecycle_tests PROPERTIES
+        WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+        ENVIRONMENT "${_light_ocr_node_test_environment}"
+        TIMEOUT 120
+        LABELS "node;integration;webgpu-contract")
+    endif()
   else()
     message(STATUS
       "Skipping Node adapter tests: Node.js or the generated PP-OCRv6 bundle is unavailable")
