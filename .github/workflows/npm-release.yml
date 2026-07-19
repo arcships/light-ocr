@@ -161,8 +161,7 @@ jobs:
       - name: Build and test Node addon
         run: |
           cmake --build build-npm --config Release --parallel
-          ctest --test-dir build-npm -C Release --output-on-failure \
-            -LE "acceptance|canonical-oracle|webgpu-contract"
+          ctest --test-dir build-npm -C Release --output-on-failure -LE "acceptance|canonical-oracle|webgpu-contract"
       - name: Generate native build identity
         shell: bash
         run: >-
