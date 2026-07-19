@@ -86,14 +86,30 @@ WebGpuRegistrationState& webgpu_registration_state() {
   return state;
 }
 
-std::mutex& webgpu_session_creation_mutex() {
-  // The plugin registration API is process-global, while Dawn device/session
-  // initialization is not safe to enter concurrently from multiple engine
-  // workers on Windows. Keep registration and session construction serialized;
-  // completed sessions can still run concurrently.
+std::mutex& webgpu_runtime_mutex() {
+  // The plugin registration API and Dawn runtime are process-global. The
+  // Windows plugin can access shared Dawn state while sessions are created,
+  // run, and destroyed, so keep those provider operations serialized across
+  // independent engine workers.
   static std::mutex mutex;
   return mutex;
 }
+
+bool is_webgpu_execution(const SessionExecutionInfo& info) {
+  return !info.actual_provider_chain.empty() &&
+         info.actual_provider_chain.front() == kWebGpuEpName;
+}
+
+struct WebGpuTensorStorage {
+  WebGpuTensorStorage(std::unique_lock<std::mutex> runtime_lock,
+                      Ort::Value output_value)
+      : lock(std::move(runtime_lock)), output(std::move(output_value)) {}
+
+  // Members are destroyed in reverse order, keeping the runtime locked until
+  // the provider-owned output value has been released.
+  std::unique_lock<std::mutex> lock;
+  Ort::Value output;
+};
 
 #if !defined(_WIN32)
 bool linux_drm_render_node_available() {
@@ -478,12 +494,12 @@ Result<std::unique_ptr<OnnxSession>> OnnxSession::create(
             : GraphOptimizationLevel::ORT_ENABLE_ALL);
     std::string selected_webgpu_device;
 #if defined(LIGHT_OCR_HAS_WEBGPU)
-    std::unique_lock<std::mutex> webgpu_session_creation_lock;
+    std::unique_lock<std::mutex> webgpu_runtime_lock;
 #endif
     if (config.provider == ExecutionProvider::webgpu) {
 #if defined(LIGHT_OCR_HAS_WEBGPU)
-      webgpu_session_creation_lock =
-          std::unique_lock<std::mutex>(webgpu_session_creation_mutex());
+      webgpu_runtime_lock =
+          std::unique_lock<std::mutex>(webgpu_runtime_mutex());
       options.DisableMemPattern();
       if (config.cpu_partition == CpuPartition::forbid) {
         options.AddConfigEntry(kOrtSessionOptionsDisableCPUEPFallback, "1");
@@ -505,11 +521,6 @@ Result<std::unique_ptr<OnnxSession>> OnnxSession::create(
 #endif
     }
     auto session = std::make_unique<Ort::Session>(environment(), model->data(), model->size(), options);
-#if defined(LIGHT_OCR_HAS_WEBGPU)
-    if (webgpu_session_creation_lock.owns_lock()) {
-      webgpu_session_creation_lock.unlock();
-    }
-#endif
     validate_model_contract(*session, kind, expected_recognition_classes,
                             config.precision);
     Ort::AllocatorWithDefaultOptions allocator;
@@ -563,6 +574,15 @@ Result<std::unique_ptr<OnnxSession>> OnnxSession::create(
   }
 }
 
+OnnxSession::~OnnxSession() noexcept {
+#if defined(LIGHT_OCR_HAS_WEBGPU)
+  if (session_ && is_webgpu_execution(execution_info_)) {
+    const std::lock_guard<std::mutex> lock(webgpu_runtime_mutex());
+    session_.reset();
+  }
+#endif
+}
+
 Result<TensorOutput> OnnxSession::run(const std::vector<float>& values,
                                       const std::vector<std::int64_t>& shape) noexcept {
   try {
@@ -582,6 +602,13 @@ Result<TensorOutput> OnnxSession::run(const std::vector<float>& values,
       return runtime_failure<TensorOutput>(ErrorCode::inference_failed,
                                            "Inference input size does not match shape");
     }
+#if defined(LIGHT_OCR_HAS_WEBGPU)
+    std::unique_lock<std::mutex> webgpu_runtime_lock;
+    if (is_webgpu_execution(execution_info_)) {
+      webgpu_runtime_lock =
+          std::unique_lock<std::mutex>(webgpu_runtime_mutex());
+    }
+#endif
     auto memory = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
     std::vector<Ort::Float16_t> fp16_values;
     Ort::Value input{nullptr};
@@ -625,6 +652,15 @@ Result<TensorOutput> OnnxSession::run(const std::vector<float>& values,
       return Result<TensorOutput>::success(TensorOutput(
           std::move(storage), data, std::move(output_shape), count));
     }
+#if defined(LIGHT_OCR_HAS_WEBGPU)
+    if (webgpu_runtime_lock.owns_lock()) {
+      auto storage = std::make_shared<WebGpuTensorStorage>(
+          std::move(webgpu_runtime_lock), std::move(outputs[0]));
+      const auto* data = storage->output.GetTensorData<float>();
+      return Result<TensorOutput>::success(TensorOutput(
+          std::move(storage), data, std::move(output_shape), count));
+    }
+#endif
     auto storage = std::make_shared<Ort::Value>(std::move(outputs[0]));
     const auto* data = storage->GetTensorData<float>();
     return Result<TensorOutput>::success(TensorOutput(

@@ -16,6 +16,8 @@ void add_webgpu_session_config_entries(Ort::SessionOptions& options);
 
 class OnnxSession final : public InferenceSession {
  public:
+  ~OnnxSession() noexcept override;
+
   static Result<std::unique_ptr<OnnxSession>> create(
       const SharedBytes& model, const InferenceSessionConfig& config, ModelKind kind,
       std::size_t expected_recognition_classes = 0,
