@@ -547,19 +547,30 @@ test('matches raw recognition for a non-blank color PNG', async () => {
 });
 
 test('decodes encoded images concurrently across independent engines', async () => {
+  const diagnose = (stage) => {
+    if (process.platform === 'win32' && runtimePolicy?.orderedCandidates.includes('webgpu')) {
+      process.stderr.write(`[webgpu-concurrency] ${stage}\n`);
+    }
+  };
+  diagnose('create-start');
   const engines = await Promise.all([
     createEngine({ bundlePath }),
     createEngine({ bundlePath }),
   ]);
+  diagnose('create-complete');
   try {
+    diagnose('run-start');
     const [pngResult, jpegResult] = await Promise.all([
       engines[0].recognizeEncoded(encodedBlankPng),
       engines[1].recognizeEncoded(encodedBlankJpeg),
     ]);
+    diagnose('run-complete');
     assert.deepEqual([pngResult.imageWidth, pngResult.imageHeight], [2, 3]);
     assert.deepEqual([jpegResult.imageWidth, jpegResult.imageHeight], [2, 3]);
   } finally {
+    diagnose('close-start');
     await Promise.all(engines.map((engine) => engine.close()));
+    diagnose('close-complete');
   }
 });
 

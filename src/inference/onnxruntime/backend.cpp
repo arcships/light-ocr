@@ -100,17 +100,6 @@ bool is_webgpu_execution(const SessionExecutionInfo& info) {
          info.actual_provider_chain.front() == kWebGpuEpName;
 }
 
-struct WebGpuTensorStorage {
-  WebGpuTensorStorage(std::unique_lock<std::mutex> runtime_lock,
-                      Ort::Value output_value)
-      : lock(std::move(runtime_lock)), output(std::move(output_value)) {}
-
-  // Members are destroyed in reverse order, keeping the runtime locked until
-  // the provider-owned output value has been released.
-  std::unique_lock<std::mutex> lock;
-  Ort::Value output;
-};
-
 #if !defined(_WIN32)
 bool linux_drm_render_node_available() {
   std::error_code error;
@@ -654,9 +643,10 @@ Result<TensorOutput> OnnxSession::run(const std::vector<float>& values,
     }
 #if defined(LIGHT_OCR_HAS_WEBGPU)
     if (webgpu_runtime_lock.owns_lock()) {
-      auto storage = std::make_shared<WebGpuTensorStorage>(
-          std::move(webgpu_runtime_lock), std::move(outputs[0]));
-      const auto* data = storage->output.GetTensorData<float>();
+      const auto* source = outputs[0].GetTensorData<float>();
+      auto storage =
+          std::make_shared<std::vector<float>>(source, source + count);
+      const auto* data = storage->data();
       return Result<TensorOutput>::success(TensorOutput(
           std::move(storage), data, std::move(output_shape), count));
     }
