@@ -1,0 +1,233 @@
+{
+  "schemaVersion": "1.1",
+  "ok": true,
+  "started": "2026-07-19T07:34:53.282Z",
+  "finished": "2026-07-19T07:34:57.768Z",
+  "host": {
+    "platform": "win32",
+    "architecture": "x64",
+    "node": "24.14.1",
+    "osName": "Windows_NT",
+    "osRelease": "10.0.26200",
+    "osVersion": "Windows 11 Pro for Workstations"
+  },
+  "fixture": "generated-traditional-horizontal",
+  "mode": "cpu",
+  "warmup": 2,
+  "iterations": 10,
+  "cycles": 3,
+  "result": {
+    "sha256": "5460ec9f606ec5fc4d6998a40c6955185d44d7394348e692ac91068e45cd29a0",
+    "deterministic": true,
+    "lines": [
+      {
+        "text": "繁體中文測試：臺灣・OCR 2026",
+        "confidence": 0.9524393677711487,
+        "box": [
+          [
+            75,
+            55
+          ],
+          [
+            1204,
+            55
+          ],
+          [
+            1204,
+            135
+          ],
+          [
+            75,
+            135
+          ]
+        ]
+      }
+    ]
+  },
+  "latencyUs": {
+    "minimum": 77954,
+    "p50": 78870,
+    "p95": 85218,
+    "maximum": 90068
+  },
+  "engineInitializationUs": {
+    "minimum": 460856,
+    "p50": 463766,
+    "maximum": 565834,
+    "values": [
+      565834,
+      460856,
+      463766
+    ]
+  },
+  "firstPredictionUs": 98305,
+  "firstPredictionUsByCycle": [
+    98305,
+    85623,
+    86065
+  ],
+  "processCpuUs": 4484000,
+  "measuredWallUs": 4436666,
+  "averageProcessCpuCores": 1.0106688220388913,
+  "lifecycle": {
+    "rssBytes": [
+      181248000,
+      210763776,
+      210771968,
+      210776064,
+      210776064,
+      210776064,
+      210776064,
+      210776064,
+      210841600,
+      210841600,
+      210841600,
+      210907136,
+      96165888,
+      182497280,
+      212688896,
+      212688896,
+      212688896,
+      212688896,
+      212688896,
+      212688896,
+      212688896,
+      212692992,
+      212697088,
+      212705280,
+      212766720,
+      97218560,
+      184147968,
+      214163456,
+      214167552,
+      214171648,
+      214241280,
+      214241280,
+      214241280,
+      214241280,
+      214241280,
+      214241280,
+      214241280,
+      214241280,
+      97841152
+    ],
+    "residentMinimumBytes": 96165888,
+    "residentMaximumBytes": 214241280,
+    "residentFinalBytes": 97841152,
+    "retainedGrowthBytes": -83406848
+  },
+  "engine": {
+    "coreVersion": "0.2.1",
+    "modelBundleId": "ppocrv6-small-webgpu-20260719.1",
+    "modelBundleSchemaVersion": "1.2",
+    "normalizedConfigSchemaVersion": "1.2",
+    "backend": "ONNX Runtime 1.24.4",
+    "executionProvider": "CPUExecutionProvider",
+    "execution": {
+      "requestedProvider": "cpu",
+      "sessionFallback": "error",
+      "cpuPartition": "allow",
+      "performanceHint": "latency",
+      "requestedPrecision": "fp32",
+      "providerCapabilities": [
+        {
+          "provider": "cpu",
+          "packageIncluded": true,
+          "deviceAvailable": true,
+          "deviceValidated": true
+        },
+        {
+          "provider": "webgpu",
+          "packageIncluded": true,
+          "deviceAvailable": false,
+          "deviceValidated": false
+        }
+      ],
+      "selectionTrace": {
+        "requestedProvider": "cpu",
+        "orderedCandidates": [
+          "cpu"
+        ],
+        "attempts": [
+          {
+            "provider": "cpu",
+            "status": "selected"
+          }
+        ],
+        "selectedProvider": "cpu"
+      },
+      "sessions": {
+        "detection": {
+          "requestedProvider": "cpu",
+          "actualProviderChain": [
+            "CPUExecutionProvider"
+          ],
+          "device": "cpu",
+          "deviceFamily": "",
+          "operatingSystem": "",
+          "precision": "fp32",
+          "shapePolicy": "dynamic",
+          "modelId": "PP-OCRv6_small_det_onnx",
+          "modelSha256": "d73e0058b7a8086bbd57f3d10b8bcd4ff95363f67e06e2762b5e814fe9c9410e",
+          "runtime": "ONNX Runtime",
+          "runtimeVersion": "1.24.4",
+          "providerVersion": "1.24.4",
+          "modelCacheStatus": "not_applicable",
+          "qualificationId": "cpu-baseline-v1",
+          "deviceValidated": true,
+          "sessionFallback": false
+        },
+        "recognition": {
+          "requestedProvider": "cpu",
+          "actualProviderChain": [
+            "CPUExecutionProvider"
+          ],
+          "device": "cpu",
+          "deviceFamily": "",
+          "operatingSystem": "",
+          "precision": "fp32",
+          "shapePolicy": "dynamic",
+          "modelId": "PP-OCRv6_small_rec_onnx",
+          "modelSha256": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634",
+          "runtime": "ONNX Runtime",
+          "runtimeVersion": "1.24.4",
+          "providerVersion": "1.24.4",
+          "modelCacheStatus": "not_applicable",
+          "qualificationId": "cpu-baseline-v1",
+          "deviceValidated": true,
+          "sessionFallback": false
+        }
+      }
+    },
+    "capabilities": {
+      "detection": true,
+      "recognition": true,
+      "textlineOrientation": false,
+      "tiledDetection": true
+    },
+    "concurrencyMode": "serialized_reject_when_busy",
+    "limits": {
+      "maxWidth": 10000,
+      "maxHeight": 10000,
+      "maxPixels": 40000000,
+      "maxDetectionSide": 4000,
+      "maxDetectionCandidates": 3000,
+      "maxDetectionTiles": 100,
+      "maxRecognitionBatchSize": 8,
+      "maxRecognitionWidth": 3200,
+      "maxTemporaryBytes": 536870912,
+      "maxConcurrentCalls": 1
+    },
+    "intraOpThreads": 1,
+    "interOpThreads": 1,
+    "detectionStrategy": "bounded",
+    "detectionMaxSide": 960,
+    "defaultRecognitionScoreThreshold": 0,
+    "defaultRecognitionBatchSize": 1,
+    "adapter": {
+      "scheduler": "dedicated_fifo",
+      "queueCapacity": 4,
+      "maxPendingInputBytes": 268435456
+    }
+  }
+}
