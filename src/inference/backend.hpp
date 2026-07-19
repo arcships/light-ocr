@@ -14,6 +14,8 @@
 
 namespace light_ocr::internal {
 
+void shutdown_webgpu_runtime_if_idle() noexcept;
+
 enum class ModelKind { detection, recognition };
 
 struct ModelPackageFile {

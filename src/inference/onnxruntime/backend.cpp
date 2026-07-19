@@ -76,15 +76,59 @@ class WebGpuSetupError final : public std::runtime_error {
 };
 
 struct WebGpuRegistrationState {
+  ~WebGpuRegistrationState() noexcept {
+    const std::lock_guard<std::mutex> lock(mutex);
+    if (!registered || active_sessions != 0) return;
+    try {
+      environment().UnregisterExecutionProviderLibrary(
+          kWebGpuRegistrationName);
+      registered = false;
+      library.clear();
+    } catch (...) {
+      // Static destruction cannot report an error. Runtime sessions have
+      // already been released, so ORT still owns the remaining teardown.
+    }
+  }
+
   std::mutex mutex;
   std::filesystem::path library;
+  std::size_t active_sessions = 0;
   bool registered = false;
 };
 
 WebGpuRegistrationState& webgpu_registration_state() {
+  // Construct the environment first so this state unregisters the plugin
+  // before Ort::Env is destroyed during process shutdown.
+  (void)environment();
   static WebGpuRegistrationState state;
   return state;
 }
+
+std::mutex& webgpu_runtime_mutex() {
+  // The plugin registration API and Dawn runtime are process-global. The
+  // Windows plugin can access shared Dawn state while sessions are created,
+  // run, and destroyed, so keep those provider operations serialized across
+  // independent engine workers.
+  static std::mutex mutex;
+  return mutex;
+}
+
+bool is_webgpu_execution(const SessionExecutionInfo& info) {
+  return !info.actual_provider_chain.empty() &&
+         info.actual_provider_chain.front() == kWebGpuEpName;
+}
+
+struct WebGpuTensorStorage {
+  explicit WebGpuTensorStorage(Ort::Value output_value)
+      : output(std::make_unique<Ort::Value>(std::move(output_value))) {}
+
+  ~WebGpuTensorStorage() noexcept {
+    const std::lock_guard<std::mutex> lock(webgpu_runtime_mutex());
+    output.reset();
+  }
+
+  std::unique_ptr<Ort::Value> output;
+};
 
 #if !defined(_WIN32)
 bool linux_drm_render_node_available() {
@@ -468,8 +512,13 @@ Result<std::unique_ptr<OnnxSession>> OnnxSession::create(
             ? GraphOptimizationLevel::ORT_ENABLE_EXTENDED
             : GraphOptimizationLevel::ORT_ENABLE_ALL);
     std::string selected_webgpu_device;
+#if defined(LIGHT_OCR_HAS_WEBGPU)
+    std::unique_lock<std::mutex> webgpu_runtime_lock;
+#endif
     if (config.provider == ExecutionProvider::webgpu) {
 #if defined(LIGHT_OCR_HAS_WEBGPU)
+      webgpu_runtime_lock =
+          std::unique_lock<std::mutex>(webgpu_runtime_mutex());
       options.DisableMemPattern();
       if (config.cpu_partition == CpuPartition::forbid) {
         options.AddConfigEntry(kOrtSessionOptionsDisableCPUEPFallback, "1");
@@ -502,11 +551,19 @@ Result<std::unique_ptr<OnnxSession>> OnnxSession::create(
       return runtime_failure<std::unique_ptr<OnnxSession>>(
           ErrorCode::unsupported_model, "Model input or output name is empty");
     }
-    return Result<std::unique_ptr<OnnxSession>>::success(std::unique_ptr<OnnxSession>(
+    auto created = std::unique_ptr<OnnxSession>(
         new OnnxSession(std::move(session), input_name.get(), output_name.get(),
                         config.precision,
                         make_execution_info(config,
-                                            std::move(selected_webgpu_device)))));
+                                            std::move(selected_webgpu_device))));
+#if defined(LIGHT_OCR_HAS_WEBGPU)
+    if (config.provider == ExecutionProvider::webgpu) {
+      auto& state = webgpu_registration_state();
+      const std::lock_guard<std::mutex> lock(state.mutex);
+      ++state.active_sessions;
+    }
+#endif
+    return Result<std::unique_ptr<OnnxSession>>::success(std::move(created));
 #if defined(LIGHT_OCR_HAS_WEBGPU)
   } catch (const WebGpuSetupError& exception) {
     set_creation_reason(creation_reason, exception.reason());
@@ -544,6 +601,35 @@ Result<std::unique_ptr<OnnxSession>> OnnxSession::create(
   }
 }
 
+OnnxSession::~OnnxSession() noexcept {
+#if defined(LIGHT_OCR_HAS_WEBGPU)
+  if (session_ && is_webgpu_execution(execution_info_)) {
+    const std::lock_guard<std::mutex> lock(webgpu_runtime_mutex());
+    session_.reset();
+    auto& state = webgpu_registration_state();
+    const std::lock_guard<std::mutex> registration_lock(state.mutex);
+    if (state.active_sessions != 0) --state.active_sessions;
+  }
+#endif
+}
+
+void shutdown_webgpu_runtime_if_idle() noexcept {
+#if defined(LIGHT_OCR_HAS_WEBGPU)
+  const std::lock_guard<std::mutex> runtime_lock(webgpu_runtime_mutex());
+  auto& state = webgpu_registration_state();
+  const std::lock_guard<std::mutex> registration_lock(state.mutex);
+  if (!state.registered || state.active_sessions != 0) return;
+  try {
+    environment().UnregisterExecutionProviderLibrary(
+        kWebGpuRegistrationName);
+    state.registered = false;
+    state.library.clear();
+  } catch (...) {
+    // Environment cleanup is best-effort and cannot surface a new exception.
+  }
+#endif
+}
+
 Result<TensorOutput> OnnxSession::run(const std::vector<float>& values,
                                       const std::vector<std::int64_t>& shape) noexcept {
   try {
@@ -563,6 +649,13 @@ Result<TensorOutput> OnnxSession::run(const std::vector<float>& values,
       return runtime_failure<TensorOutput>(ErrorCode::inference_failed,
                                            "Inference input size does not match shape");
     }
+#if defined(LIGHT_OCR_HAS_WEBGPU)
+    std::unique_lock<std::mutex> webgpu_runtime_lock;
+    if (is_webgpu_execution(execution_info_)) {
+      webgpu_runtime_lock =
+          std::unique_lock<std::mutex>(webgpu_runtime_mutex());
+    }
+#endif
     auto memory = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
     std::vector<Ort::Float16_t> fp16_values;
     Ort::Value input{nullptr};
@@ -606,6 +699,16 @@ Result<TensorOutput> OnnxSession::run(const std::vector<float>& values,
       return Result<TensorOutput>::success(TensorOutput(
           std::move(storage), data, std::move(output_shape), count));
     }
+#if defined(LIGHT_OCR_HAS_WEBGPU)
+    if (webgpu_runtime_lock.owns_lock()) {
+      const auto* data = outputs[0].GetTensorData<float>();
+      auto storage =
+          std::make_shared<WebGpuTensorStorage>(std::move(outputs[0]));
+      webgpu_runtime_lock.unlock();
+      return Result<TensorOutput>::success(TensorOutput(
+          std::move(storage), data, std::move(output_shape), count));
+    }
+#endif
     auto storage = std::make_shared<Ort::Value>(std::move(outputs[0]));
     const auto* data = storage->GetTensorData<float>();
     return Result<TensorOutput>::success(TensorOutput(
