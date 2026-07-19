@@ -16,9 +16,9 @@ English | [简体中文](README.zh-CN.md)
 
 It is made for products where OCR should feel like a local capability: quick to invoke, private by default, and straightforward to embed into an existing image pipeline.
 
-> **Available on npm:** `@arcships/light-ocr@0.2.0` includes the default PP-OCRv6 Small model, prebuilt native runtimes for all Tier 1 platforms, opt-in tiled detection, and direct in-memory JPEG/PNG input for Node.js. See [Package support](#package-support).
+> **Available on npm:** `@arcships/light-ocr@0.3.0` includes the default PP-OCRv6 Small model, prebuilt native runtimes for all Tier 1 platforms, opt-in tiled detection, direct in-memory JPEG/PNG input, and descriptor-driven hardware acceleration. See [Package support](#package-support).
 
-> **`0.3.0` acceleration candidate:** macOS arm64 adds Direct Core ML; Linux x64/Vulkan and Windows x64/D3D12 add the official Native WebGPU Plugin EP. The recorded real-device results are **2.30×–2.85×** on Apple M4 Max, **5.70× aggregate P50** on NVIDIA RTX 5060 Ti, and **2.44× aggregate P50** on AMD Radeon 780M. WebGPU ships an FP32 execution profile; Apple uses its separately qualified FP16 route. macOS x64 remains on the CPU provider.
+> **`0.3.0` acceleration:** macOS arm64 adds Direct Core ML; Linux x64/Vulkan and Windows x64/D3D12 add the official Native WebGPU Plugin EP. The recorded real-device results are **2.30×–2.85×** on Apple M4 Max, **5.70× aggregate P50** on NVIDIA RTX 5060 Ti, and **2.44× aggregate P50** on AMD Radeon 780M. WebGPU ships an FP32 execution profile; Apple uses its separately qualified FP16 route. macOS x64 remains on the CPU provider.
 
 ## Where light-ocr fits
 
@@ -43,9 +43,9 @@ Cloud OCR is convenient, but it introduces uploads, network availability, recurr
 - **Local by default.** Recognition performs no runtime network access and does not start a child process.
 - **Ready for real application pipelines.** It accepts `GRAY8`, `RGB8`, `BGR8`, and `RGBA8` pixel buffers; the Node.js adapter can also decode JPEG and PNG bytes already held in memory.
 - **Two deliberate large-image modes.** Bounded/960 remains the fast, memory-conscious default. Opt-in tiled detection preserves more detail for small text and dense 2048-pixel documents while processing one detection tile at a time.
-- **Native Apple acceleration when requested.** On macOS arm64, the `0.3.0` source candidate can route FP16 detection and recognition through Core ML without changing the public OCR result contract.
-- **Qualified Native WebGPU acceleration.** The `0.3.0` candidate packages the official WebGPU Plugin EP and its exact Linux/Vulkan or Windows/D3D12 runtime closure, with hash-verified offline staging and 164/164 real-device Gates on both recorded systems.
-- **A pinned, reproducible model.** The approximately 31 MB PP-OCRv6 Small bundle is integrity-checked and designed to ship with the application instead of downloading on first use.
+- **Native Apple acceleration when requested.** On macOS arm64, `0.3.0` can route FP16 detection and recognition through Core ML without changing the public OCR result contract.
+- **Qualified Native WebGPU acceleration.** Version `0.3.0` packages the official WebGPU Plugin EP and its exact Linux/Vulkan or Windows/D3D12 runtime closure, with hash-verified offline staging and 164/164 real-device Gates on both recorded systems.
+- **A pinned, reproducible model.** The self-contained PP-OCRv6 Small bundle is integrity-checked and designed to ship with the application instead of downloading on first use.
 - **Consistent across supported platforms.** The same model and result contract are used on macOS, Linux, and Windows.
 - **Built for asynchronous hosts.** The Node-API adapter keeps inference away from the JavaScript thread, with bounded queues, cancellation, and explicit lifecycle control.
 - **Open and inspectable.** The project is Apache-2.0 licensed and tests real model behavior, high-resolution memory use, lifecycle safety, and output parity in CI.
@@ -140,7 +140,7 @@ Node.js 22 and 24 are supported on macOS arm64/x64, Linux x64 glibc, and Windows
 npm install @arcships/light-ocr
 ```
 
-The package installs the matching native runtime and the pinned PP-OCRv6 Small model. It does not download a model at first run or compile native code during `postinstall`. Version 0.2.0 supports both `recognizeEncoded()` and raw-pixel `recognize()`.
+The package installs the matching native runtime and the pinned PP-OCRv6 Small model. It does not download a model at first run or compile native code during `postinstall`. Version 0.3.0 supports both `recognizeEncoded()` and raw-pixel `recognize()`.
 
 ```ts
 import { createEngine } from "@arcships/light-ocr";
@@ -165,12 +165,10 @@ console.log(rawResult.lines);
 await engine.close();
 ```
 
-The current source candidate uses a platform runtime descriptor for Auto selection. Explicit Apple and WebGPU remain strict single-provider requests. The following is a maintainer/source-checkout preview, not an `npm install` path for `0.2.0`:
+The published package uses a platform runtime descriptor for Auto selection. Explicit Apple and WebGPU remain strict single-provider requests. On macOS arm64, Apple can be requested directly:
 
 ```ts
 const engine = await createEngine({
-  // Source candidate only; the planned npm 0.3.0 package will resolve it.
-  bundlePath: "/absolute/path/to/ppocrv6-small-native-20260719.1",
   execution: {
     provider: "apple",
     precision: "fp16",
@@ -195,7 +193,7 @@ const engine = await createEngine({
 });
 ```
 
-`cpuPartition: "allow"` and the strict GPU-only profile apply to the Apple provider on Apple Silicon. The `0.3.0` macOS x64 package exposes CPU only. Explicit providers never fall through to CPU; only Auto may advance through its descriptor-locked creation candidates. Published `0.2.0` packages remain CPU-default until the source candidate is released.
+`cpuPartition: "allow"` and the strict GPU-only profile apply to the Apple provider on Apple Silicon. The `0.3.0` macOS x64 package exposes CPU only. Explicit providers never fall through to CPU; only Auto may advance through its descriptor-locked creation candidates. Calling `createEngine()` without `execution` now uses Auto.
 
 See the [Node.js guide](bindings/node/README.md) for the full API, cancellation, queue limits, and lifecycle behavior.
 
@@ -221,19 +219,19 @@ See [Build and release](docs/build-and-release.md) for platform prerequisites an
 | --- | --- | --- |
 | C++ core source | Available | macOS arm64/x64, Linux x64 glibc, Windows x64 |
 | Node-API adapter source | Available | Node.js 22 and 24 |
-| [`@arcships/light-ocr`](https://www.npmjs.com/package/@arcships/light-ocr) | `0.2.0` published | Node.js 22/24 on all Tier 1 platforms |
-| [`@arcships/light-ocr-model-ppocrv6-small`](https://www.npmjs.com/package/@arcships/light-ocr-model-ppocrv6-small) | `0.2.0` published | Platform-independent required model dependency |
-| Platform native npm packages | `0.2.0` published | macOS arm64/x64, Linux x64 glibc, Windows x64 |
+| [`@arcships/light-ocr`](https://www.npmjs.com/package/@arcships/light-ocr) | `0.3.0` published | Node.js 22/24 on all Tier 1 platforms |
+| [`@arcships/light-ocr-model-ppocrv6-small`](https://www.npmjs.com/package/@arcships/light-ocr-model-ppocrv6-small) | `0.3.0` published | Platform-independent required model dependency |
+| Platform native npm packages | `0.3.0` published | macOS arm64/x64, Linux x64 glibc, Windows x64 |
 
-The npm distribution installs one facade, one required model package, and the native package matching the host platform. Package contents, versioning, and release gates are documented in [npm packaging](docs/npm-packaging.md); immutable `0.2.0` hashes and validation evidence are recorded in the [release record](docs/releases/npm-0.2.0.md).
+The npm distribution installs one facade, one required model package, and the native package matching the host platform. Package contents, versioning, and release gates are documented in [npm packaging](docs/npm-packaging.md); immutable `0.3.0` hashes and validation evidence are recorded in the [release record](docs/releases/npm-0.3.0.md).
 
-Direct Core ML acceleration on macOS arm64 is merged on `main` for the `0.3.0` candidate but is not part of the published `0.2.0` package set. Its release keeps the same six-package installation shape; no extra provider package or runtime download is planned.
+Direct Core ML acceleration on macOS arm64 is published in `0.3.0` using the same six-package installation shape; it adds no provider package or runtime download. macOS x64 remains CPU-only.
 
-PR #11 also carries the Linux x64 and Windows x64 Native WebGPU source candidate. Explicit WebGPU accepts `auto`/`fp32`; Auto also selects FP32. The three required CPU-partition operators are reported and bounded. Both real-device reports passed 164/164 Gates, and their immutable report/artifact hashes are now bound into the production lock for the `0.3.0` release workflow. Published `0.2.0` packages remain unchanged and CPU-only on those platforms.
+Version `0.3.0` publishes Native WebGPU on Linux x64 and Windows x64. Explicit WebGPU accepts `auto`/`fp32`; Auto also selects FP32. The three required CPU-partition operators are reported and bounded. Both real-device reports passed 164/164 Gates, and their immutable report/artifact hashes are bound into the production lock.
 
 ## Project status
 
-`light-ocr` is under active development. Version `0.2.0` publishes the deterministic `tiled-v1` high-resolution mode and bounded in-memory JPEG/PNG decoding in the Node.js adapter without changing the raw-pixel C++ Core boundary. The `0.3.0` source candidate adds descriptor-driven Auto selection, Direct Core ML execution on macOS arm64, and FP32 Native WebGPU execution on Linux x64/Windows x64.
+`light-ocr` is under active development. Version `0.3.0` includes deterministic `tiled-v1`, bounded in-memory JPEG/PNG decoding, descriptor-driven Auto selection, Direct Core ML execution on macOS arm64, and FP32 Native WebGPU execution on Linux x64/Windows x64 without changing the raw-pixel C++ Core boundary.
 
 As a pre-1.0 project, public APIs and package layout may still evolve; the project does not currently promise a stable cross-release C++ ABI.
 

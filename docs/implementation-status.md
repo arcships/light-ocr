@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
 更新时间：2026-07-19<br>
-结论：`@arcships/light-ocr@0.2.0` 已发布并提升为 npm `latest`。当前 0.3.0 发布候选已实现 Direct Core ML Apple provider，以及 Linux x64 glibc/Windows x64 official Native WebGPU Plugin EP 的产品 runtime、D112 Auto、自包含 npm payload 与资格工具。Apple M4 已有审阅证据；WebGPU 的 Linux/Windows 真实设备报告均为 164/164 Gate 通过，已审阅报告和产物哈希已绑定 production lock。
+结论：`@arcships/light-ocr@0.3.0` 与五个依赖包已发布，npm `next`/`latest` 均指向 `0.3.0`。该版本交付 Direct Core ML Apple provider、Linux x64 glibc/Windows x64 official Native WebGPU Plugin EP、D112 Auto 与自包含 npm payload；Apple M4、Linux/NVIDIA 与 Windows/AMD 的审阅证据及产物哈希均已进入 production lock。
 
 状态含义：
 
@@ -17,14 +17,14 @@
 | 生产 Core 无 Python、无子进程 | Done | `light_ocr_core` 仅 C++；Python 只在 oracle/generator/report tools；Core 无 process/shell API。 |
 | raw-pixel 公共 API、ownership/lifecycle 文档 | Done | `include/light_ocr/*.hpp` 与 [native-api.md](native-api.md)。 |
 | detection/geometry/crop/recognition/decode 分层与测试 | Done | 独立源码模块、unit tests、stage probe 和真实模型 integration tests。 |
-| PP-OCRv6 bundle 固定、哈希、许可、离线可用 | Done（0.2.0 published） | `.2` 使用相同受控 ONNX bytes，发布 schema 1.2、`tiled-v1` contract、新 manifest/config/archive hash，并把 minimum Core 提升到 0.2.0；`.1`/schema 1.1 证据保持不变。 |
+| PP-OCRv6 bundle 固定、哈希、许可、离线可用 | Done（0.3.0 published） | 0.3.0 发布 `ppocrv6-small-native-20260719.1`，包含受控 FP32 ONNX、Apple FP16 与内部锁定的 WebGPU 派生工件；公开 WebGPU profile 保持 FP32。 |
 | stage 与 final parity | Done | `upstream_exact` 与 `bounded_default` 均为 14/14；候选级 trace 完整；release commit 的 oracle 与四平台 jobs 全绿。 |
 | 首 bundle ground-truth quality report | Done（本机） | bounded 默认在 10 个锁定 fixtures 上 10/10 exact、CER `0`；IoU≥0.5 下 detection precision/recall/Hmean 均为 `1.0`。旧 exact 基线仍独立保留。 |
 | 相对性能门槛 | Done（参考本机） | bounded 默认：median `0.9824867× ≤ 1.10×`；p95 `1.0139793× ≤ 1.15×`；inference median `0.9961966× ≤ 1.05×`。受控 CI worker 报告仍应保留。 |
 | Sanitizer、fuzz、leak、lifecycle、malformed input | Done | 本机 ASan+UBSan、TSan、standalone fuzz、lifecycle 和 malformed model/tensor 已通过；release Core safety job 的 sanitizers、TSan 和 libFuzzer smoke 全绿。 |
 | 无 network/shell/cwd/locale 运行依赖 | Done | sterile cwd/minimal env 与 Linux network namespace disabled 测试通过；npm release 另完成已安装 package 的禁网运行。 |
 | manifest、hash、licenses、SBOM、parity、benchmark | Done | Release commit 已重新生成并保存四平台 metadata、六个 npm tarballs 的 hashes/integrity、parity、quality 与 benchmark 证据。 |
-| N-API/npm 非本 Core milestone | Done / `0.2.0` published | raw Node-API v8、CJS/ESM、`.d.ts`、内置模型解析、四平台 prebuild、双重背压、AbortSignal 与生命周期均已完成；[npm release run 29340467784](https://github.com/arcships/light-ocr/actions/runs/29340467784) 与 [promotion run 29342178842](https://github.com/arcships/light-ocr/actions/runs/29342178842) 保存六包发布、registry 和禁网证据。 |
+| N-API/npm 非本 Core milestone | Done / `0.3.0` published | raw Node-API v8、CJS/ESM、`.d.ts`、内置模型解析、四平台 prebuild、双重背压、AbortSignal 与生命周期均已完成；[dry-run 29694938140](https://github.com/arcships/light-ocr/actions/runs/29694938140)、[release run 29695763892](https://github.com/arcships/light-ocr/actions/runs/29695763892) 与 [promotion run 29696646354](https://github.com/arcships/light-ocr/actions/runs/29696646354) 保存六包构建、Node 22/24、registry、禁网、integrity 与 dist-tag 证据。 |
 | Perf-1A / Apple execution | Done locally / Apple Silicon open compatibility | provider-neutral `InferenceSession` 已加入 Objective-C++ Direct Core ML；公开 union 与 D112 Auto 创建状态机已接线。detector 使用 FP16 range model，recognizer 使用 91-function FP16 MLProgram 和 20 个加权宽度桶；Apple Silicon interactive 为 ANE + 宽文本 GPU，strict 为 GPU。schema 1.1 provider contract、`validatedDeviceFamilies` 与 `deviceValidated` 已实现；显式 provider 严格失败，只有 Auto 可按 typed reason 在创建期继续。哈希锁模型、离线编译缓存、跨进程锁、LRU≤20 与 Node 映射均已完成。M4 有正式证据，其他 Apple Silicon 开放实验兼容；macOS x64 release smoke 未通过 Core ML OCR parity，因此 0.3.0 x64 runtime descriptor 只暴露 CPU。 |
 | Perf-2 / Native WebGPU | Production-qualified / two device Gates passed | Linux x64 glibc/Vulkan 与 Windows x64/D3D12 使用 official ORT Core 1.24.4 + WebGPU Plugin EP 0.1.0。NuGet bytes/SHA-512、headers、runtime/plugin/companions、license 和 session options 已锁定；assembler 支持在线取得、离线复装和 exact SDK 校验。C++/Node plugin registration、D112 `webgpu → cpu`、typed/fatal failure、FP32 allow/strict、真实 provider chain、profiling、schema 2 descriptor、sterile loader、self-contained npm staging、license/SBOM 和双平台 CI 已实现。Linux RTX 5060 Ti/Vulkan 与 Windows Radeon 780M/D3D12 报告均为 164/164 Gate 通过、14/14 FP32 字节级质量对齐；聚合 P50 分别加速 5.698× 与 2.436×。已审阅 report/artifact hashes 已绑定 production lock，release configure 仅接受精确匹配的 SDK。 |
 | Node.js JPEG/PNG 内存输入 | Done / `0.2.0` published | `recognizeEncoded(Uint8Array)` 在 engine worker 上使用固定 stb revision 解码，保持 Core raw-pixel 边界；格式、尺寸、pixels、临时内存、queue/snapshot budget、AbortSignal 与 `timingUs.decode` 均有四平台 Node 22/24 package 测试。 |
@@ -72,6 +72,6 @@
 
 ## 发布结论与后续范围
 
-`0.2.0` 的四平台 Core、Node.js 22/24 prebuild、六包确定性制品、public registry、provenance、默认 `createEngine()`、显式 tiled 和禁网运行证据已经完成，详见 [npm 0.2.0 发布记录](releases/npm-0.2.0.md)。
+`0.3.0` 的四平台 Core、Node.js 22/24 prebuild、六包制品、public registry、provenance、默认 Auto、显式 Apple/WebGPU、tiled 和禁网运行证据已经完成，详见 [npm 0.3.0 发布记录](releases/npm-0.3.0.md)。
 
 普通 push、PR 和 release workflow 均不运行 benchmark。后续只有 Core/model/ORT/compiler/thread policy/runner class 变化、准备公开新性能数字或调查疑似回归时，才显式重新运行 qualification 并 review 新 baseline。0.1.0 的历史记录与制品保持不变。
