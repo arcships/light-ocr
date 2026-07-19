@@ -20,7 +20,7 @@ It is made for products where OCR should feel like a local capability: quick to 
 
 > **Apple acceleration on `main`:** the upcoming `0.2.1` source candidate adds an opt-in Direct Core ML path for macOS 15+. Across two locked workloads on the qualified Apple M4 Max, it delivered a **2.30×–2.85× warm end-to-end speedup** over the 12-thread CPU profile while reducing OCR process CPU time by **95.91%–97.67%**. This provider is not included in the published `0.2.0` npm packages yet.
 
-> **Native WebGPU candidate in PR #11:** Linux x64/Vulkan and Windows x64/D3D12 now have a self-contained, reproducible source implementation built on ONNX Runtime 1.24.4 and the official WebGPU Plugin EP 0.1.0. Provider registration, Auto fallback, runtime descriptors, npm staging, offline integrity checks, and hardware-independent tests are implemented. Real-device qualification is still pending on Linux and Windows, so no compatibility or speedup claim is made and the provider is not included in published `0.2.0` packages.
+> **Native WebGPU candidate in PR #11:** Linux x64/Vulkan and Windows x64/D3D12 now have a self-contained, reproducible source implementation built on ONNX Runtime 1.24.4 and the official WebGPU Plugin EP 0.1.0. Provider registration, explicit FP32/FP16 model routing, bounded CPU partitioning, strict fail-closed behavior, Auto fallback, runtime descriptors, npm staging, offline integrity checks, and hardware-independent tests are implemented. Real-device FP16 qualification is still pending on Linux and Windows, so no compatibility or speedup claim is made and the provider is not included in published `0.2.0` packages.
 
 ## Where light-ocr fits
 
@@ -154,7 +154,7 @@ The current source candidate uses a platform runtime descriptor for Auto selecti
 ```ts
 const engine = await createEngine({
   // Source candidate only; the planned npm 0.2.1 package will resolve it.
-  bundlePath: "/absolute/path/to/ppocrv6-small-apple-20260715.1",
+  bundlePath: "/absolute/path/to/ppocrv6-small-native-20260719.1",
   execution: {
     provider: "apple",
     precision: "fp16",
@@ -200,7 +200,7 @@ The npm distribution installs one facade, one required model package, and the na
 
 Direct Core ML acceleration is merged on `main` for the `0.2.1` candidate but is not part of the published `0.2.0` package set. Its release keeps the same six-package installation shape; no extra provider package or runtime download is planned.
 
-PR #11 also carries the Linux x64 and Windows x64 Native WebGPU source candidate. Its npm payload remains release-gated until both real-device qualification reports are reviewed; published `0.2.0` packages remain unchanged and CPU-only on those platforms.
+PR #11 also carries the Linux x64 and Windows x64 Native WebGPU source candidate. Explicit FP16 selects hash-locked native-FP16-I/O models; Auto remains FP32, and the three required CPU-partition operators are reported and bounded. Its npm payload remains release-gated until both real-device qualification reports are reviewed; published `0.2.0` packages remain unchanged and CPU-only on those platforms.
 
 ## Project status
 

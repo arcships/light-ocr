@@ -30,7 +30,7 @@ def report(
 ) -> dict[str, object]:
     cpu = mode == "cpu"
     value: dict[str, object] = {
-        "schemaVersion": "1.0",
+        "schemaVersion": "1.1",
         "ok": True,
         "result": {
             "lines": [line()],
@@ -43,8 +43,14 @@ def report(
             ),
             "execution": {
                 "sessions": {
-                    "detection": {"actualProviderChain": chain},
-                    "recognition": {"actualProviderChain": chain},
+                    "detection": {
+                        "actualProviderChain": chain,
+                        "precision": "fp16" if mode == "allow" else "fp32",
+                    },
+                    "recognition": {
+                        "actualProviderChain": chain,
+                        "precision": "fp16" if mode == "allow" else "fp32",
+                    },
                 }
             },
         },
@@ -169,7 +175,19 @@ class WebGpuQualificationTest(unittest.TestCase):
                 ["WebGpuExecutionProvider", "CPUExecutionProvider"],
                 lifecycle=True,
             )
-            strict = report("strict", ["WebGpuExecutionProvider"])
+            fp32 = report(
+                "fp32", ["WebGpuExecutionProvider", "CPUExecutionProvider"]
+            )
+            strict = {
+                "schemaVersion": "1.1",
+                "ok": True,
+                "expectedRejection": True,
+                "error": {
+                    "code": "unsupported_capability",
+                    "message": "The WebGPU model requires a bounded CPU operator partition",
+                    "detail": "required operators: Concat, Gather, Slice",
+                },
+            }
             auto = report("auto", ["WebGpuExecutionProvider", "CPUExecutionProvider"])
             auto["host"] = {"platform": "linux", "architecture": "x64"}
             auto["engine"]["execution"]["selectionTrace"] = {
@@ -178,6 +196,7 @@ class WebGpuQualificationTest(unittest.TestCase):
             }
             cases = {
                 "generated-hello-123:cpu": cpu,
+                "generated-hello-123:fp32": fp32,
                 "generated-hello-123:allow": allow,
                 "generated-hello-123:strict": strict,
                 "generated-hello-123:auto": auto,
@@ -216,12 +235,12 @@ class WebGpuQualificationTest(unittest.TestCase):
             cases["native-cpp:auto"]["warmup"] = 1
             cases["native-cpp:auto"]["iterations"] = 10
             profiles = {
-                "generated-hello-123:allow": {
-                    "files": ["allow.json"],
+                "generated-hello-123:fp32": {
+                    "files": ["fp32.json"],
                     "nodeCounts": {"WebGpuExecutionProvider": 10},
                 },
-                "generated-hello-123:strict": {
-                    "files": ["strict.json"],
+                "generated-hello-123:allow": {
+                    "files": ["allow.json"],
                     "nodeCounts": {"WebGpuExecutionProvider": 10},
                 },
                 "generated-hello-123:auto": {

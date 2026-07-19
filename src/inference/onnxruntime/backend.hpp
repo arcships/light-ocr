@@ -33,11 +33,13 @@ class OnnxSession final : public InferenceSession {
 
  private:
   OnnxSession(std::unique_ptr<Ort::Session> session, std::string input_name,
-              std::string output_name, SessionExecutionInfo execution_info);
+              std::string output_name, Precision precision,
+              SessionExecutionInfo execution_info);
 
   std::unique_ptr<Ort::Session> session_;
   std::string input_name_;
   std::string output_name_;
+  Precision precision_ = Precision::fp32;
   SessionExecutionInfo execution_info_;
 };
 

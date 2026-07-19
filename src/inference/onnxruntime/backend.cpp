@@ -266,7 +266,8 @@ bool supported_dimension(std::int64_t value, std::int64_t expected) {
 }
 
 void validate_model_contract(Ort::Session& session, ModelKind kind,
-                             std::size_t expected_recognition_classes) {
+                             std::size_t expected_recognition_classes,
+                             Precision precision) {
   if (session.GetInputCount() != 1 || session.GetOutputCount() != 1) {
     throw ModelContractError("Model must have exactly one input and one output");
   }
@@ -274,10 +275,14 @@ void validate_model_contract(Ort::Session& session, ModelKind kind,
   const auto output_type = session.GetOutputTypeInfo(0);
   const auto input_info = input_type.GetTensorTypeAndShapeInfo();
   const auto output_info = output_type.GetTensorTypeAndShapeInfo();
-  if (input_info.GetElementType() != ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT ||
-      output_info.GetElementType() != ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) {
+  const auto expected_type = precision == Precision::fp16
+                                 ? ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16
+                                 : ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
+  if (input_info.GetElementType() != expected_type ||
+      output_info.GetElementType() != expected_type) {
     throw ModelContractError(
-        "Model input and output tensors must use float32 (input=" +
+        std::string("Model input and output tensors must use ") +
+        (precision == Precision::fp16 ? "float16" : "float32") + " (input=" +
         std::to_string(static_cast<int>(input_info.GetElementType())) + ", output=" +
         std::to_string(static_cast<int>(output_info.GetElementType())) + ")");
   }
@@ -328,8 +333,11 @@ void validate_session_config(const InferenceSessionConfig& config) {
         "ONNX Runtime throughput profiles are not qualified in this release");
   }
   if (config.precision != Precision::automatic &&
-      config.precision != Precision::fp32) {
-    throw std::invalid_argument("ONNX Runtime sessions only support FP32 precision");
+      config.precision != Precision::fp32 &&
+      (config.provider != ExecutionProvider::webgpu ||
+       config.precision != Precision::fp16)) {
+    throw std::invalid_argument(
+        "ONNX Runtime FP16 sessions require the WebGPU provider");
   }
   if (config.model_id.empty() || config.model_sha256.size() != 64 ||
       config.shape_policy.empty() || config.qualification_id.empty()) {
@@ -362,7 +370,7 @@ SessionExecutionInfo make_execution_info(const InferenceSessionConfig& config,
     info.device_validated = true;
   }
   info.qualification_id = config.qualification_id;
-  info.precision = "fp32";
+  info.precision = config.precision == Precision::fp16 ? "fp16" : "fp32";
   info.shape_policy = config.shape_policy;
   info.model_id = config.model_id;
   info.model_sha256 = config.model_sha256;
@@ -431,10 +439,12 @@ void enable_webgpu_qualification_profile(Ort::SessionOptions& options,
 #endif
 
 OnnxSession::OnnxSession(std::unique_ptr<Ort::Session> session, std::string input_name,
-                         std::string output_name, SessionExecutionInfo execution_info)
+                         std::string output_name, Precision precision,
+                         SessionExecutionInfo execution_info)
     : session_(std::move(session)),
       input_name_(std::move(input_name)),
       output_name_(std::move(output_name)),
+      precision_(precision),
       execution_info_(std::move(execution_info)) {}
 
 Result<std::unique_ptr<OnnxSession>> OnnxSession::create(
@@ -453,7 +463,10 @@ Result<std::unique_ptr<OnnxSession>> OnnxSession::create(
     options.SetIntraOpNumThreads(static_cast<int>(config.intra_op_threads));
     options.SetInterOpNumThreads(static_cast<int>(config.inter_op_threads));
     options.SetExecutionMode(config.inter_op_threads > 1 ? ORT_PARALLEL : ORT_SEQUENTIAL);
-    options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
+    options.SetGraphOptimizationLevel(
+        config.precision == Precision::fp16
+            ? GraphOptimizationLevel::ORT_ENABLE_EXTENDED
+            : GraphOptimizationLevel::ORT_ENABLE_ALL);
     std::string selected_webgpu_device;
     if (config.provider == ExecutionProvider::webgpu) {
 #if defined(LIGHT_OCR_HAS_WEBGPU)
@@ -478,7 +491,8 @@ Result<std::unique_ptr<OnnxSession>> OnnxSession::create(
 #endif
     }
     auto session = std::make_unique<Ort::Session>(environment(), model->data(), model->size(), options);
-    validate_model_contract(*session, kind, expected_recognition_classes);
+    validate_model_contract(*session, kind, expected_recognition_classes,
+                            config.precision);
     Ort::AllocatorWithDefaultOptions allocator;
     auto input_name = session->GetInputNameAllocated(0, allocator);
     auto output_name = session->GetOutputNameAllocated(0, allocator);
@@ -490,6 +504,7 @@ Result<std::unique_ptr<OnnxSession>> OnnxSession::create(
     }
     return Result<std::unique_ptr<OnnxSession>>::success(std::unique_ptr<OnnxSession>(
         new OnnxSession(std::move(session), input_name.get(), output_name.get(),
+                        config.precision,
                         make_execution_info(config,
                                             std::move(selected_webgpu_device)))));
 #if defined(LIGHT_OCR_HAS_WEBGPU)
@@ -549,8 +564,19 @@ Result<TensorOutput> OnnxSession::run(const std::vector<float>& values,
                                            "Inference input size does not match shape");
     }
     auto memory = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
-    auto input = Ort::Value::CreateTensor<float>(memory, const_cast<float*>(values.data()),
-                                                 values.size(), shape.data(), shape.size());
+    std::vector<Ort::Float16_t> fp16_values;
+    Ort::Value input{nullptr};
+    if (precision_ == Precision::fp16) {
+      fp16_values.reserve(values.size());
+      for (const auto value : values) fp16_values.emplace_back(value);
+      input = Ort::Value::CreateTensor<Ort::Float16_t>(
+          memory, fp16_values.data(), fp16_values.size(), shape.data(),
+          shape.size());
+    } else {
+      input = Ort::Value::CreateTensor<float>(
+          memory, const_cast<float*>(values.data()), values.size(), shape.data(),
+          shape.size());
+    }
     const char* input_names[] = {input_name_.c_str()};
     const char* output_names[] = {output_name_.c_str()};
     Ort::RunOptions run_options;
@@ -560,12 +586,26 @@ Result<TensorOutput> OnnxSession::run(const std::vector<float>& values,
                                            "Inference did not return one tensor");
     }
     const auto info = outputs[0].GetTensorTypeAndShapeInfo();
-    if (info.GetElementType() != ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT) {
+    const auto expected_type = precision_ == Precision::fp16
+                                   ? ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16
+                                   : ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
+    if (info.GetElementType() != expected_type) {
       return runtime_failure<TensorOutput>(ErrorCode::inference_failed,
-                                           "Inference output is not float32");
+                                           "Inference output tensor type is unexpected");
     }
     const auto count = info.GetElementCount();
     auto output_shape = info.GetShape();
+    if (precision_ == Precision::fp16) {
+      const auto* source = outputs[0].GetTensorData<Ort::Float16_t>();
+      auto storage = std::make_shared<std::vector<float>>();
+      storage->reserve(count);
+      for (std::size_t index = 0; index < count; ++index) {
+        storage->push_back(source[index].ToFloat());
+      }
+      const auto* data = storage->data();
+      return Result<TensorOutput>::success(TensorOutput(
+          std::move(storage), data, std::move(output_shape), count));
+    }
     auto storage = std::make_shared<Ort::Value>(std::move(outputs[0]));
     const auto* data = storage->GetTensorData<float>();
     return Result<TensorOutput>::success(TensorOutput(

@@ -40,6 +40,7 @@ jobs:
         run: >-
           python -m unittest
           tests.python.test_webgpu_runtime
+          tests.python.test_webgpu_models
           tests.python.test_npm_release
           tests.python.test_webgpu_qualification
           tests.python.test_webgpu_report_review
@@ -50,6 +51,20 @@ jobs:
           python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies --offline
           python tools/bootstrap_models.py --cache-dir .cache/models
           python tools/package_model_bundle.py
+          python tools/webgpu/package_bundle.py
+      - name: Reproduce the locked WebGPU FP16 models (Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          python -m pip install --require-hashes -r tools/webgpu/requirements.lock
+          python tools/webgpu/convert_models.py \
+            --output .cache/reproduced/webgpu-fp16-20260719.1
+          cmp models/derived/webgpu-fp16-20260719.1/det/inference.onnx \
+            .cache/reproduced/webgpu-fp16-20260719.1/det/inference.onnx
+          cmp models/derived/webgpu-fp16-20260719.1/rec/inference.onnx \
+            .cache/reproduced/webgpu-fp16-20260719.1/rec/inference.onnx
+          cmp models/derived/webgpu-fp16-20260719.1/provenance.json \
+            .cache/reproduced/webgpu-fp16-20260719.1/provenance.json
       - name: Assemble and revalidate the locked SDK
         shell: bash
         run: |

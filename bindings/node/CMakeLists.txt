@@ -158,7 +158,7 @@ if(LIGHT_OCR_BUILD_TESTS)
       "LIGHT_OCR_RUNTIME_DESCRIPTOR=${_light_ocr_node_stage_dir}/native/runtime-descriptor.json"
       "LIGHT_OCR_MODEL_BUNDLE=${_light_ocr_test_bundle}")
     set(_light_ocr_apple_test_bundle
-      "${PROJECT_SOURCE_DIR}/models/generated/ppocrv6-small-apple-20260715.1")
+      "${PROJECT_SOURCE_DIR}/models/generated/ppocrv6-small-native-20260719.1")
     if(APPLE AND EXISTS "${_light_ocr_apple_test_bundle}/manifest.json")
       list(APPEND _light_ocr_node_test_environment
         "LIGHT_OCR_APPLE_MODEL_BUNDLE=${_light_ocr_apple_test_bundle}")

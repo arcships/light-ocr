@@ -188,6 +188,17 @@ The selected candidate owns a complete detector/recognizer pair. Partial success
 Reason: Platform users need one deterministic default that uses an accepted accelerator when available without turning runtime failures or damaged packages into silent CPU execution. Restricting fallback to creation-time `auto`, with a closed failure taxonomy, preserves reproducibility and makes every selection auditable.<br>
 Consequence: D112 is the single source of truth for cross-backend selection, failure classification, explicit-provider behavior, migration-field validation and selection traces on both success and creation failure. D111 remains authoritative for provider-neutral session diagnostics, graph partitioning, Apple internal routing, and the rule against runtime retry. Platform documents define backend-local qualification and routing but reference D112 instead of redefining fallback. Architecture and implementation-status documents change only after implementation lands.
 
+### D113 — Select Native WebGPU FP16 through immutable model variants
+
+Status: Accepted
+Decision: Linux x64 and Windows x64 Native WebGPU use the official ONNX Runtime 1.24.4 Plugin EP 0.1.0 runtime. Explicit `provider=webgpu, precision=fp16` selects deterministic ONNX Runtime float16-derived detector and recognizer models with native float16 graph input/output and Extended graph optimization. The upstream FP32 models remain immutable and continue to serve CPU, explicit WebGPU FP32, and D112 Auto. WebGPU FP16 is therefore opt-in until device evidence justifies a separate Auto-policy change. The WebGPU Plugin EP exposes no provider option that toggles FP16; model tensor types select the precision and Dawn enables `ShaderF16` only on a capable adapter.<br>
+
+The derived payload records its source hashes, converter/tool versions, output hashes, graph-I/O type, blocked-operation policy, and runtime contract. CI regenerates both models byte-for-byte and runs deterministic finite FP16 inference before packaging. Manifest schema 1.2 binds the derived payload to its FP32 sources and permits the Apple payload to coexist in one platform-independent npm model superset.<br>
+
+The current graphs require a bounded CPU partition containing only `Concat`, `Gather`, and `Slice`. `cpuPartition=allow` is the qualified WebGPU contract and ORT profiles must contain no other CPU operator. `cpuPartition=forbid` is still a meaningful fail-closed request: engine creation returns stable `unsupported_capability` before session creation rather than allowing ORT to fail after partial placement. Qualification compares CPU FP32, explicit WebGPU FP32, and explicit WebGPU FP16; it verifies strict rejection, FP16 quality/determinism/performance, placement, memory, cold starts, and lifecycle independently.<br>
+Reason: The Linux device report proved useful FP32 acceleration but also proved that three recognition operators cannot satisfy the old all-WebGPU strict expectation. A model-selected FP16 path is the upstream-supported mechanism, preserves the published FP32 bundle identity, and makes the unavoidable CPU partition explicit and reviewable.<br>
+Consequence: FP16 results cannot be generalized to Auto or to adapters without `ShaderF16`. Any change to conversion, retained FP32 operations, CPU operator allowlist, graph optimization, or source models creates a new immutable artifact/conversion ID and requires both platform reports again.
+
 ## 3. Deferred decisions
 
 ### D102 — Public native SDK and ABI policy

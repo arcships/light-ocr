@@ -19,7 +19,7 @@ async function main() {
 
   const engine = await cjs.createEngine();
   try {
-    assert.equal(engine.info.modelBundleId, 'ppocrv6-small-apple-20260715.1');
+    assert.equal(engine.info.modelBundleId, 'ppocrv6-small-native-20260719.1');
     assert.equal(engine.info.detectionStrategy, 'bounded');
     assert.equal(engine.info.detectionMaxSide, 960);
     assert.equal(engine.info.defaultRecognitionBatchSize, 1);

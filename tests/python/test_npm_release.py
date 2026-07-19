@@ -147,7 +147,7 @@ class NpmReleaseTests(unittest.TestCase):
             (bundle / "manifest.json").write_text(
                 json.dumps(
                     {
-                        "schemaVersion": "1.1",
+                        "schemaVersion": "1.2",
                         "bundleId": npm_release.BUNDLE_ID,
                         "normalizedConfigPath": "normalized-config.json",
                         "providers": {
@@ -156,7 +156,15 @@ class NpmReleaseTests(unittest.TestCase):
                                 "devicePolicy": "open-macos",
                                 "architectures": ["arm64", "x86_64"],
                                 "validatedDeviceFamilies": ["Apple M4"],
-                            }
+                            },
+                            "webgpu": {
+                                "schemaVersion": "1.0",
+                                "conversionId": "onnxruntime-float16-1.24.4-20260719.1",
+                                "precision": "fp16",
+                                "graphOptimizationLevel": "extended",
+                                "cpuPartition": "allow-required",
+                                "requiredCpuOperators": ["Concat", "Gather", "Slice"],
+                            },
                         },
                     }
                 )
@@ -191,7 +199,7 @@ class NpmReleaseTests(unittest.TestCase):
             model = json.loads(
                 (staging / "model-ppocrv6-small" / "package.json").read_text("utf-8")
             )
-            self.assertEqual(model["lightOcr"]["manifestSchemaVersion"], "1.1")
+            self.assertEqual(model["lightOcr"]["manifestSchemaVersion"], "1.2")
             self.assertEqual(model["lightOcr"]["normalizedConfigSchemaVersion"], "1.2")
             self.assertEqual(model["lightOcr"]["tiledContractVersion"], "tiled-v1")
 

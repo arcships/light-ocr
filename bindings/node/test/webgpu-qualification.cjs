@@ -17,8 +17,8 @@ function parseArguments(argv) {
   for (const required of ['binary', 'descriptor', 'bundle', 'fixture', 'mode', 'report']) {
     if (!values[required]) throw new Error(`missing --${required}`);
   }
-  if (!['auto', 'cpu', 'allow', 'strict'].includes(values.mode)) {
-    throw new Error('--mode must be auto, cpu, allow, or strict');
+  if (!['auto', 'cpu', 'fp32', 'allow', 'strict'].includes(values.mode)) {
+    throw new Error('--mode must be auto, cpu, fp32, allow, or strict');
   }
   values.iterations = Number(values.iterations || 5);
   values.cycles = Number(values.cycles || 1);
@@ -76,9 +76,61 @@ async function main() {
   const execution = {
     auto: { provider: 'auto' },
     cpu: { provider: 'cpu', precision: 'fp32' },
-    allow: { provider: 'webgpu', cpuPartition: 'allow', precision: 'fp32' },
-    strict: { provider: 'webgpu', cpuPartition: 'forbid', precision: 'fp32' },
+    fp32: { provider: 'webgpu', cpuPartition: 'allow', precision: 'fp32' },
+    allow: { provider: 'webgpu', cpuPartition: 'allow', precision: 'fp16' },
+    strict: { provider: 'webgpu', cpuPartition: 'forbid', precision: 'fp16' },
   }[arguments_.mode];
+  const reportPath = path.resolve(arguments_.report);
+  const writeReport = (report) => {
+    fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+    const temporary = `${reportPath}.${process.pid}.tmp`;
+    fs.writeFileSync(temporary, `${JSON.stringify(report, null, 2)}\n`);
+    fs.renameSync(temporary, reportPath);
+    process.stdout.write(`${JSON.stringify(report)}\n`);
+  };
+  if (arguments_.mode === 'strict') {
+    const started = new Date().toISOString();
+    let report;
+    try {
+      const engine = await createEngine({
+        bundlePath: path.resolve(arguments_.bundle),
+        execution,
+      });
+      try {
+        report = {
+          schemaVersion: '1.1',
+          ok: false,
+          started,
+          finished: new Date().toISOString(),
+          fixture: fixture.id,
+          mode: arguments_.mode,
+          expectedRejection: false,
+          error: { code: 'strict_profile_unexpectedly_accepted' },
+          engine: engine.info,
+        };
+      } finally {
+        await engine.close();
+      }
+    } catch (error) {
+      const serialized = serializeError(error);
+      const accepted = serialized.code === 'unsupported_capability' &&
+        serialized.message === 'The WebGPU model requires a bounded CPU operator partition' &&
+        serialized.detail === 'required operators: Concat, Gather, Slice';
+      report = {
+        schemaVersion: '1.1',
+        ok: accepted,
+        started,
+        finished: new Date().toISOString(),
+        fixture: fixture.id,
+        mode: arguments_.mode,
+        expectedRejection: accepted,
+        error: serialized,
+      };
+    }
+    writeReport(report);
+    if (!report.ok) process.exitCode = 1;
+    return;
+  }
   const times = [];
   const initializationTimes = [];
   const firstPredictionTimes = [];
@@ -135,7 +187,7 @@ async function main() {
   const uniqueHashes = [...new Set(hashes)];
   const processHeader = process.report?.getReport?.().header || {};
   const report = {
-    schemaVersion: '1.0',
+    schemaVersion: '1.1',
     ok: uniqueHashes.length === 1,
     started,
     finished: new Date().toISOString(),
@@ -184,12 +236,7 @@ async function main() {
     },
     engine: engineInfo,
   };
-  const reportPath = path.resolve(arguments_.report);
-  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
-  const temporary = `${reportPath}.${process.pid}.tmp`;
-  fs.writeFileSync(temporary, `${JSON.stringify(report, null, 2)}\n`);
-  fs.renameSync(temporary, reportPath);
-  process.stdout.write(`${JSON.stringify(report)}\n`);
+  writeReport(report);
   if (!report.ok) process.exitCode = 1;
 }
 
@@ -197,7 +244,7 @@ main().catch((error) => {
   const reportPathIndex = process.argv.indexOf('--report');
   const reportPath = reportPathIndex >= 0 ? path.resolve(process.argv[reportPathIndex + 1]) : undefined;
   const report = {
-    schemaVersion: '1.0',
+    schemaVersion: '1.1',
     ok: false,
     error: serializeError(error),
   };

@@ -230,10 +230,10 @@ if(LIGHT_OCR_BUILD_TESTS)
       COMMAND light_ocr_apple_integration_tests)
     set_tests_properties(light_ocr_apple_integration_tests PROPERTIES
       SKIP_RETURN_CODE 77 LABELS "acceptance;apple" TIMEOUT 180)
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-apple-20260715.1/manifest.json")
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-native-20260719.1/manifest.json")
       set_tests_properties(light_ocr_apple_integration_tests PROPERTIES
         ENVIRONMENT
-          "LIGHT_OCR_APPLE_MODEL_BUNDLE=${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-apple-20260715.1;LIGHT_OCR_APPLE_TEST_PIXELS=${CMAKE_CURRENT_SOURCE_DIR}/corpus/fixtures/generated-hello-123/pixels.bin")
+          "LIGHT_OCR_APPLE_MODEL_BUNDLE=${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-native-20260719.1;LIGHT_OCR_APPLE_TEST_PIXELS=${CMAKE_CURRENT_SOURCE_DIR}/corpus/fixtures/generated-hello-123/pixels.bin")
     endif()
   endif()
   if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/models/generated/ppocrv6-small-onnx-20260714.2/manifest.json")

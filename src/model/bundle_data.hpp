@@ -86,6 +86,23 @@ struct AppleProviderConfig {
   std::uint32_t maximum_cached_functions = 1;
 };
 
+struct WebGpuModelConfig {
+  std::string model_id;
+  std::string model_path;
+  std::string model_sha256;
+  std::string source_model_id;
+  std::string source_model_sha256;
+};
+
+struct WebGpuProviderConfig {
+  std::string conversion_id;
+  std::string graph_optimization_level;
+  std::string cpu_partition;
+  std::vector<std::string> required_cpu_operators;
+  WebGpuModelConfig detection;
+  WebGpuModelConfig recognition;
+};
+
 struct BundleData {
   std::string id;
   std::string schema_version;
@@ -104,6 +121,7 @@ struct BundleData {
   GeometryConfig geometry;
   RecognitionConfig recognition;
   std::optional<AppleProviderConfig> apple_provider;
+  std::optional<WebGpuProviderConfig> webgpu_provider;
   ResourceLimits limits;
   Capabilities capabilities;
 };

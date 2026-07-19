@@ -21,7 +21,7 @@ npm install @arcships/light-ocr
 - 支持 `AbortSignal` 协作式取消：queued 请求会从队列移除；running 请求立即拒绝 public Promise，但 Core 会安全运行到返回并丢弃结果。
 - native addon 只接收现有绝对 bundle 目录。当前源码开发调用显式传 `bundlePath`；发布后的 facade 默认使用随 npm 安装的 model package 路径。
 - 产品 engine 默认报告 `detectionStrategy: 'bounded'`、`detectionMaxSide: 960` 和 `defaultRecognitionBatchSize: 1`。0.2.0 可通过 `detection: {strategy: 'tiled'}` 显式选择 `tiled-v1`；`upstreamExact` 只用于上游对照，单次 `recognize({detectionMaxSide})` 只能继续降低 bounded engine 的 side。
-- `createEngine({execution})` 接受 `auto`、`cpu`、`apple` 与已交付平台支持的 `webgpu`。macOS 15+ 默认开放：Apple Silicon interactive 使用 FP16 ANE + 宽文本 FP16 GPU，strict 使用全 GPU；Intel Mac 使用 Core ML CPU+GPU 且只接受 `cpuPartition: 'allow'`。WebGPU qualification package 使用 ORT Core 1.24.4 + official plugin 0.1.0，Linux 为 Vulkan、Windows 为 D3D12，FP32 allow/strict 均可显式请求。只有 Auto 可在创建期按 descriptor 锁定的 typed failure 继续候选；显式 provider 不回退，旧 `sessionFallback: 'cpu'` 返回 `invalid_argument`。`engine.info.execution.sessions` 报告每个模型的实际 provider chain、adapter、runtime/provider/qualification identity，selection trace 则报告 Auto 的每次创建尝试。
+- `createEngine({execution})` 接受 `auto`、`cpu`、`apple` 与已交付平台支持的 `webgpu`。macOS 15+ 默认开放：Apple Silicon interactive 使用 FP16 ANE + 宽文本 FP16 GPU，strict 使用全 GPU；Intel Mac 使用 Core ML CPU+GPU 且只接受 `cpuPartition: 'allow'`。WebGPU qualification package 使用 ORT Core 1.24.4 + official plugin 0.1.0，Linux 为 Vulkan、Windows 为 D3D12；显式 `precision: 'fp32'` 使用上游模型，显式 `precision: 'fp16'` 使用锁定的 native-FP16-I/O 派生模型。当前模型只允许 `Concat/Gather/Slice` 三类有界 CPU partition，因而 `cpuPartition: 'forbid'` 会稳定 fail-closed；`auto` 为兼容性仍选择 FP32。只有 Auto 可在创建期按 descriptor 锁定的 typed failure 继续候选；显式 provider 不回退，旧 `sessionFallback: 'cpu'` 返回 `invalid_argument`。`engine.info.execution.sessions` 报告每个模型的实际 provider chain、precision、adapter、runtime/provider/qualification identity，selection trace 则报告 Auto 的每次创建尝试。
 
 不支持 WebP、GIF、PDF、EXIF orientation 自动旋转、zero-copy/transfer、运行中 inference 硬中断、Electron 或 Bun。详细契约见 [Node-API 设计](../../docs/napi-design.md)。
 
@@ -68,8 +68,8 @@ qualification staged payload 在 Linux 包含 core + plugin，在 Windows 还包
 ```bash
 export LIGHT_OCR_NODE_BINARY="$PWD/build-node/node-runtime/native/light_ocr_node.node"
 export LIGHT_OCR_RUNTIME_DESCRIPTOR="$PWD/build-node/node-runtime/native/runtime-descriptor.json"
-export LIGHT_OCR_MODEL_BUNDLE="$PWD/models/generated/ppocrv6-small-onnx-20260714.2"
-export LIGHT_OCR_APPLE_MODEL_BUNDLE="$PWD/models/generated/ppocrv6-small-apple-20260715.1"
+export LIGHT_OCR_MODEL_BUNDLE="$PWD/models/generated/ppocrv6-small-webgpu-20260719.1"
+export LIGHT_OCR_APPLE_MODEL_BUNDLE="$PWD/models/generated/ppocrv6-small-native-20260719.1"
 
 node --test --test-concurrency=1 bindings/node/test/adapter.test.cjs
 # 或：ctest --test-dir build-node -R '^light_ocr_node_tests$' --output-on-failure
@@ -88,7 +88,7 @@ const engine = await createEngine({
   queueCapacity: 4,
   execution: {
     provider: 'webgpu',
-    precision: 'fp32',
+    precision: 'fp16',
     cpuPartition: 'allow',
     sessionFallback: 'error',
   },

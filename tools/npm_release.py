@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE_VERSION = json.loads(
     (ROOT / "bindings" / "node" / "package.json").read_text("utf-8")
 )["version"]
-BUNDLE_ID = "ppocrv6-small-apple-20260715.1"
+BUNDLE_ID = "ppocrv6-small-native-20260719.1"
 MODEL_PACKAGE = "@arcships/light-ocr-model-ppocrv6-small"
 FACADE_PACKAGE = "@arcships/light-ocr"
 NPM_REGISTRY = "https://registry.npmjs.org/"
@@ -770,14 +770,23 @@ def assemble(arguments: argparse.Namespace) -> None:
     normalized_config = read_json(bundle / manifest["normalizedConfigPath"])
     tiled_contract = normalized_config.get("runtimeProfiles", {}).get("tiled", {})
     apple_provider = manifest.get("providers", {}).get("apple", {})
+    webgpu_provider = manifest.get("providers", {}).get("webgpu", {})
     validated_families = apple_provider.get("validatedDeviceFamilies", [])
     if (
-        manifest.get("schemaVersion") != "1.1"
+        manifest.get("schemaVersion") != "1.2"
         or normalized_config.get("schemaVersion") != "1.2"
         or tiled_contract.get("contractVersion") != "tiled-v1"
         or apple_provider.get("schemaVersion") != "1.1"
         or apple_provider.get("devicePolicy") != "open-macos"
         or apple_provider.get("architectures") != ["arm64", "x86_64"]
+        or webgpu_provider.get("schemaVersion") != "1.0"
+        or webgpu_provider.get("conversionId")
+        != "onnxruntime-float16-1.24.4-20260719.1"
+        or webgpu_provider.get("precision") != "fp16"
+        or webgpu_provider.get("graphOptimizationLevel") != "extended"
+        or webgpu_provider.get("cpuPartition") != "allow-required"
+        or webgpu_provider.get("requiredCpuOperators")
+        != ["Concat", "Gather", "Slice"]
         or not isinstance(validated_families, list)
         or len(validated_families) < 1
         or len(validated_families) != len(set(validated_families))
@@ -787,7 +796,7 @@ def assemble(arguments: argparse.Namespace) -> None:
         )
     ):
         raise RuntimeError(
-            "model bundle does not contain the tiled-v1 Apple release contract"
+            "model bundle does not contain the tiled-v1 Apple/WebGPU release contract"
         )
 
     facade = output / "facade"

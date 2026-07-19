@@ -12,7 +12,7 @@ import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_BUNDLE = ROOT / "models" / "generated" / "ppocrv6-small-apple-20260715.1"
+DEFAULT_BUNDLE = ROOT / "models" / "generated" / "ppocrv6-small-native-20260719.1"
 DEFAULT_FIXTURE = ROOT / "corpus" / "fixtures" / "generated-hello-123"
 DEFAULT_REPORT = ROOT / "reports" / "apple" / "cache-concurrency.json"
 

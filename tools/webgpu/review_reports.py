@@ -42,7 +42,7 @@ REPORT_FIELDS = {
 }
 MANUAL_REVIEW_CHECKLIST = (
     "Confirm the reported adapters, operating systems, drivers, and power/thermal conditions support the proposed compatibility scope.",
-    "Inspect ORT profiles and operator counts, including every allow-mode CPU partition and strict-mode placement.",
+    "Inspect FP32/FP16 ORT profiles and operator counts, including every bounded CPU partition and the strict fail-closed evidence.",
     "Review latency distributions, CPU-s/average cores, cold starts, RSS, and available device-memory evidence; RSS is not a VRAM measurement.",
     "Inspect raw logs for driver, Dawn, validation, device-loss, and teardown warnings not represented by a failed mechanical gate.",
     "Choose device-specific, vendor-scoped, Preview, qualification-only, or rejected status; one report per platform does not prove a cross-vendor claim.",
@@ -115,7 +115,7 @@ def expected_case_keys() -> set[str]:
     keys = {
         f"{fixture}:{mode}"
         for fixture in qualify.DEFAULT_FIXTURES
-        for mode in ("cpu", "allow", "strict")
+        for mode in ("cpu", "fp32", "allow", "strict")
     }
     canary = qualify.DEFAULT_FIXTURES[0]
     keys.update({f"{canary}:auto", f"{canary}:lifecycle", "native-cpp:auto"})
@@ -126,7 +126,7 @@ def expected_profile_keys() -> set[str]:
     keys = {
         f"{fixture}:{mode}"
         for fixture in qualify.DEFAULT_FIXTURES
-        for mode in ("allow", "strict")
+        for mode in ("fp32", "allow")
     }
     canary = qualify.DEFAULT_FIXTURES[0]
     keys.update({f"{canary}:auto", f"{canary}:lifecycle", "native-cpp:auto"})
@@ -154,25 +154,25 @@ def expected_gate_names() -> set[str]:
             {
                 f"{fixture}-cpu-provider",
                 f"{fixture}-cpu-determinism",
+                f"{fixture}-fp32-provider",
+                f"{fixture}-fp32-quality",
+                f"{fixture}-fp32-determinism",
                 f"{fixture}-allow-provider",
                 f"{fixture}-allow-quality",
                 f"{fixture}-allow-determinism",
-                f"{fixture}-strict-provider",
-                f"{fixture}-strict-quality",
-                f"{fixture}-strict-determinism",
+                f"{fixture}-strict-fail-closed",
                 f"{fixture}-allow-p95",
             }
         )
     for key in expected_case_keys():
-        if not key.endswith(":cpu") and key != "native-cpp:auto":
+        if not key.endswith((":cpu", ":strict")) and key != "native-cpp:auto":
             names.add(f"{key}-memory")
     canary = qualify.DEFAULT_FIXTURES[0]
-    for mode in ("cpu", "allow", "strict", "auto"):
+    for mode in ("cpu", "fp32", "allow", "auto"):
         names.add(f"{canary}:{mode}-cold-start")
     for key in expected_profile_keys():
         names.add(f"{key}-profile-placement")
-        if key.endswith(":strict"):
-            names.add(f"{key}-strict-no-cpu-nodes")
+        names.add(f"{key}-cpu-operator-allowlist")
     return names
 
 
@@ -507,7 +507,7 @@ def validate_report_directory(
     qualification = mapping(lock["qualification"], "runtime lock qualification")
     if (
         set(report) != REPORT_FIELDS
-        or report.get("schemaVersion") != "1.0"
+        or report.get("schemaVersion") != "1.1"
         or report.get("platformId") != platform_id
         or report.get("sourceRevision") != expected_revision
         or report.get("evidenceId") != qualification.get("evidenceId")

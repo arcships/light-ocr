@@ -329,10 +329,11 @@ std::optional<internal::AppleProviderConfig> parse_apple_provider(
     const Json& manifest, const std::string& schema_version,
     const std::unordered_map<std::string, SharedBytes>& files) {
   if (!manifest.contains("providers")) return std::nullopt;
-  require(schema_version == "1.1",
-          "Provider payload requires manifest schema 1.1", schema_version);
   const auto& providers = manifest.at("providers");
   if (!providers.contains("apple")) return std::nullopt;
+  require(schema_version == "1.1" || schema_version == "1.2",
+          "Apple provider payload requires manifest schema 1.1 or 1.2",
+          schema_version);
   const auto& apple = providers.at("apple");
   require_string(apple, "schemaVersion", "1.1", "providers.apple");
   internal::AppleProviderConfig result;
@@ -425,6 +426,91 @@ std::optional<internal::AppleProviderConfig> parse_apple_provider(
   }
   require(widths == expected_widths,
           "Apple recognition function inventory is unsupported");
+  return result;
+}
+
+internal::WebGpuModelConfig parse_webgpu_model(
+    const Json& model, const std::string& context,
+    const std::unordered_map<std::string, SharedBytes>& files,
+    const std::string& expected_model_id, const std::string& source_model_id,
+    const std::string& source_model_sha256) {
+  internal::WebGpuModelConfig result;
+  result.model_id = required<std::string>(model, "modelId", context);
+  result.model_path = required<std::string>(model, "modelPath", context);
+  result.model_sha256 = required<std::string>(model, "modelSha256", context);
+  result.source_model_id =
+      required<std::string>(model, "sourceModelId", context);
+  result.source_model_sha256 =
+      required<std::string>(model, "sourceModelSha256", context);
+  require(result.model_id == expected_model_id &&
+              is_normalized_path(result.model_path) &&
+              result.model_path.compare(0, 7, "webgpu/") == 0 &&
+              is_sha256(result.model_sha256) &&
+              result.source_model_id == source_model_id &&
+              result.source_model_sha256 == source_model_sha256 &&
+              required<std::string>(model, "tensorType", context) == "float16",
+          "WebGPU FP16 model identity is unsupported", context);
+  const auto& bytes = file_at(files, result.model_path);
+  require(internal::sha256_hex(bytes->data(), bytes->size()) ==
+              result.model_sha256,
+          "WebGPU FP16 model hash does not match its declaration",
+          result.model_path);
+  return result;
+}
+
+std::optional<internal::WebGpuProviderConfig> parse_webgpu_provider(
+    const Json& manifest, const std::string& schema_version,
+    const std::unordered_map<std::string, SharedBytes>& files,
+    const std::string& detection_model_id,
+    const std::string& detection_model_sha256,
+    const std::string& recognition_model_id,
+    const std::string& recognition_model_sha256) {
+  if (!manifest.contains("providers")) return std::nullopt;
+  const auto& providers = manifest.at("providers");
+  if (!providers.contains("webgpu")) return std::nullopt;
+  require(schema_version == "1.2",
+          "WebGPU provider payload requires manifest schema 1.2",
+          schema_version);
+  const auto& webgpu = providers.at("webgpu");
+  require_string(webgpu, "schemaVersion", "1.0", "providers.webgpu");
+  require_string(webgpu, "precision", "fp16", "providers.webgpu");
+  internal::WebGpuProviderConfig result;
+  result.conversion_id =
+      required<std::string>(webgpu, "conversionId", "providers.webgpu");
+  result.graph_optimization_level = required<std::string>(
+      webgpu, "graphOptimizationLevel", "providers.webgpu");
+  result.cpu_partition =
+      required<std::string>(webgpu, "cpuPartition", "providers.webgpu");
+  result.required_cpu_operators = required<std::vector<std::string>>(
+      webgpu, "requiredCpuOperators", "providers.webgpu");
+  const auto provenance_path = required<std::string>(
+      webgpu, "provenancePath", "providers.webgpu");
+  const auto provenance_sha256 = required<std::string>(
+      webgpu, "provenanceSha256", "providers.webgpu");
+  require(result.conversion_id ==
+              "onnxruntime-float16-1.24.4-20260719.1" &&
+              result.graph_optimization_level == "extended" &&
+              result.cpu_partition == "allow-required" &&
+              result.required_cpu_operators ==
+                  std::vector<std::string>{"Concat", "Gather", "Slice"} &&
+              provenance_path == "webgpu/provenance.json" &&
+              is_sha256(provenance_sha256),
+          "WebGPU FP16 runtime contract is unsupported");
+  const auto& provenance = file_at(files, provenance_path);
+  require(internal::sha256_hex(provenance->data(), provenance->size()) ==
+              provenance_sha256,
+          "WebGPU FP16 provenance hash does not match its declaration",
+          provenance_path);
+  result.detection = parse_webgpu_model(
+      webgpu.at("detection"), "providers.webgpu.detection", files,
+      "PP-OCRv6_small_det_onnx_webgpu_fp16", detection_model_id,
+      detection_model_sha256);
+  result.recognition = parse_webgpu_model(
+      webgpu.at("recognition"), "providers.webgpu.recognition", files,
+      "PP-OCRv6_small_rec_onnx_webgpu_fp16", recognition_model_id,
+      recognition_model_sha256);
+  require(result.detection.model_path != result.recognition.model_path,
+          "WebGPU provider model paths must be distinct");
   return result;
 }
 
@@ -730,7 +816,8 @@ std::shared_ptr<const internal::BundleData> parse_bundle(std::vector<BundleFile>
   validate_checksum_inventory(files);
   const auto manifest = parse_json_file(files, "manifest.json", 1024 * 1024);
   const auto schema_version = required<std::string>(manifest, "schemaVersion", "manifest");
-  require(schema_version == "1.0" || schema_version == "1.1",
+  require(schema_version == "1.0" || schema_version == "1.1" ||
+              schema_version == "1.2",
           "Unsupported manifest schema version", schema_version);
   const auto bundle_id = required<std::string>(manifest, "bundleId", "manifest");
   require(!bundle_id.empty() && bundle_id.size() <= 128, "Bundle ID is invalid");
@@ -861,8 +948,27 @@ std::shared_ptr<const internal::BundleData> parse_bundle(std::vector<BundleFile>
                         runtime_defaults);
   data->apple_provider =
       parse_apple_provider(manifest, schema_version, data->files);
-  require((schema_version == "1.1") == data->apple_provider.has_value(),
-          "Manifest schema 1.1 requires exactly one Apple provider payload");
+  data->webgpu_provider = parse_webgpu_provider(
+      manifest, schema_version, data->files, detection_model_id,
+      detection_model_sha256, recognition_model_id,
+      recognition_model_sha256);
+  const std::size_t provider_count =
+      static_cast<std::size_t>(data->apple_provider.has_value()) +
+      static_cast<std::size_t>(data->webgpu_provider.has_value());
+  std::size_t declared_provider_count = 0;
+  if (manifest.contains("providers")) {
+    require(manifest.at("providers").is_object(),
+            "Manifest providers must be an object");
+    declared_provider_count = manifest.at("providers").size();
+  }
+  require((schema_version == "1.0" && provider_count == 0) ||
+              (schema_version == "1.1" && provider_count == 1 &&
+               data->apple_provider.has_value()) ||
+              (schema_version == "1.2" && data->webgpu_provider.has_value() &&
+               provider_count >= 1 && provider_count <= 2),
+          "Manifest provider payloads do not match the schema contract");
+  require(declared_provider_count == provider_count,
+          "Manifest contains an unknown provider payload");
   data->limits = parse_limits(normalized, normalized_schema);
   data->capabilities =
       Capabilities{true, true, false, data->tiled_detection.has_value()};

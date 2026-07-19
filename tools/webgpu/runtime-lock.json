@@ -120,7 +120,7 @@
   },
   "qualification": {
     "status": "development-pending-device-validation",
-    "evidenceId": "native-webgpu-plugin-0.1.0-ort-1.24.4-dev1",
+    "evidenceId": "native-webgpu-plugin-0.1.0-ort-1.24.4-dev2",
     "providerGatePassed": false,
     "productionArtifactQualified": false,
     "qualifiedArtifactSetSha256": {
@@ -136,7 +136,8 @@
       "windows-x64"
     ],
     "knownLimitations": [
-      "Linux and Windows real-device placement, quality, performance, memory, and lifecycle reports are pending.",
+      "Linux and Windows real-device FP32/FP16 placement, quality, performance, memory, and lifecycle reports are pending.",
+      "The qualified FP16 models use native float16 graph I/O but retain converter-blocked operations at float32; Concat, Gather, and Slice require the bounded CPU partition, so cpuPartition=forbid fails closed.",
       "The released WebGPU plugin does not expose a typed driver-compatibility failure for every Dawn initialization error; unknown provider failures remain fatal instead of being inferred from text.",
       "No production compatibility range or released Auto policy may be claimed until both platform qualification reports are reviewed."
     ]

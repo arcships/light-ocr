@@ -21,7 +21,7 @@ def line() -> dict[str, object]:
 def node_case(mode: str, chain: list[str]) -> dict[str, object]:
     cpu = mode == "cpu"
     return {
-        "schemaVersion": "1.0",
+        "schemaVersion": "1.1",
         "ok": True,
         "result": {
             "lines": [line()],
@@ -34,8 +34,14 @@ def node_case(mode: str, chain: list[str]) -> dict[str, object]:
             ),
             "execution": {
                 "sessions": {
-                    "detection": {"actualProviderChain": chain},
-                    "recognition": {"actualProviderChain": chain},
+                    "detection": {
+                        "actualProviderChain": chain,
+                        "precision": "fp16" if mode == "allow" else "fp32",
+                    },
+                    "recognition": {
+                        "actualProviderChain": chain,
+                        "precision": "fp16" if mode == "allow" else "fp32",
+                    },
                 }
             },
         },
@@ -72,19 +78,31 @@ def cases_and_profiles() -> tuple[dict[str, dict], dict[str, dict]]:
     profiles: dict[str, dict] = {}
     for fixture in qualify.DEFAULT_FIXTURES:
         cases[f"{fixture}:cpu"] = node_case("cpu", ["CPUExecutionProvider"])
+        cases[f"{fixture}:fp32"] = node_case(
+            "fp32", ["WebGpuExecutionProvider", "CPUExecutionProvider"]
+        )
         cases[f"{fixture}:allow"] = node_case(
             "allow", ["WebGpuExecutionProvider", "CPUExecutionProvider"]
         )
-        cases[f"{fixture}:strict"] = node_case("strict", ["WebGpuExecutionProvider"])
-        profiles[f"{fixture}:allow"] = {
-            "files": [f"{fixture}-allow.json"],
-            "fileSha256": {f"{fixture}-allow.json": "2" * 64},
+        cases[f"{fixture}:strict"] = {
+            "schemaVersion": "1.1",
+            "ok": True,
+            "expectedRejection": True,
+            "error": {
+                "code": "unsupported_capability",
+                "message": "The WebGPU model requires a bounded CPU operator partition",
+                "detail": "required operators: Concat, Gather, Slice",
+            },
+        }
+        profiles[f"{fixture}:fp32"] = {
+            "files": [f"{fixture}-fp32.json"],
+            "fileSha256": {f"{fixture}-fp32.json": "2" * 64},
             "nodeCounts": {"WebGpuExecutionProvider": 10},
             "operators": {},
         }
-        profiles[f"{fixture}:strict"] = {
-            "files": [f"{fixture}-strict.json"],
-            "fileSha256": {f"{fixture}-strict.json": "3" * 64},
+        profiles[f"{fixture}:allow"] = {
+            "files": [f"{fixture}-allow.json"],
+            "fileSha256": {f"{fixture}-allow.json": "2" * 64},
             "nodeCounts": {"WebGpuExecutionProvider": 10},
             "operators": {},
         }

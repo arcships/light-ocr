@@ -10,6 +10,7 @@ import math
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -137,6 +138,8 @@ def graphics_inventory(platform_id: str) -> dict[str, Any]:
                 return ""
 
         for card in sorted(Path("/sys/class/drm").glob("card[0-9]*")):
+            if re.fullmatch(r"card[0-9]+", card.name) is None:
+                continue
             device = card / "device"
             try:
                 physical = str(device.resolve(strict=True))
@@ -514,7 +517,10 @@ def collect_evidence(
     )
     required_fixture_set = set(required_fixtures)
     complete_fixture_modes = all(
-        all(f"{fixture}:{mode}" in cases for mode in ("cpu", "allow", "strict"))
+        all(
+            f"{fixture}:{mode}" in cases
+            for mode in ("cpu", "fp32", "allow", "strict")
+        )
         for fixture in required_fixtures
     )
     canary = required_fixtures[0] if required_fixtures else ""
@@ -539,7 +545,7 @@ def collect_evidence(
         and integer_at_least(report.get("cycles"), MIN_COLD_START_CYCLES)
         and report["iterations"] * report["cycles"] >= MIN_MEASUREMENT_SAMPLES
         for key, report in cases.items()
-        if key.endswith((":cpu", ":allow", ":strict", ":auto"))
+        if key.endswith((":cpu", ":fp32", ":allow", ":auto"))
         and key != "native-cpp:auto"
     )
     lifecycle_measurement = cases.get(f"{canary}:lifecycle", {})
@@ -589,21 +595,25 @@ def collect_evidence(
             cpu.get("result", {}).get("deterministic") is True,
             f"sha256={cpu.get('result', {}).get('sha256')}",
         )
-        for mode in ("allow", "strict"):
+        for mode, expected_precision in (("fp32", "fp32"), ("allow", "fp16")):
             report = cases.get(f"{fixture}:{mode}", {})
             chains = session_chains(report)
-            expected = (
-                [["WebGpuExecutionProvider", "CPUExecutionProvider"]] * 2
-                if mode == "allow"
-                else [["WebGpuExecutionProvider"]] * 2
+            expected = [["WebGpuExecutionProvider", "CPUExecutionProvider"]] * 2
+            sessions = report.get("engine", {}).get("execution", {}).get(
+                "sessions", {}
             )
+            precisions = [
+                sessions.get(name, {}).get("precision")
+                for name in ("detection", "recognition")
+            ]
             gate(
                 f"{fixture}-{mode}-provider",
                 report.get("ok") is True
                 and report.get("engine", {}).get("executionProvider")
                 == "WebGpuExecutionProvider"
-                and chains == expected,
-                f"chains={chains}",
+                and chains == expected
+                and precisions == [expected_precision, expected_precision],
+                f"chains={chains}, precisions={precisions}",
             )
             quality, detail = quality_matches(cpu, report)
             gate(f"{fixture}-{mode}-quality", quality, detail)
@@ -612,6 +622,19 @@ def collect_evidence(
                 report.get("result", {}).get("deterministic") is True,
                 f"sha256={report.get('result', {}).get('sha256')}",
             )
+        strict = cases.get(f"{fixture}:strict", {})
+        strict_error = strict.get("error", {})
+        gate(
+            f"{fixture}-strict-fail-closed",
+            strict.get("ok") is True
+            and strict.get("expectedRejection") is True
+            and strict_error.get("code") == "unsupported_capability"
+            and strict_error.get("message")
+            == "The WebGPU model requires a bounded CPU operator partition"
+            and strict_error.get("detail")
+            == "required operators: Concat, Gather, Slice",
+            f"error={json.dumps(strict_error, sort_keys=True)}",
+        )
         allow = cases.get(f"{fixture}:allow", {})
         cpu_latency = cpu.get("latencyUs", {})
         allow_latency = allow.get("latencyUs", {})
@@ -696,7 +719,7 @@ def collect_evidence(
     )
 
     for key, report in cases.items():
-        if key.endswith(":cpu") or key == "native-cpp:auto":
+        if key.endswith((":cpu", ":strict")) or key == "native-cpp:auto":
             continue
         maximum_resident = report.get("lifecycle", {}).get("residentMaximumBytes")
         gate(
@@ -705,7 +728,7 @@ def collect_evidence(
             and 0 < maximum_resident <= MAX_RESIDENT_BYTES,
             f"residentMaximumBytes={maximum_resident}",
         )
-    for mode in ("cpu", "allow", "strict", "auto"):
+    for mode in ("cpu", "fp32", "allow", "auto"):
         key = f"generated-hello-123:{mode}"
         report = cases.get(key, {})
         initialization_values = report.get("engineInitializationUs", {}).get("values")
@@ -742,13 +765,18 @@ def collect_evidence(
             f"files={len(summary.get('files', []))}, webgpuNodes={webgpu_nodes}, "
             f"counts={summary.get('nodeCounts', {})}",
         )
-        if key.endswith(":strict"):
-            cpu_nodes = summary.get("nodeCounts", {}).get("CPUExecutionProvider", 0)
-            gate(
-                f"{key}-strict-no-cpu-nodes",
-                cpu_nodes == 0,
-                f"cpuNodes={cpu_nodes}",
-            )
+        cpu_operators = summary.get("operators", {}).get(
+            "CPUExecutionProvider", {}
+        )
+        normalized_cpu_operators = {
+            re.split(r"[._]", operation, maxsplit=1)[0]
+            for operation in cpu_operators
+        }
+        gate(
+            f"{key}-cpu-operator-allowlist",
+            normalized_cpu_operators <= {"Concat", "Gather", "Slice"},
+            f"operators={sorted(normalized_cpu_operators)}",
+        )
     lifecycle = cases.get("generated-hello-123:lifecycle", {}).get("lifecycle", {})
     growth = lifecycle.get("retainedGrowthBytes")
     gate(
@@ -757,7 +785,7 @@ def collect_evidence(
         f"retainedGrowthBytes={growth}",
     )
     return {
-        "schemaVersion": "1.0",
+        "schemaVersion": "1.1",
         "evidenceId": manifest.get("qualification", {}).get("evidenceId"),
         "platformId": platform_id,
         "sourceRevision": source_revision(),
@@ -869,6 +897,10 @@ def main() -> int:
             log=logs / "bootstrap-models.log",
         )
         run([python, "tools/package_model_bundle.py"], log=logs / "package-model.log")
+        run(
+            [python, "tools/webgpu/package_bundle.py"],
+            log=logs / "package-webgpu-model.log",
+        )
         if sdk.exists():
             shutil.rmtree(sdk)
         run(
@@ -990,7 +1022,7 @@ def main() -> int:
         if not required.is_file():
             raise QualificationError(f"qualification input is missing: {required}")
 
-    bundle = ROOT / "models" / "generated" / "ppocrv6-small-onnx-20260714.2"
+    bundle = ROOT / "models" / "generated" / "ppocrv6-small-webgpu-20260719.1"
     fixtures = tuple(arguments.fixtures or DEFAULT_FIXTURES)
     cases: dict[str, dict[str, Any]] = {}
     profiles: dict[str, dict[str, Any]] = {}
@@ -999,7 +1031,7 @@ def main() -> int:
         fixture = ROOT / "corpus" / "fixtures" / fixture_id / "fixture.json"
         if not fixture.is_file():
             raise QualificationError(f"fixture is missing: {fixture_id}")
-        modes = ["cpu", "allow", "strict"]
+        modes = ["cpu", "fp32", "allow", "strict"]
         if fixture_id == fixtures[0]:
             modes.append("auto")
         for mode in modes:
@@ -1010,7 +1042,7 @@ def main() -> int:
             for stale_profile in profiles_dir.glob(prefix_name + "*.json"):
                 stale_profile.unlink()
             environment = os.environ.copy()
-            if mode in {"allow", "strict", "auto"}:
+            if mode in {"fp32", "allow", "auto"}:
                 environment["LIGHT_OCR_WEBGPU_PROFILE_PREFIX"] = str(
                     (profiles_dir / prefix_name).resolve()
                 )
@@ -1046,14 +1078,14 @@ def main() -> int:
                 cases[key] = json.loads(report_path.read_text("utf-8"))
             else:
                 cases[key] = {
-                    "schemaVersion": "1.0",
+                    "schemaVersion": "1.1",
                     "ok": False,
                     "error": {
                         "code": "runner_failed",
                         "exitCode": completed.returncode,
                     },
                 }
-            if mode in {"allow", "strict", "auto"}:
+            if mode in {"fp32", "allow", "auto"}:
                 profiles[key] = profile_summary(profiles_dir, prefix_name)
 
     lifecycle_key = "generated-hello-123:lifecycle"
@@ -1098,7 +1130,7 @@ def main() -> int:
         cases[lifecycle_key] = json.loads(lifecycle_report_path.read_text("utf-8"))
     else:
         cases[lifecycle_key] = {
-            "schemaVersion": "1.0",
+            "schemaVersion": "1.1",
             "ok": False,
             "error": {
                 "code": "runner_failed",

@@ -96,7 +96,8 @@ bool valid_execution_options(const ExecutionOptions& options) {
            (options.cpu_partition == CpuPartition::allow ||
             options.cpu_partition == CpuPartition::forbid) &&
            (options.precision == Precision::automatic ||
-            options.precision == Precision::fp32);
+            options.precision == Precision::fp32 ||
+            options.precision == Precision::fp16);
   }
   return options.provider == ExecutionProvider::apple &&
          !options.device_id.has_value() &&
@@ -885,6 +886,15 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
             created.provider = candidate == "webgpu"
                                    ? ExecutionProvider::webgpu
                                    : ExecutionProvider::cpu;
+            if (created.provider == ExecutionProvider::webgpu &&
+                options.execution.cpu_partition == CpuPartition::forbid &&
+                bundle.data_->webgpu_provider) {
+              return fail(
+                  Error{ErrorCode::unsupported_capability,
+                        "The WebGPU model requires a bounded CPU operator partition",
+                        "required operators: Concat, Gather, Slice"},
+                  CreationReason::model_compute_unsupported);
+            }
 #if !defined(LIGHT_OCR_HAS_WEBGPU)
             if (created.provider == ExecutionProvider::webgpu) {
               return fail(
@@ -918,16 +928,40 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
                 candidate_detection_config.webgpu_provider_sha256;
             candidate_recognition_config.webgpu_device_validated =
                 candidate_detection_config.webgpu_device_validated;
+            auto candidate_detection_bytes = detection_bytes;
+            auto candidate_recognition_bytes = recognition_bytes;
+            if (created.provider == ExecutionProvider::webgpu &&
+                options.execution.precision == Precision::fp16) {
+              if (!bundle.data_->webgpu_provider) {
+                return fail(
+                    Error{ErrorCode::unsupported_capability,
+                          "The model bundle does not include WebGPU FP16 models",
+                          {}},
+                    CreationReason::model_compute_unsupported);
+              }
+              const auto& webgpu = *bundle.data_->webgpu_provider;
+              candidate_detection_bytes =
+                  bundle.data_->files.at(webgpu.detection.model_path);
+              candidate_recognition_bytes =
+                  bundle.data_->files.at(webgpu.recognition.model_path);
+              candidate_detection_config.model_id = webgpu.detection.model_id;
+              candidate_detection_config.model_sha256 =
+                  webgpu.detection.model_sha256;
+              candidate_recognition_config.model_id =
+                  webgpu.recognition.model_id;
+              candidate_recognition_config.model_sha256 =
+                  webgpu.recognition.model_sha256;
+            }
             std::optional<CreationReason> creation_reason;
             auto candidate_detection = internal::OnnxSession::create(
-                detection_bytes, candidate_detection_config,
+                candidate_detection_bytes, candidate_detection_config,
                 internal::ModelKind::detection, 0, &creation_reason);
             if (!candidate_detection) {
               return fail_from_error(candidate_detection.error(),
                                      creation_reason);
             }
             auto candidate_recognition = internal::OnnxSession::create(
-                recognition_bytes, candidate_recognition_config,
+                candidate_recognition_bytes, candidate_recognition_config,
                 internal::ModelKind::recognition,
                 bundle.data_->recognition.characters.size() + 1,
                 &creation_reason);

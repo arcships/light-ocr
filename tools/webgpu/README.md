@@ -19,7 +19,15 @@ The product uses the official ONNX Runtime plugin topology:
 - Linux x64 glibc uses Dawn Native over Vulkan. Windows x64 uses Dawn Native
   over D3D12 and carries the plugin's `dxcompiler.dll` and `dxil.dll`.
 - The fixed session policy is NHWC, basic validation, graph capture disabled,
-  high-performance power preference, FP32, and no public adapter ordinal.
+  high-performance power preference, and no public adapter ordinal. Auto and
+  explicit FP32 use the locked upstream models. Explicit FP16 uses deterministic
+  derived models with native float16 graph I/O and Extended graph optimization;
+  the plugin has no separate FP16 provider option, so Dawn requests `ShaderF16`
+  from a capable adapter when the FP16 graph is selected.
+- The current detector/recognizer contract requires only `Concat`, `Gather`, and
+  `Slice` in the bounded CPU partition. `cpuPartition=forbid` therefore rejects
+  creation with a stable `unsupported_capability` error instead of entering an
+  inevitably failing ORT session.
 
 Every NuGet URL, byte count, SHA-512, ZIP member, staged path, license, header,
 and platform identity is locked. The assembler rejects duplicate ZIP members,
@@ -87,6 +95,20 @@ fatal and are never classified by parsing exception text.
 
 ## Hardware-independent checks
 
+The FP16 artifacts are tracked derived inputs, bound to the FP32 source hashes,
+converter versions, output hashes, and runtime contract in
+`models/bundles.lock.json`. Reproduce and functionally verify them with:
+
+```bash
+python3 -m pip install --require-hashes -r tools/webgpu/requirements.lock
+python3 tools/webgpu/convert_models.py \
+  --output .cache/reproduced/webgpu-fp16-20260719.1
+python3 tools/webgpu/package_bundle.py
+```
+
+Conversion verifies ONNX topology plus deterministic FP16 CPU execution for
+both models. The WebGPU CI repeats the derivation byte-for-byte on Linux.
+
 ```bash
 python3 -m unittest \
   tests.python.test_webgpu_runtime \
@@ -114,7 +136,8 @@ host SDK, uses a revision-keyed build directory when compiling the qualification
 addon and C++ tools, runs hardware-independent CTest, stages the exact npm
 payload, and then exercises:
 
-- Node CPU, WebGPU allow, WebGPU strict, and D112 Auto;
+- Node CPU FP32, explicit WebGPU FP32, explicit WebGPU FP16 allow, strict
+  fail-closed behavior, and D112 Auto (which remains FP32 for compatibility);
 - direct C++ D112 Auto and adjacent-plugin discovery;
 - the complete locked 14-fixture parity/quality corpus, including sparse,
   dense, multilingual, rotated, handwriting, and low-contrast inputs;
@@ -124,8 +147,8 @@ payload, and then exercises:
 - per-fixture P95 regression, aggregate P50 speedup, cold-start, and 2 GiB
   resident-memory ceilings fixed before device results are observed;
 - an unpacked self-contained native payload ceiling of 256 MiB;
-- ORT profiling evidence for real `WebGpuExecutionProvider` node placement,
-  including zero CPU nodes in strict mode.
+- ORT profiling evidence for real `WebGpuExecutionProvider` node placement and
+  a CPU-operator allowlist restricted to `Concat`, `Gather`, and `Slice`.
 
 Outputs are written to
 `reports/webgpu-qualification/<platform>/qualification-report.json` with a
@@ -193,6 +216,6 @@ payload bytes. Both platforms must pass as one pair.
 A successful collector exit writes a hash-protected
 `manual-review-required` candidate. This is deliberately not an acceptance or a
 production-lock mutation. A maintainer must still inspect device/driver scope,
-ORT placement, allow-mode CPU partitions, CPU-s, latency distributions,
+ORT FP32/FP16 placement, bounded CPU partitions, strict rejection, CPU-s, latency distributions,
 cold-start, RSS/VRAM evidence, logs, and cross-vendor coverage before choosing a
 compatibility or release conclusion.
