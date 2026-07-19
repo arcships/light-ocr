@@ -27,6 +27,7 @@
 #include "bundle_loader.hpp"
 #include "core/engine_factory.hpp"
 #include "encoded_image.hpp"
+#include "inference/onnxruntime/backend.hpp"
 #include "light_ocr/core.hpp"
 
 namespace light_ocr::node {
@@ -2137,6 +2138,7 @@ void cleanup_environment(void* data) {
   }
   for (const auto& engine : engines) engine->request_environment_close();
   for (const auto& engine : engines) engine->join();
+  light_ocr::internal::shutdown_webgpu_runtime_if_idle();
 }
 
 napi_value native_create_engine(napi_env env, napi_callback_info callback_info) {

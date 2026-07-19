@@ -78,11 +78,12 @@ class WebGpuSetupError final : public std::runtime_error {
 struct WebGpuRegistrationState {
   ~WebGpuRegistrationState() noexcept {
     const std::lock_guard<std::mutex> lock(mutex);
-    if (!registered) return;
+    if (!registered || active_sessions != 0) return;
     try {
       environment().UnregisterExecutionProviderLibrary(
           kWebGpuRegistrationName);
       registered = false;
+      library.clear();
     } catch (...) {
       // Static destruction cannot report an error. Runtime sessions have
       // already been released, so ORT still owns the remaining teardown.
@@ -91,6 +92,7 @@ struct WebGpuRegistrationState {
 
   std::mutex mutex;
   std::filesystem::path library;
+  std::size_t active_sessions = 0;
   bool registered = false;
 };
 
@@ -549,11 +551,19 @@ Result<std::unique_ptr<OnnxSession>> OnnxSession::create(
       return runtime_failure<std::unique_ptr<OnnxSession>>(
           ErrorCode::unsupported_model, "Model input or output name is empty");
     }
-    return Result<std::unique_ptr<OnnxSession>>::success(std::unique_ptr<OnnxSession>(
+    auto created = std::unique_ptr<OnnxSession>(
         new OnnxSession(std::move(session), input_name.get(), output_name.get(),
                         config.precision,
                         make_execution_info(config,
-                                            std::move(selected_webgpu_device)))));
+                                            std::move(selected_webgpu_device))));
+#if defined(LIGHT_OCR_HAS_WEBGPU)
+    if (config.provider == ExecutionProvider::webgpu) {
+      auto& state = webgpu_registration_state();
+      const std::lock_guard<std::mutex> lock(state.mutex);
+      ++state.active_sessions;
+    }
+#endif
+    return Result<std::unique_ptr<OnnxSession>>::success(std::move(created));
 #if defined(LIGHT_OCR_HAS_WEBGPU)
   } catch (const WebGpuSetupError& exception) {
     set_creation_reason(creation_reason, exception.reason());
@@ -596,6 +606,26 @@ OnnxSession::~OnnxSession() noexcept {
   if (session_ && is_webgpu_execution(execution_info_)) {
     const std::lock_guard<std::mutex> lock(webgpu_runtime_mutex());
     session_.reset();
+    auto& state = webgpu_registration_state();
+    const std::lock_guard<std::mutex> registration_lock(state.mutex);
+    if (state.active_sessions != 0) --state.active_sessions;
+  }
+#endif
+}
+
+void shutdown_webgpu_runtime_if_idle() noexcept {
+#if defined(LIGHT_OCR_HAS_WEBGPU)
+  const std::lock_guard<std::mutex> runtime_lock(webgpu_runtime_mutex());
+  auto& state = webgpu_registration_state();
+  const std::lock_guard<std::mutex> registration_lock(state.mutex);
+  if (!state.registered || state.active_sessions != 0) return;
+  try {
+    environment().UnregisterExecutionProviderLibrary(
+        kWebGpuRegistrationName);
+    state.registered = false;
+    state.library.clear();
+  } catch (...) {
+    // Environment cleanup is best-effort and cannot surface a new exception.
   }
 #endif
 }
