@@ -396,10 +396,11 @@ class WebGpuRuntimeContractTest(unittest.TestCase):
                     build_runtime.archive_member(archive, "../safe", "test")
 
     def test_cmake_freezes_plugin_runtime_release_boundary(self) -> None:
-        dependencies = "\n".join(
-            (ROOT / "cmake" / name).read_text("utf-8")
+        sources = {
+            name: (ROOT / "cmake" / name).read_text("utf-8")
             for name in ("Dependencies.cmake", "WebGpuRuntime.cmake")
-        )
+        }
+        dependencies = "\n".join(sources.values())
         required = [
             "LIGHT_OCR_ONNXRUNTIME_FLAVOR",
             "LIGHT_OCR_WEBGPU_SDK_DIR",
@@ -413,6 +414,9 @@ class WebGpuRuntimeContractTest(unittest.TestCase):
         for token in required:
             with self.subTest(token=token):
                 self.assertIn(token, dependencies)
+        webgpu_runtime = sources["WebGpuRuntime.cmake"]
+        self.assertIn("_qualification_hash_length EQUAL 64", webgpu_runtime)
+        self.assertNotIn("[0-9a-f]{64}", webgpu_runtime)
 
 
 if __name__ == "__main__":

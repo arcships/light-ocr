@@ -227,12 +227,21 @@ function(light_ocr_configure_webgpu_runtime)
       qualification qualificationReportSha256 windows-x64)
     string(JSON _qualified_sha GET "${_json}"
       qualification qualifiedArtifactSetSha256 ${_platform})
+    set(_qualification_hashes_valid TRUE)
+    foreach(_qualification_hash IN ITEMS
+        _linux_qualified_sha
+        _windows_qualified_sha
+        _linux_report_sha
+        _windows_report_sha)
+      string(LENGTH "${${_qualification_hash}}" _qualification_hash_length)
+      if(NOT _qualification_hash_length EQUAL 64 OR
+         NOT "${${_qualification_hash}}" MATCHES "^[0-9a-f]+$")
+        set(_qualification_hashes_valid FALSE)
+      endif()
+    endforeach()
     if(NOT _qualification_status STREQUAL "production-qualified" OR
        NOT _provider_gate OR NOT _artifact_qualified OR
-       NOT _linux_qualified_sha MATCHES "^[0-9a-f]{64}$" OR
-       NOT _windows_qualified_sha MATCHES "^[0-9a-f]{64}$" OR
-       NOT _linux_report_sha MATCHES "^[0-9a-f]{64}$" OR
-       NOT _windows_report_sha MATCHES "^[0-9a-f]{64}$" OR
+       NOT _qualification_hashes_valid OR
        NOT _qualified_sha STREQUAL _artifact_set_sha)
       message(FATAL_ERROR
         "WebGPU release SDK requires accepted Linux and Windows Provider Gates bound to this artifact set")
