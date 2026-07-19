@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.1",
   "ok": true,
-  "started": "2026-07-19T07:38:22.558Z",
-  "finished": "2026-07-19T07:38:23.006Z",
+  "started": "2026-07-19T09:56:12.905Z",
+  "finished": "2026-07-19T09:56:13.344Z",
   "fixture": "paddleocr-garden-sign",
   "mode": "strict",
   "expectedRejection": true,

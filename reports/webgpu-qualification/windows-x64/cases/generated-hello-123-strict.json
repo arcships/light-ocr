@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.1",
   "ok": true,
-  "started": "2026-07-19T07:34:17.683Z",
-  "finished": "2026-07-19T07:34:18.127Z",
+  "started": "2026-07-19T09:52:08.783Z",
+  "finished": "2026-07-19T09:52:09.221Z",
   "fixture": "generated-hello-123",
   "mode": "strict",
   "expectedRejection": true,

@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.1",
   "ok": true,
-  "started": "2026-07-19T07:38:39.793Z",
-  "finished": "2026-07-19T07:38:40.228Z",
+  "started": "2026-07-19T09:56:30.077Z",
+  "finished": "2026-07-19T09:56:30.508Z",
   "fixture": "paddleocr-rec-simplified",
   "mode": "strict",
   "expectedRejection": true,

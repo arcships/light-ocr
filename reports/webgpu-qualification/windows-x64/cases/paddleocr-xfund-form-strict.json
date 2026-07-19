@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.1",
   "ok": true,
-  "started": "2026-07-19T07:41:50.669Z",
-  "finished": "2026-07-19T07:41:51.101Z",
+  "started": "2026-07-19T09:59:42.066Z",
+  "finished": "2026-07-19T09:59:42.500Z",
   "fixture": "paddleocr-xfund-form",
   "mode": "strict",
   "expectedRejection": true,

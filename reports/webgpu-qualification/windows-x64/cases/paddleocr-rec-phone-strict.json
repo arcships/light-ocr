@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.1",
   "ok": true,
-  "started": "2026-07-19T07:38:31.244Z",
-  "finished": "2026-07-19T07:38:31.689Z",
+  "started": "2026-07-19T09:56:21.490Z",
+  "finished": "2026-07-19T09:56:21.932Z",
   "fixture": "paddleocr-rec-phone",
   "mode": "strict",
   "expectedRejection": true,

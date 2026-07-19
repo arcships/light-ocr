@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.1",
   "ok": true,
-  "started": "2026-07-19T07:37:32.035Z",
-  "finished": "2026-07-19T07:37:32.471Z",
+  "started": "2026-07-19T09:55:22.620Z",
+  "finished": "2026-07-19T09:55:23.059Z",
   "fixture": "paddleocr-book-page",
   "mode": "strict",
   "expectedRejection": true,

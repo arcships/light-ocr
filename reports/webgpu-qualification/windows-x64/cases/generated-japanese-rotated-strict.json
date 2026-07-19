@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.1",
   "ok": true,
-  "started": "2026-07-19T07:34:52.791Z",
-  "finished": "2026-07-19T07:34:53.227Z",
+  "started": "2026-07-19T09:52:43.712Z",
+  "finished": "2026-07-19T09:52:44.153Z",
   "fixture": "generated-japanese-rotated",
   "mode": "strict",
   "expectedRejection": true,

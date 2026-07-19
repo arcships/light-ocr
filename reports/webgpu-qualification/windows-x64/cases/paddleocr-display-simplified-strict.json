@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.1",
   "ok": true,
-  "started": "2026-07-19T07:38:13.077Z",
-  "finished": "2026-07-19T07:38:13.510Z",
+  "started": "2026-07-19T09:56:03.422Z",
+  "finished": "2026-07-19T09:56:03.866Z",
   "fixture": "paddleocr-display-simplified",
   "mode": "strict",
   "expectedRejection": true,

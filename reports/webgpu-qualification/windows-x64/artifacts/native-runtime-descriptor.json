@@ -2,7 +2,7 @@
   "addon": {
     "bytes": 3745792,
     "path": "native/light_ocr_node.node",
-    "sha256": "68b996b4791d897be036e442e61459eef610967b9e5077e24247190272a47bdf"
+    "sha256": "7c42f467d5a7452a3b81cbc9d07bb0fecb1103b987656d08990c6d7997508908"
   },
   "autoPolicy": {
     "id": "windows-x64-v1",

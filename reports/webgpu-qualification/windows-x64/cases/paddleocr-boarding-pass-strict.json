@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.1",
   "ok": true,
-  "started": "2026-07-19T07:36:11.625Z",
-  "finished": "2026-07-19T07:36:12.060Z",
+  "started": "2026-07-19T09:54:02.683Z",
+  "finished": "2026-07-19T09:54:03.126Z",
   "fixture": "paddleocr-boarding-pass",
   "mode": "strict",
   "expectedRejection": true,

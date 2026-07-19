@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.1",
   "ok": true,
-  "started": "2026-07-19T07:37:51.477Z",
-  "finished": "2026-07-19T07:37:51.914Z",
+  "started": "2026-07-19T09:55:41.986Z",
+  "finished": "2026-07-19T09:55:42.423Z",
   "fixture": "paddleocr-captcha-handwriting",
   "mode": "strict",
   "expectedRejection": true,
