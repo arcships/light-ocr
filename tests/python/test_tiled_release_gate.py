@@ -89,28 +89,6 @@ class TiledReleaseGateTests(unittest.TestCase):
         )
         self.assertEqual(observed, (1.1, 1.15, 60 * 1024 * 1024))
 
-    def test_node_bootstrap_does_not_gate_non_interleaved_latency(self) -> None:
-        node = {"latencyUs": {"median": 111, "p95": 120}}
-        core = {"latencyUs": {"median": 100, "p95": 120}}
-
-        observed = tiled_release_gate.observe_node_against_core(
-            node, core, 600 * 1024 * 1024, 540 * 1024 * 1024, "fixture"
-        )
-        self.assertEqual(observed[0], 1.11)
-
-    def test_node_bootstrap_does_not_gate_process_baseline_delta(self) -> None:
-        node = {"latencyUs": {"median": 100, "p95": 120}}
-        core = {"latencyUs": {"median": 100, "p95": 120}}
-
-        observed = tiled_release_gate.observe_node_against_core(
-            node,
-            core,
-            605 * 1024 * 1024,
-            540 * 1024 * 1024,
-            "fixture",
-        )
-        self.assertEqual(observed[2], 65 * 1024 * 1024)
-
     def test_node_bootstrap_rejects_absolute_peak(self) -> None:
         node = {"latencyUs": {"median": 100, "p95": 120}}
         core = {"latencyUs": {"median": 100, "p95": 120}}

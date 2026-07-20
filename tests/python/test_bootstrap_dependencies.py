@@ -5,6 +5,7 @@ import io
 import json
 from pathlib import Path
 import stat
+import tarfile
 import tempfile
 import unittest
 from unittest import mock
@@ -63,6 +64,28 @@ def locked(data: bytes) -> dict[str, object]:
 
 
 class BootstrapDependenciesTest(unittest.TestCase):
+    def test_archive_inspection_rejects_traversal_and_links(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            traversal = root / "traversal.zip"
+            with zipfile.ZipFile(traversal, "w") as archive:
+                archive.writestr("../escape", "unsafe")
+            link = root / "link.tar"
+            with tarfile.open(link, "w") as archive:
+                member = tarfile.TarInfo("link")
+                member.type = tarfile.SYMTYPE
+                member.linkname = "target"
+                archive.addfile(member)
+
+            for name, path, error in (
+                ("traversal", traversal, "unsafe archive member path"),
+                ("link", link, "unsupported archive member"),
+            ):
+                with self.subTest(name=name), self.assertRaisesRegex(
+                    RuntimeError, error
+                ):
+                    bootstrap_dependencies.inspect_archive(path)
+
     def test_selects_common_and_one_matching_runtime(self) -> None:
         lock = {
             "dependencies": [
