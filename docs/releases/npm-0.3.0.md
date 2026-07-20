@@ -27,15 +27,15 @@
 
 所有数字都是表中设备上的同机 CPU 对照，不外推到其他设备或 driver。
 
-| Provider 与记录设备 | 已记录的端到端结果 | 质量与 Gate |
-| --- | ---: | --- |
-| Apple/Core ML，Apple M4 Max | `HELLO 123` 2.300×；XFUND 2.851× | 14 fixtures 通过锁定的 CPU parity 阈值 |
-| WebGPU/Vulkan，NVIDIA RTX 5060 Ti | 14-fixture 聚合 P50 5.698×；单项 3.474×–9.299× | 14/14 与 CPU FP32 字节级一致；164/164 Gate |
-| WebGPU/D3D12，AMD Radeon 780M | 14-fixture 聚合 P50 2.436×；单项 1.277×–2.982× | 14/14 与 CPU FP32 字节级一致；164/164 Gate |
+| Provider 与记录设备 | 已记录的端到端结果 | OCR 进程 CPU time | 质量与 Gate |
+| --- | ---: | ---: | --- |
+| Apple/Core ML，Apple M4 Max | `HELLO 123` 2.300×；XFUND 2.851× | 降低 95.91% / 97.67% | 14 fixtures 通过锁定的 CPU parity 阈值 |
+| WebGPU/Vulkan，NVIDIA RTX 5060 Ti | 14-fixture 聚合 P50 5.698×；单项 3.474×–9.299× | 14 fixtures 整体降低 69.97% | 14/14 与 CPU FP32 字节级一致；164/164 Gate |
+| WebGPU/D3D12，AMD Radeon 780M | 14-fixture 聚合 P50 2.436×；单项 1.277×–2.982× | 14 fixtures 整体降低 46.33% | 14/14 与 CPU FP32 字节级一致；164/164 Gate |
 
 Apple 结果对比最多 12 intra-op threads 的 `cpu_fast` profile；`HELLO 123` 与 XFUND 的 warm P50 分别从 19.774/943.627 ms 降至 8.599/331.011 ms，宿主 OCR 进程 CPU time 分别降低 95.91%/97.67%。14 个 fixture 的字符相似度为 99.6484%，detection recall 为 100%，平均 matched IoU 为 99.5508%；这是 CPU parity，不是独立 ground-truth accuracy。
 
-WebGPU 聚合值为锁定 14-fixture corpus 的 `sum(CPU P50) / sum(WebGPU P50)`。两份报告还通过 cold start、native C++、memory、placement、strict rejection 和 repeated-lifecycle Gate；Windows lifecycle 最终比预热后基线低 22.9 MiB。
+WebGPU 聚合值为锁定 14-fixture corpus 的 `sum(CPU P50) / sum(WebGPU P50)`。CPU time 降幅按同一批标准 `cpu`/`allow` case 的 `1 - sum(WebGPU processCpuUs) / sum(CPU processCpuUs)` 计算；[Linux 报告](../../reports/webgpu-qualification/linux-x64/qualification-report.json)为 69.973%，[Windows 报告](../../reports/webgpu-qualification/windows-x64/qualification-report.json)为 46.330%。这里统计的是 OCR 进程完成同一批任务的累计 CPU time，不是瞬时系统 CPU 利用率。两份报告还通过 cold start、native C++、memory、placement、strict rejection 和 repeated-lifecycle Gate；Windows lifecycle 最终比预热后基线低 22.9 MiB。
 
 ## 发布与验证证据
 
