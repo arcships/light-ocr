@@ -1,0 +1,58 @@
+name: Bug report
+description: Report reproducible incorrect behavior in light-ocr
+title: ""
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Use a concise title that identifies the problem. Report security vulnerabilities through [GitHub private vulnerability reporting](https://github.com/arcships/light-ocr/security/advisories/new) instead.
+  - type: input
+    id: version
+    attributes:
+      label: light-ocr version
+      description: Enter a published version, `main`, or the commit SHA you tested.
+      placeholder: "0.x.y, main, or a commit SHA"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Node.js
+        - C++
+        - Build, install, or packaging
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the operating system, architecture, Node.js version when relevant, and acceleration hardware.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Provide the smallest code and input description that reproduces the problem. Remove private images and secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Actual and expected behavior
+      description: Explain what happened and what you expected instead. Include the complete error code and message when available.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: I removed credentials and private OCR inputs from this report.
+          required: true

@@ -1,0 +1,36 @@
+name: Feature request
+description: Propose a focused improvement to light-ocr
+title: ""
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the proposal. Use a concise title that describes the requested improvement.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem or workflow should this change improve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the smallest public behavior or API change that would solve the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and alternatives
+      description: Add relevant platforms, workloads, examples, or alternatives you considered.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and pull requests for a similar proposal.
+          required: true
