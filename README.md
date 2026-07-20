@@ -6,6 +6,8 @@
 [![Node--API v8](https://img.shields.io/badge/Node--API-v8-339933.svg)](bindings/node/README.md)
 [![npm](https://img.shields.io/npm/v/%40arcships%2Flight-ocr?color=CB3837)](https://www.npmjs.com/package/@arcships/light-ocr)
 
+<a href="https://trendshift.io/repositories/82168?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-82168" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/82168/daily?language=C%2B%2B" alt="arcships%2Flight-ocr | Trendshift" width="250" height="55"/></a>
+
 English | [简体中文](README.zh-CN.md)
 
 ![light-ocr pixel-art banner](docs/assets/light-ocr-banner.png)
