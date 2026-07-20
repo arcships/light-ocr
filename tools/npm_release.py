@@ -757,8 +757,6 @@ def assemble(arguments: argparse.Namespace) -> None:
     ):
         raise RuntimeError("version must be a plain stable SemVer value")
     version = arguments.version
-    if tuple(int(part) for part in version.split(".")) < (0, 2, 0):
-        raise RuntimeError("tiled-v1 packages require version 0.2.0 or newer")
     if version != SOURCE_VERSION:
         raise RuntimeError(
             f"release version {version} does not match source version {SOURCE_VERSION}"

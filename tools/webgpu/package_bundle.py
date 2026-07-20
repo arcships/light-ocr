@@ -70,8 +70,9 @@ def locked_artifact() -> tuple[dict[str, object], dict[str, object]]:
     return bundle, bundle["providerArtifacts"]["webgpuFp16"]
 
 
-def package_bundle(base: Path, output: Path) -> None:
-    bundle_lock, artifact = locked_artifact()
+def validate_locked_artifact(
+    bundle_lock: dict[str, object], artifact: dict[str, object]
+) -> tuple[bytes, dict[str, bytes]]:
     derived = ROOT / str(artifact["directory"])
     provenance_bytes = verify_file(
         derived / str(artifact["provenance"]["path"]),
@@ -92,14 +93,40 @@ def package_bundle(base: Path, output: Path) -> None:
     ):
         raise RuntimeError("WebGPU FP16 provenance contract differs from its lock")
 
-    model_bytes = {
-        kind: verify_file(
+    source_artifacts = {
+        record["name"]: record for record in bundle_lock["artifacts"]
+    }
+    provenance_models = provenance.get("models")
+    if not isinstance(provenance_models, dict):
+        raise RuntimeError("WebGPU FP16 provenance model inventory is invalid")
+    model_bytes: dict[str, bytes] = {}
+    for kind, short in (("detection", "det"), ("recognition", "rec")):
+        model_bytes[kind] = verify_file(
             derived / str(artifact[kind]["path"]),
             artifact[kind],
             f"WebGPU FP16 {kind} model",
         )
-        for kind in ("detection", "recognition")
-    }
+        expected_source = source_artifacts[kind]["members"]["inference.onnx"]
+        provenance_model = provenance_models.get(kind)
+        if (
+            not isinstance(provenance_model, dict)
+            or provenance_model.get("output") != artifact[kind]
+            or provenance_model.get("source") != {
+                "path": f"{short}/inference.onnx",
+                "bytes": expected_source["bytes"],
+                "sha256": expected_source["sha256"],
+            }
+        ):
+            raise RuntimeError(
+                f"WebGPU FP16 {kind} provenance differs from the locked source and output"
+            )
+    return provenance_bytes, model_bytes
+
+
+def package_bundle(base: Path, output: Path) -> None:
+    bundle_lock, artifact = locked_artifact()
+    provenance_bytes, model_bytes = validate_locked_artifact(bundle_lock, artifact)
+    provenance = json.loads(provenance_bytes)
     base_manifest = json.loads((base / "manifest.json").read_text("utf-8"))
     if (
         base_manifest.get("bundleId") != bundle_lock["bundleId"]

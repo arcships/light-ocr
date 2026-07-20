@@ -118,6 +118,7 @@ native superset bundle stays reproducible; this does not expose WebGPU FP16.
 python3 -m unittest \
   tests.python.test_webgpu_runtime \
   tests.python.test_npm_release \
+  tests.python.test_npm_webgpu_release \
   tests.python.test_webgpu_qualification
 ```
 

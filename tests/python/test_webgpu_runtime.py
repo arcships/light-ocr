@@ -1,96 +1,34 @@
 from __future__ import annotations
 
 import copy
-import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
+import subprocess
 import tempfile
 import unittest
 import zipfile
 
+from tests.python.webgpu_runtime_fixtures import (
+    create_fake_packages,
+    locked,
+    package_identity,
+    pending_lock,
+)
+from tools.webgpu import build_runtime
 
 ROOT = Path(__file__).resolve().parents[2]
-MODULE_PATH = ROOT / "tools" / "webgpu" / "build_runtime.py"
-SPEC = importlib.util.spec_from_file_location("webgpu_build_runtime", MODULE_PATH)
-assert SPEC is not None and SPEC.loader is not None
-build_runtime = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(build_runtime)
-
-
-def locked() -> dict[str, object]:
-    return json.loads(
-        (ROOT / "tools" / "webgpu" / "runtime-lock.json").read_text("utf-8")
-    )
-
-
-def pending_locked() -> dict[str, object]:
-    lock = locked()
-    qualification = lock["qualification"]
-    qualification["status"] = "development-pending-device-validation"
-    qualification["providerGatePassed"] = False
-    qualification["productionArtifactQualified"] = False
-    qualification["qualifiedArtifactSetSha256"] = {
-        "linux-x64": None,
-        "windows-x64": None,
-    }
-    qualification["qualificationReportSha256"] = {
-        "linux-x64": None,
-        "windows-x64": None,
-    }
-    return lock
-
-
-def package_members(lock: dict[str, object], package_name: str) -> set[str]:
-    members: set[str] = set()
-    for platform_id in ("linux-x64", "windows-x64"):
-        for spec in build_runtime.artifact_plan(lock, platform_id):
-            if spec["package"] == package_name:
-                members.add(spec["sourcePath"])
-    return members
-
-
-def create_fake_packages(
-    root: Path,
-    lock: dict[str, object],
-    *,
-    omit: tuple[str, str] | None = None,
-) -> dict[str, Path]:
-    paths: dict[str, Path] = {}
-    for package_name in ("onnxruntime", "webgpu"):
-        path = root / f"{package_name}.nupkg"
-        with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            for member in sorted(package_members(lock, package_name)):
-                if omit == (package_name, member):
-                    continue
-                archive.writestr(member, f"{package_name}:{member}\n".encode())
-        paths[package_name] = path
-    return paths
-
-
-def package_identity(path: Path, name: str) -> dict[str, object]:
-    data = path.read_bytes()
-    return {
-        "id": name,
-        "filename": path.name,
-        "source": "https://example.invalid/package.nupkg",
-        "bytes": len(data),
-        "sha512": hashlib.sha512(data).hexdigest(),
-    }
 
 
 class WebGpuRuntimeContractTest(unittest.TestCase):
-    def test_committed_lock_is_valid(self) -> None:
-        build_runtime.validate_lock(locked())
-
     def test_complete_production_qualification_state_is_valid(self) -> None:
         lock = locked()
         build_runtime.validate_lock(lock)
         self.assertEqual(lock["qualification"]["status"], "production-qualified")
 
     def test_complete_pending_qualification_state_is_valid(self) -> None:
-        build_runtime.validate_lock(pending_locked())
+        build_runtime.validate_lock(pending_lock())
 
     def test_production_qualification_requires_both_platform_reports(self) -> None:
         lock = locked()
@@ -395,28 +333,49 @@ class WebGpuRuntimeContractTest(unittest.TestCase):
                 ):
                     build_runtime.archive_member(archive, "../safe", "test")
 
-    def test_cmake_freezes_plugin_runtime_release_boundary(self) -> None:
-        sources = {
-            name: (ROOT / "cmake" / name).read_text("utf-8")
-            for name in ("Dependencies.cmake", "WebGpuRuntime.cmake")
-        }
-        dependencies = "\n".join(sources.values())
-        required = [
-            "LIGHT_OCR_ONNXRUNTIME_FLAVOR",
-            "LIGHT_OCR_WEBGPU_SDK_DIR",
-            "LIGHT_OCR_WEBGPU_QUALIFICATION_BUILD",
-            "native-webgpu-plugin-0.1.0-ort-1.24.4-v1",
-            "onnxruntime-plugin-webgpu",
-            "productionArtifactQualified",
-            "providerGatePassed",
-            "LIGHT_OCR_HAS_WEBGPU=1",
-        ]
-        for token in required:
-            with self.subTest(token=token):
-                self.assertIn(token, dependencies)
-        webgpu_runtime = sources["WebGpuRuntime.cmake"]
-        self.assertIn("_qualification_hash_length EQUAL 64", webgpu_runtime)
-        self.assertNotIn("[0-9a-f]{64}", webgpu_runtime)
+    def test_cmake_rejects_a_malformed_production_qualification_hash(self) -> None:
+        cmake = shutil.which("cmake")
+        if cmake is None:
+            self.skipTest("cmake is unavailable")
+        platform_id = "windows-x64" if os.name == "nt" else "linux-x64"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            lock = locked()
+            sdk = root / "sdk"
+            manifest_path = build_runtime.stage_runtime(
+                lock, platform_id, create_fake_packages(root, lock), sdk
+            )
+            manifest = json.loads(manifest_path.read_text("utf-8"))
+            qualification = manifest["qualification"]
+            qualification["qualifiedArtifactSetSha256"][platform_id] = manifest[
+                "artifacts"
+            ]["artifactSetSha256"]
+            manifest_path.write_text(json.dumps(manifest), "utf-8")
+
+            command = [
+                cmake,
+                "-DCMAKE_SIZEOF_VOID_P=8",
+                f"-DCMAKE_SYSTEM_NAME={'Windows' if os.name == 'nt' else 'Linux'}",
+                "-DCMAKE_SYSTEM_PROCESSOR=x86_64",
+                "-DLIGHT_OCR_WEBGPU_VALIDATE_ONLY=ON",
+                f"-DLIGHT_OCR_WEBGPU_SDK_DIR={sdk}",
+                "-DLIGHT_OCR_WEBGPU_QUALIFICATION_BUILD=OFF",
+            ]
+            if os.name != "nt":
+                command.append("-DLIGHT_OCR_TARGET_LIBC=glibc")
+            command.extend(["-P", str(ROOT / "cmake" / "WebGpuRuntime.cmake")])
+
+            accepted = subprocess.run(command, capture_output=True, text=True)
+            self.assertEqual(accepted.returncode, 0, accepted.stderr)
+
+            qualification["qualificationReportSha256"][platform_id] = "g" * 64
+            manifest_path.write_text(json.dumps(manifest), "utf-8")
+            rejected = subprocess.run(command, capture_output=True, text=True)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn(
+                "requires accepted Linux and Windows Provider Gates",
+                rejected.stdout + rejected.stderr,
+            )
 
 
 if __name__ == "__main__":
