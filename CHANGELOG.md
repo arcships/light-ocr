@@ -2,6 +2,23 @@
 
 This file records user-visible changes to `light-ocr`. Published artifact details and immutable hashes remain in [`docs/releases/`](docs/releases/).
 
+## [0.3.1] - 2026-07-21
+
+### Added
+
+- Added CPU-only prebuilt native runtimes for Linux arm64 (glibc) and Windows arm64, expanding the npm package set from four to six platform builds. Both new packages use the same PP-OCRv6 Small model and CPU result contract as the existing platforms.
+- Added `@arcships/light-ocr-linux-arm64-gnu` and `@arcships/light-ocr-win32-arm64` as optional dependencies of the facade package, selected automatically by the Node.js loader on matching hosts.
+- Added `ubuntu-24.04-arm` and `windows-11-arm` GitHub-hosted runners to the core CI and the npm release pipeline so both new builds compile, test, and pack on real arm64 hardware.
+
+### Changed
+
+- Extended the CMake ONNX Runtime CPU staging to select `runtimes/linux-arm64/native` and `runtimes/win-arm64/native` from the pinned NuGet package based on `CMAKE_SYSTEM_PROCESSOR`, instead of assuming x86_64.
+- Made the npm release package-count invariant dynamic so adding platforms no longer requires editing a hard-coded count.
+
+### Notes
+
+- WebGPU acceleration remains limited to Linux x64 and Windows x64. The official ONNX Runtime WebGPU Plugin EP 0.1.0 does not ship a Linux arm64 binary, and Windows arm64 WebGPU has not passed the real-device Provider Gate required for a production-qualified release. Both arm64 packages are CPU-only in this version.
+
 ## [0.3.0] - 2026-07-19
 
 ### Added

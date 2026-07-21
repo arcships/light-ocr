@@ -34,7 +34,7 @@ Decision：[decisions.md](decisions.md) D101、D105、D111
 3. 明确定义输入快照、队列背压、关闭、GC、`worker_threads` 和环境退出行为。
 4. 与 C++ Core 做字段级、错误级和结果级 parity。
 5. 复用 Core 的模型验证、资源限制和 OCR 算法，不在适配器复制业务逻辑。
-6. 为四个 Core Tier 1 目标提供 Node-API 预编译包。
+6. 为六个 Core Tier 1 目标提供 Node-API 预编译包。
 7. `npm install @arcships/light-ocr` 同时取得默认模型，正常调用 `createEngine()` 不需要 `bundlePath`。
 
 ### 2.2 v1 非目标
@@ -641,22 +641,24 @@ bindings/node/
 @arcships/light-ocr-darwin-arm64                 addon + ONNX Runtime dylib + licenses
 @arcships/light-ocr-darwin-x64                   addon + ONNX Runtime dylib + licenses
 @arcships/light-ocr-win32-x64                    addon + onnxruntime.dll + licenses
+@arcships/light-ocr-win32-arm64                  addon + onnxruntime.dll + licenses
 @arcships/light-ocr-linux-x64-gnu                addon + ONNX Runtime so + licenses
+@arcships/light-ocr-linux-arm64-gnu              addon + ONNX Runtime so + licenses
 ```
 
-Facade 同时提供 ESM 和 CommonJS exports，但两者加载同一个 environment-aware `.node` addon。native 子路径不作为 public export。model package 是 exact-version 普通 dependency；四个平台包是 exact-version optional dependencies，由 `os`、`cpu` 和 Linux `libc` metadata 筛选。
+Facade 同时提供 ESM 和 CommonJS exports，但两者加载同一个 environment-aware `.node` addon。native 子路径不作为 public export。model package 是 exact-version 普通 dependency；六个平台包是 exact-version optional dependencies，由 `os`、`cpu` 和 Linux `libc` metadata 筛选。
 
 安装规则：
 
 - 正常安装不运行 install/postinstall 脚本，不在用户机器隐式编译。模型只作为 npm package payload 由 npm 在安装阶段取得。
 - model package 直接包含可读取的 bundle 目录；JS facade 解析绝对路径，native loader 不解压、不联网。
 - 平台包包含 `.node`、锁定的 ONNX Runtime 动态库、third-party licenses、SBOM 和 artifact hash。
-- macOS 保持最低 13.3；Windows 使用 MSVC 2022 x64；Linux x64 GNU 基线在首次 N-API release 前用专用构建容器固定，不能把 Ubuntu 24.04 runner 偶然产生的 glibc 要求当作长期 SDK 承诺。
+- macOS 保持最低 13.3；Windows 使用 MSVC 2022（x64 与 arm64）；Linux x64/arm64 GNU 基线在首次 N-API release 前用专用构建容器固定，不能把 Ubuntu 24.04 runner 偶然产生的 glibc 要求当作长期 SDK 承诺。
 - macOS/Linux 使用相对 loader path，Windows DLL 与 `.node` 同目录。
 - source build 是显式开发命令，不是 install fallback。
 - 使用 `--omit=optional` 会缺少 native package；facade 必须返回可操作的 `package_load_failed`，不能尝试下载或编译。
 
-Node-API 解决 Node/V8 ABI 兼容，不消除 OS、architecture、libc、C++ runtime 和 ONNX Runtime 的平台差异。因此仍需四个平台的原生构建和加载测试。
+Node-API 解决 Node/V8 ABI 兼容，不消除 OS、architecture、libc、C++ runtime 和 ONNX Runtime 的平台差异。因此仍需六个平台的原生构建和加载测试。
 
 ## 13. 构建边界
 
@@ -715,7 +717,7 @@ Node-API 解决 Node/V8 ABI 兼容，不消除 OS、architecture、libc、C++ ru
 
 ### 14.6 npm package contract
 
-- 从六个本地 `.tgz` 在 sterile 临时目录安装；CJS、ESM 和 types 都只能使用 package 内容，不能回读仓库。
+- 从八个本地 `.tgz` 在 sterile 临时目录安装；CJS、ESM 和 types 都只能使用 package 内容，不能回读仓库。
 - `createEngine()`、`createEngine({})` 和 `model: "ppocrv6-small"` 都加载同一 bundle ID；显式 `bundlePath` 仍工作；`model` 与 `bundlePath` 同时提供时拒绝。
 - model package 缺失、bundle ID 不匹配、支持平台 package 缺失、unsupported platform 和 `--omit=optional` 分别得到稳定、可操作的错误。
 - `--ignore-scripts` 安装正常；已安装后禁网运行正常；没有 postinstall、下载、解压或源码编译副作用。
@@ -731,10 +733,10 @@ Node-API 解决 Node/V8 ABI 兼容，不消除 OS、architecture、libc、C++ ru
 4. **完成**：实现 AbortSignal facade、private cancel、结果/错误的完整字段转换与真实 PP-OCRv6 golden test。
 5. **完成**：实现 explicit close、GC finalizer、dispatcher ref/unref 和 teardown-safe environment cleanup。
 6. **部分完成**：Node.js 22/macOS arm64 已覆盖 event-loop heartbeat、正常退出和未 close 的 worker environment teardown；worker termination、compatible-host sanitizer、leak 和多平台性能矩阵仍待补。
-7. 固定 Linux GNU baseline，构建四个平台 prebuild，生成 licenses/SBOM/hashes。
-8. 生成 model、四个平台 native 和 facade 六个 package，执行 sterile tarball install test；先发布五个依赖，最后发布 `@arcships/light-ocr` facade。
+7. 固定 Linux GNU baseline，构建六个平台 prebuild，生成 licenses/SBOM/hashes。
+8. 生成 model、六个平台 native 和 facade 八个 package，执行 sterile tarball install test；先发布七个依赖，最后发布 `@arcships/light-ocr` facade。
 
-前五步完成前不能把 addon 称为可用；四平台矩阵、发布元数据和 prebuild 完成前不能称为 npm release ready。
+前五步完成前不能把 addon 称为可用；六平台矩阵、发布元数据和 prebuild 完成前不能称为 npm release ready。
 
 ## 16. 明确延期项
 
