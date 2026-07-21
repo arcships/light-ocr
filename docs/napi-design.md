@@ -604,7 +604,7 @@ JavaScript package 的正式支持矩阵是：
 | Node.js 24.x | Tier 1，完整测试 |
 | Node.js 26.x | Current smoke；进入 LTS 后再提升为 Tier 1 |
 | Node.js 20 及更早 | 不支持 |
-| Electron | 未声明；需按 Electron major 做完整 lifecycle/prebuild 验证 |
+| Electron | Windows addon host 重定向与 Electron 37 CPU smoke；完整 major/ASAR/worker/lifecycle matrix 完成前不提升为 Tier 1 |
 | Bun | 未声明；需按其 Node-API 实现做兼容验证 |
 
 `package.json.engines.node` 在 v1 发布时写为 `^22.0.0 || ^24.0.0`；Node 26 提升为 Tier 1 后再加入，不能把 smoke test 写成正式承诺。

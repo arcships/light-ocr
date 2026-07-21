@@ -33,7 +33,7 @@ npm install @arcships/light-ocr
 
 这些结果都是表中设备上的同机 CPU 对照。WebGPU 聚合值为 14 个 fixture 的 CPU P50 总和除以 WebGPU P50 总和，不外推到其他 GPU/driver。
 
-不支持 WebP、GIF、PDF、EXIF orientation 自动旋转、zero-copy/transfer、运行中 inference 硬中断、Electron 或 Bun。详细契约见 [Node-API 设计](../../docs/napi-design.md)。
+不支持 WebP、GIF、PDF、EXIF orientation 自动旋转、zero-copy/transfer、运行中 inference 硬中断或 Bun。Windows addon 使用 `node.exe` delay-load hook，可由 Node 或重命名宿主（包括 Electron）解析 Node-API symbols；Electron 的完整版本、ASAR、worker 与 lifecycle 支持矩阵仍按独立 Gate 管理。详细契约见 [Node-API 设计](../../docs/napi-design.md)。
 
 ## 本地构建
 
@@ -55,7 +55,7 @@ cmake -S . -B build-node \
 cmake --build build-node --target light_ocr_node --parallel
 ```
 
-macOS/Linux 的链接产物在 `build-node/bin/light_ocr_node.node`；可加载的完整开发 runtime 会连同 descriptor 与锁定的 ONNX Runtime 一起放在 `build-node/node-runtime/native/`。Windows 还需通过 `LIGHT_OCR_NODE_LIBRARY` 指定当前架构的 `node.lib`，staged runtime 位于 `build-node/node-runtime/Release/native/`。
+macOS/Linux 的链接产物在 `build-node/bin/light_ocr_node.node`；可加载的完整开发 runtime 会连同 descriptor 与锁定的 ONNX Runtime 一起放在 `build-node/node-runtime/native/`。Windows 还需通过 `LIGHT_OCR_NODE_LIBRARY` 指定当前架构的 `node.lib`，staged runtime 位于 `build-node/node-runtime/Release/native/`。Windows 构建会把 delay-load hook 直接链接进 `.node`，并在产物生成后验证 `node.exe` 只存在于 PE delay-import directory；这样同一个 N-API addon 才能由 Node 和 Electron 的当前可执行文件提供 symbols。
 
 WebGPU 构建必须先用 [`tools/webgpu/build_runtime.py`](../../tools/webgpu/README.md) 生成并验证目标 SDK，再增加：
 

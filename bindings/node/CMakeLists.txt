@@ -53,8 +53,20 @@ if(MSVC)
     message(FATAL_ERROR
       "Windows Node-API builds require LIGHT_OCR_NODE_LIBRARY pointing to node.lib")
   endif()
-  target_link_libraries(light_ocr_node PRIVATE "${LIGHT_OCR_NODE_LIBRARY}")
+  target_sources(light_ocr_node PRIVATE src/win_delay_load_hook.cpp)
+  target_link_libraries(light_ocr_node PRIVATE
+    "${LIGHT_OCR_NODE_LIBRARY}"
+    delayimp)
+  target_link_options(light_ocr_node PRIVATE "/DELAYLOAD:node.exe")
   target_compile_options(light_ocr_node PRIVATE /W4 /WX /permissive- /EHsc)
+
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  add_custom_command(TARGET light_ocr_node POST_BUILD
+    COMMAND "${Python3_EXECUTABLE}"
+      "${PROJECT_SOURCE_DIR}/tools/verify_windows_node_addon.py"
+      "$<TARGET_FILE:light_ocr_node>"
+    COMMENT "Verifying that node.exe is resolved through the Windows delay-load hook"
+    VERBATIM)
 else()
   target_compile_options(light_ocr_node PRIVATE -Wall -Wextra -Wpedantic -Werror)
   if(APPLE)
