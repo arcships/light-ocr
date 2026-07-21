@@ -17,9 +17,11 @@
       "runtimeFlavor": "cpu",
       "platforms": [
         "linux-x64-gnu",
+        "linux-arm64-gnu",
         "macos-arm64",
         "macos-x64",
-        "windows-x64"
+        "windows-x64",
+        "windows-arm64"
       ]
     },
     {

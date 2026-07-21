@@ -53,14 +53,16 @@ await engine.close();
 
 ## Platform acceleration
 
-The npm package provides the following four builds. The default `createEngine()` call uses Auto mode:
+The npm package provides the following six builds. The default `createEngine()` call uses Auto mode:
 
 | Platform | Auto mode |
 | --- | --- |
 | macOS on Apple Silicon | Core ML on macOS 15+, then CPU |
 | macOS on Intel | CPU |
 | Linux x64 with glibc | WebGPU through Vulkan, then CPU |
+| Linux arm64 with glibc | CPU |
 | Windows x64 | WebGPU through D3D12, then CPU |
+| Windows arm64 | CPU |
 
 Applications that need explicit control can choose `auto`, `cpu`, `apple`, or `webgpu` through the [`execution` option](bindings/node/README.md#使用).
 

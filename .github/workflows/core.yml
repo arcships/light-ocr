@@ -25,18 +25,32 @@ jobs:
             runner: macos-15
             executable_suffix: ""
             binary_dir: build-ci/bin
+            cmake_arch: ""
           - id: macos-x64
             runner: macos-15-intel
             executable_suffix: ""
             binary_dir: build-ci/bin
+            cmake_arch: ""
           - id: windows-x64
             runner: windows-2022
             executable_suffix: ".exe"
             binary_dir: build-ci/bin/Release
+            cmake_arch: x64
+          - id: windows-arm64
+            runner: windows-11-arm
+            executable_suffix: ".exe"
+            binary_dir: build-ci/bin/Release
+            cmake_arch: ARM64
           - id: linux-x64
             runner: ubuntu-24.04
             executable_suffix: ""
             binary_dir: build-ci/bin
+            cmake_arch: ""
+          - id: linux-arm64
+            runner: ubuntu-24.04-arm
+            executable_suffix: ""
+            binary_dir: build-ci/bin
+            cmake_arch: ""
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -54,7 +68,7 @@ jobs:
       - name: Configure without dependency network access (Windows)
         if: runner.os == 'Windows'
         shell: bash
-        run: cmake -S . -B build-ci -G "Visual Studio 17 2022" -A x64 -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
+        run: cmake -S . -B build-ci -G "Visual Studio 17 2022" -A ${{ matrix.cmake_arch }} -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
       - name: Build
         run: cmake --build build-ci --config Release --parallel
       - name: Test real PP-OCRv6 models

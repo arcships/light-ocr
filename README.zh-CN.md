@@ -51,14 +51,16 @@ await engine.close();
 
 ## 平台加速
 
-npm 包提供以下四个平台版本。默认的 `createEngine()` 使用 Auto 模式：
+npm 包提供以下六个平台版本。默认的 `createEngine()` 使用 Auto 模式：
 
 | 平台 | Auto 模式 |
 | --- | --- |
 | macOS / Apple Silicon | macOS 15+ 优先使用 Core ML，然后使用 CPU |
 | macOS / Intel | CPU |
 | Linux x64 glibc | 通过 Vulkan 使用 WebGPU，然后使用 CPU |
+| Linux arm64 glibc | CPU |
 | Windows x64 | 通过 D3D12 使用 WebGPU，然后使用 CPU |
+| Windows arm64 | CPU |
 
 需要明确控制时，可以通过 [`execution` 选项](bindings/node/README.md#使用)选择 `auto`、`cpu`、`apple` 或 `webgpu`。
 
