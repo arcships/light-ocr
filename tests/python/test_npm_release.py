@@ -90,7 +90,7 @@ class NpmReleaseTests(unittest.TestCase):
         self.assertEqual(dist_tag.call_count, 2)
         sleep.assert_called_once_with(3)
 
-    def test_stages_and_deterministically_packs_six_packages(self) -> None:
+    def test_stages_and_deterministically_packs_all_release_packages(self) -> None:
         npm = shutil.which("npm")
         if npm is None:
             self.skipTest("npm is unavailable")
@@ -115,9 +115,12 @@ class NpmReleaseTests(unittest.TestCase):
                 )
 
             staging = root / "staging"
+            source_version = npm_release.read_json(
+                npm_release.ROOT / "bindings" / "node" / "package.json"
+            )["version"]
             npm_release.assemble(
                 argparse.Namespace(
-                    version="0.3.0",
+                    version=source_version,
                     bundle=model_bundle(root),
                     native_root=native_root,
                     output_dir=staging,
@@ -126,8 +129,10 @@ class NpmReleaseTests(unittest.TestCase):
             facade = json.loads(
                 (staging / "facade" / "package.json").read_text("utf-8")
             )
-            self.assertEqual(facade["dependencies"][npm_release.MODEL_PACKAGE], "0.3.0")
-            self.assertEqual(len(facade["optionalDependencies"]), 4)
+            self.assertEqual(facade["dependencies"][npm_release.MODEL_PACKAGE], source_version)
+            self.assertEqual(
+                len(facade["optionalDependencies"]), len(npm_release.PLATFORMS)
+            )
             model = json.loads(
                 (staging / "model-ppocrv6-small" / "package.json").read_text("utf-8")
             )
@@ -142,9 +147,12 @@ class NpmReleaseTests(unittest.TestCase):
             release = json.loads(
                 (tarballs / "release-manifest.json").read_text("utf-8")
             )
-            self.assertEqual(release["version"], "0.3.0")
-            self.assertEqual(len(release["packages"]), 6)
-            self.assertEqual(len(list(tarballs.glob("*.tgz"))), 6)
+            self.assertEqual(release["version"], source_version)
+            expected_packages = len(npm_release.PLATFORMS) + 2
+            self.assertEqual(len(release["packages"]), expected_packages)
+            self.assertEqual(
+                len(list(tarballs.glob("*.tgz"))), expected_packages
+            )
 
             platform_id = current_platform_id()
             if platform_id is None:

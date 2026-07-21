@@ -107,6 +107,10 @@ def current_platform_id() -> str | None:
         return "macos-x64"
     if system == "Linux" and machine in {"x86_64", "amd64"}:
         return "linux-x64"
+    if system == "Linux" and machine in {"arm64", "aarch64"}:
+        return "linux-arm64"
     if system == "Windows" and machine in {"x86_64", "amd64"}:
         return "windows-x64"
+    if system == "Windows" and machine in {"arm64", "aarch64"}:
+        return "windows-arm64"
     return None

@@ -17,6 +17,7 @@ function platformIdentity() {
   const identities = {
     'darwin-arm64': { id: 'macos-arm64', os: 'darwin', architecture: 'arm64' },
     'darwin-x64': { id: 'macos-x64', os: 'darwin', architecture: 'x86_64' },
+    'win32-arm64': { id: 'windows-arm64', os: 'win32', architecture: 'arm64' },
     'win32-x64': { id: 'windows-x64', os: 'win32', architecture: 'x86_64' },
   };
   if (key === 'linux-x64') {
@@ -27,6 +28,17 @@ function platformIdentity() {
     throw adapterError(
       'unsupported_platform',
       'light-ocr currently supports Linux x64 with glibc only',
+      key,
+    );
+  }
+  if (key === 'linux-arm64') {
+    const report = process.report?.getReport?.();
+    if (report?.header?.glibcVersionRuntime) {
+      return { id: 'linux-arm64', os: 'linux', architecture: 'arm64', libc: 'glibc' };
+    }
+    throw adapterError(
+      'unsupported_platform',
+      'light-ocr currently supports Linux arm64 with glibc only',
       key,
     );
   }
@@ -41,8 +53,10 @@ function platformPackage() {
   const packages = {
     'macos-arm64': '@arcships/light-ocr-darwin-arm64',
     'macos-x64': '@arcships/light-ocr-darwin-x64',
+    'windows-arm64': '@arcships/light-ocr-win32-arm64',
     'windows-x64': '@arcships/light-ocr-win32-x64',
     'linux-x64': '@arcships/light-ocr-linux-x64-gnu',
+    'linux-arm64': '@arcships/light-ocr-linux-arm64-gnu',
   };
   return packages[platformIdentity().id];
 }

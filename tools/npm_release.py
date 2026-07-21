@@ -54,11 +54,26 @@ PLATFORMS: dict[str, dict[str, Any]] = {
         "libc": ["glibc"],
         "runtime": "libonnxruntime.so.1",
     },
+    "linux-arm64": {
+        "package": "@arcships/light-ocr-linux-arm64-gnu",
+        "os": ["linux"],
+        "cpu": ["arm64"],
+        "architecture": "arm64",
+        "libc": ["glibc"],
+        "runtime": "libonnxruntime.so.1",
+    },
     "windows-x64": {
         "package": "@arcships/light-ocr-win32-x64",
         "os": ["win32"],
         "cpu": ["x64"],
         "architecture": "x86_64",
+        "runtime": "onnxruntime.dll",
+    },
+    "windows-arm64": {
+        "package": "@arcships/light-ocr-win32-arm64",
+        "os": ["win32"],
+        "cpu": ["arm64"],
+        "architecture": "arm64",
         "runtime": "onnxruntime.dll",
     },
 }
@@ -959,10 +974,13 @@ def package_directories(staging: Path) -> list[Path]:
     packages = sorted(
         path for path in staging.iterdir() if (path / "package.json").is_file()
     )
-    if len(packages) != 6:
-        raise RuntimeError(f"expected six staged packages, found {len(packages)}")
+    expected = len(PLATFORMS) + 2
+    if len(packages) != expected:
+        raise RuntimeError(
+            f"expected {expected} staged packages, found {len(packages)}"
+        )
     names = [read_json(path / "package.json")["name"] for path in packages]
-    if len(set(names)) != 6:
+    if len(set(names)) != expected:
         raise RuntimeError("staged package names are not unique")
     return packages
 

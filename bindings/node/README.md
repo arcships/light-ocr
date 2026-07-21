@@ -85,7 +85,7 @@ node --test --test-concurrency=1 bindings/node/test/adapter.test.cjs
 # 或：ctest --test-dir build-node -R '^light_ocr_node_tests$' --output-on-failure
 ```
 
-当前源码加载器不会搜索任意 cwd。开发构建优先接受 `LIGHT_OCR_NODE_BINARY`，发布构建则按 `process.platform`、`process.arch` 和 Linux libc 固定选择四个 `@arcships/light-ocr-<platform>` optional packages。facade 通过 model package 导出的 manifest 定位默认 bundle，并在进入 native addon 前核对 bundle ID。详见 [npm package 设计](../../docs/npm-packaging.md)。
+当前源码加载器不会搜索任意 cwd。开发构建优先接受 `LIGHT_OCR_NODE_BINARY`，发布构建则按 `process.platform`、`process.arch` 和 Linux libc 固定选择六个 `@arcships/light-ocr-<platform>` optional packages。facade 通过 model package 导出的 manifest 定位默认 bundle，并在进入 native addon 前核对 bundle ID。详见 [npm package 设计](../../docs/npm-packaging.md)。
 
 ## 使用
 
