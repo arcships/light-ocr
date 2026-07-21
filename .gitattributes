@@ -10,3 +10,16 @@
 *.dylib binary
 *.so binary
 *.dll binary
+
+# ---------------------------------------------------------------------------
+# GitHub language detection (Linguist) overrides
+# ---------------------------------------------------------------------------
+# light-ocr ships a C++17 OCR engine; the Python under tools/, oracle/,
+# tests/python/, and corpus/ is build/release/verification tooling that drives
+# CI, not the product's implementation language. Exclude these directories
+# from language statistics so the repository is correctly identified as C++.
+# The code stays in-repo and CI keeps running it unchanged.
+tools/**        linguist-detectable=false
+oracle/**       linguist-detectable=false
+tests/python/** linguist-detectable=false
+corpus/**       linguist-detectable=false
