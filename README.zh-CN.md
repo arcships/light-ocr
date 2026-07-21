@@ -49,6 +49,8 @@ await engine.close();
 - **适合应用内调用。**识别任务在 JavaScript 主线程之外执行，并支持队列、取消和明确释放资源。
 - **识别大图中的小字。**可选的 `tiled` 模式可以保留高分辨率图片中的小字和密集文字。
 
+> ⭐ **觉得 light-ocr 有用？** 点个 Star，让更多人发现这个项目！
+
 ## 平台加速
 
 npm 包提供以下四个平台版本。默认的 `createEngine()` 使用 Auto 模式：
@@ -94,4 +96,6 @@ C++ 项目从源码构建静态库，并链接 `light_ocr::core` CMake target。
 
 ## 社区与协议
 
-欢迎提交 issue 和 pull request。`light-ocr` 使用 [Apache License 2.0](LICENSE)。
+欢迎提交 issue 和 pull request — 请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 了解贡献指南。所有参与者须遵守[行为准则](CODE_OF_CONDUCT.md)。
+
+`light-ocr` 使用 [Apache License 2.0](LICENSE)。

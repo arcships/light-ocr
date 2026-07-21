@@ -51,6 +51,8 @@ await engine.close();
 - **Application-friendly execution.** Recognition runs off the JavaScript main thread and supports queues, cancellation, and explicit cleanup.
 - **Small text in large images.** An optional `tiled` mode preserves small and dense text in high-resolution images.
 
+> ⭐ **Like light-ocr?** Give it a star — it helps others discover the project and keeps us motivated!
+
 ## Platform acceleration
 
 The npm package provides the following four builds. The default `createEngine()` call uses Auto mode:
@@ -96,4 +98,6 @@ C++ projects build the static library from source and link the `light_ocr::core`
 
 ## Community and license
 
-Issues and pull requests are welcome. `light-ocr` is available under the [Apache License 2.0](LICENSE).
+Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines. All participants are expected to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
+
+`light-ocr` is available under the [Apache License 2.0](LICENSE).
