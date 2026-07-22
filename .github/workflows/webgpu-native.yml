@@ -45,6 +45,7 @@ jobs:
           tests.python.test_npm_webgpu_release
           tests.python.test_webgpu_qualification
           tests.python.test_webgpu_report_review
+          tests.python.test_windows_node_addon
       - name: Validate the checked-in real-device report pair
         if: matrix.id == 'linux-x64'
         shell: bash
@@ -164,6 +165,18 @@ jobs:
           ctest --test-dir build-webgpu -C Release --output-on-failure -LE node
           ctest --test-dir build-webgpu -C Release --output-on-failure \
             -L webgpu-contract
+      - name: Run the explicit CPU Electron smoke (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $runtime = Resolve-Path "${{ github.workspace }}/${{ matrix.node_runtime }}"
+          $env:LIGHT_OCR_NODE_BINARY = Join-Path $runtime "light_ocr_node.node"
+          $env:LIGHT_OCR_RUNTIME_DESCRIPTOR = Join-Path $runtime "runtime-descriptor.json"
+          $env:LIGHT_OCR_MODEL_BUNDLE = Resolve-Path "models/generated/ppocrv6-small-onnx-20260714.2"
+          npx --yes electron@37.10.0 bindings/node/test/electron-smoke.cjs
+          if ($LASTEXITCODE -ne 0) {
+            throw "Electron OCR smoke failed with exit code $LASTEXITCODE"
+          }
       - name: Verify the staged addon and descriptor from a sterile directory
         shell: bash
         env:
