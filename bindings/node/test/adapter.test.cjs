@@ -119,12 +119,13 @@ test('validates runtime descriptor artifacts before native loading', () => {
       bytes: fs.statSync(filename).size,
       sha256: crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex'),
     });
-    const machine = process.arch === 'arm64' ? 'arm64' : 'x86_64';
+    const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
     const platformId = process.platform === 'darwin'
-      ? `macos-${process.arch}`
+      ? `macos-${arch}`
       : process.platform === 'win32'
-        ? `windows-${machine}`
-        : `linux-${machine}`;
+        ? `windows-${arch}`
+        : `linux-${arch}`;
+    const machine = arch === 'arm64' ? 'arm64' : 'x86_64';
     const appleSupported = process.platform === 'darwin' && process.arch === 'arm64';
     const descriptor = {
       schemaVersion: '2.0',
