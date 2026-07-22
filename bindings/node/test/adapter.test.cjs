@@ -123,8 +123,8 @@ test('validates runtime descriptor artifacts before native loading', () => {
     const platformId = process.platform === 'darwin'
       ? `macos-${process.arch}`
       : process.platform === 'win32'
-        ? 'windows-x64'
-        : 'linux-x64';
+        ? `windows-${machine}`
+        : `linux-${machine}`;
     const appleSupported = process.platform === 'darwin' && process.arch === 'arm64';
     const descriptor = {
       schemaVersion: '2.0',
