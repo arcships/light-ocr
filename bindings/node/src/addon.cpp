@@ -1128,6 +1128,29 @@ void EngineState::start() {
   }
 }
 
+// Convert DetectionResult to OcrResult format for the completion pipeline.
+// Each detection box becomes an OcrLine with empty text and detection score
+// as confidence. This reuses the existing OcrResult serialization path;
+// the CLI layer interprets these as detections (structure: "detect").
+Result<OcrResult> detect_result_to_ocr_result(Result<DetectionResult> detect_result) {
+  if (!detect_result) return Result<OcrResult>::failure(detect_result.error());
+  auto dr = std::move(detect_result).value();
+  OcrResult result;
+  result.image_width = dr.image_width;
+  result.image_height = dr.image_height;
+  result.model_bundle_id = std::move(dr.model_bundle_id);
+  result.timing = dr.timing;
+  result.lines.reserve(dr.boxes.size());
+  for (auto& box : dr.boxes) {
+    OcrLine line;
+    line.text = "";
+    line.confidence = box.score;
+    line.box = std::move(box.box);
+    result.lines.push_back(std::move(line));
+  }
+  return Result<OcrResult>::success(std::move(result));
+}
+
 void EngineState::run() {
   try {
     auto loaded = load_bundle_directory_secure(create_options.bundle_path);
@@ -1795,29 +1818,6 @@ std::shared_ptr<EngineState> unwrap_engine(napi_env env, napi_value value) {
   check(env, napi_unwrap(env, value, &data), "unwrap engine");
   if (data == nullptr) throw AddonFailure("invalid_engine", "OcrEngine has no native state");
   return *static_cast<std::shared_ptr<EngineState>*>(data);
-}
-
-// Convert DetectionResult to OcrResult format for the completion pipeline.
-// Each detection box becomes an OcrLine with empty text and detection score
-// as confidence. This reuses the existing OcrResult serialization path;
-// the CLI layer interprets these as detections (structure: "detect").
-Result<OcrResult> detect_result_to_ocr_result(Result<DetectionResult> detect_result) {
-  if (!detect_result) return Result<OcrResult>::failure(detect_result.error());
-  auto dr = std::move(detect_result).value();
-  OcrResult result;
-  result.image_width = dr.image_width;
-  result.image_height = dr.image_height;
-  result.model_bundle_id = std::move(dr.model_bundle_id);
-  result.timing = dr.timing;
-  result.lines.reserve(dr.boxes.size());
-  for (auto& box : dr.boxes) {
-    OcrLine line;
-    line.text = "";
-    line.confidence = box.score;
-    line.box = std::move(box.box);
-    result.lines.push_back(std::move(line));
-  }
-  return Result<OcrResult>::success(std::move(result));
 }
 
 napi_value native_recognize_impl(napi_env env, napi_callback_info callback_info,
