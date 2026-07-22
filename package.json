@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "test": "npm test --workspaces --if-present",
-    "test:workspace": "npm test --workspace @arcships/light-ocr-runtime && npm test --workspace @arcships/light-ocr",
+    "test:workspace": "npm test --workspace @arcships/light-ocr-runtime && npm test --workspace @arcships/light-ocr && npm run test:contract --workspace @arcships/light-ocr-server",
     "typecheck": "tsc --strict --noEmit --skipLibCheck false --target ES2022 --module NodeNext --moduleResolution NodeNext --types node tools/npm/smoke.ts packages/runtime/test/types.ts"
   },
   "devDependencies": {

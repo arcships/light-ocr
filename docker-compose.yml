@@ -1,0 +1,9 @@
+services:
+  light-ocr-server:
+    build:
+      context: .
+      dockerfile: packages/light-ocr-server/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      EXECUTION_MODE: cpu
