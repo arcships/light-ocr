@@ -6,7 +6,7 @@ on:
       version:
         description: Lockstep version for all release packages
         required: true
-        default: 0.3.1
+        default: 0.3.2
         type: string
       publish_to_registry:
         description: Publish the fully gated candidate to npm after preflight
