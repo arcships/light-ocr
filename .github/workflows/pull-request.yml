@@ -22,6 +22,11 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "22"
+      - name: Check the N2 workspace contracts
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund --omit=optional
+          npm run typecheck
+          npm run test:workspace
       - name: Validate repository and release tooling contracts
         run: python -m unittest discover -s tests/python -p 'test_*.py'
       - name: Bootstrap pinned inputs and prove the dependency cache is complete

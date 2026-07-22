@@ -1,0 +1,37 @@
+{
+  "name": "@arcships/light-ocr",
+  "version": "0.3.4",
+  "private": true,
+  "description": "Offline PP-OCRv6 Small OCR for Node.js",
+  "license": "Apache-2.0",
+  "type": "commonjs",
+  "main": "./src/index.cjs",
+  "module": "./src/index.mjs",
+  "types": "./src/index.d.ts",
+  "bin": {
+    "light-ocr": "./src/cli.cjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.mjs",
+      "require": "./src/index.cjs"
+    }
+  },
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": "^22.0.0 || ^24.0.0"
+  },
+  "dependencies": {
+    "@arcships/light-ocr-model-ppocrv6-small": "0.3.4",
+    "@arcships/light-ocr-runtime": "0.1.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.cjs"
+  }
+}
