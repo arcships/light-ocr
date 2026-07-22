@@ -19,6 +19,11 @@ struct DecodedImage {
 
 Result<DecodedImage> decode_encoded_image(
     const std::vector<std::uint8_t>& encoded,
-    const ResourceLimits& limits) noexcept;
+    const ResourceLimits& limits,
+    bool apply_exif = true) noexcept;
+
+// Crop a decoded image to a pageSpace rectangle (D106, cli-design §7).
+// Returns a new DecodedImage with only the pixels inside the rect.
+DecodedImage crop_decoded_image(DecodedImage image, const Rect& region) noexcept;
 
 }  // namespace light_ocr::node

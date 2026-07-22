@@ -69,9 +69,17 @@ export interface RecognizeOptions {
   readonly signal?: AbortSignal;
   readonly useTextlineOrientation?: boolean;
   readonly detectionMaxSide?: number;
+  readonly applyExif?: boolean;
+  readonly region?: Rect;
 }
 
 export interface Point { readonly x: number; readonly y: number }
+export interface Rect {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
 export interface OcrLine {
   readonly text: string;
   readonly confidence: number;
@@ -256,7 +264,21 @@ export interface OcrEngine {
   readonly info: EngineInfo;
   recognize(image: RawImage, options?: RecognizeOptions): Promise<OcrResult>;
   recognizeEncoded(data: Uint8Array, options?: RecognizeOptions): Promise<OcrResult>;
+  detect(data: Uint8Array, options?: RecognizeOptions): Promise<DetectionResult>;
   close(): Promise<void>;
+}
+
+export interface DetectionBox {
+  readonly score: number;
+  readonly box: readonly [Point, Point, Point, Point];
+}
+
+export interface DetectionResult {
+  readonly boxes: readonly DetectionBox[];
+  readonly imageWidth: number;
+  readonly imageHeight: number;
+  readonly modelBundleId: string;
+  readonly timingUs: TimingUs;
 }
 
 export function createEngine(options?: CreateEngineOptions): Promise<OcrEngine>;

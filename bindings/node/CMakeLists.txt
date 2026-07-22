@@ -8,6 +8,7 @@ add_library(light_ocr_node MODULE
   src/addon.cpp
   src/bundle_loader.cpp
   src/encoded_image.cpp
+  src/exif.cpp
 )
 
 target_include_directories(light_ocr_node PRIVATE

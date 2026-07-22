@@ -16,6 +16,9 @@
   "main": "./js/index.cjs",
   "module": "./js/index.mjs",
   "types": "./js/index.d.ts",
+  "bin": {
+    "light-ocr": "./bin/light-ocr.cjs"
+  },
   "exports": {
     ".": {
       "types": "./js/index.d.ts",

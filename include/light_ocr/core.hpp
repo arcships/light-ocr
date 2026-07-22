@@ -60,6 +60,8 @@ class Engine {
 
   virtual Result<OcrResult> recognize(
       const ImageView& image, const RecognizeOptions& options = {}) noexcept = 0;
+  virtual Result<DetectionResult> detect(
+      const ImageView& image, const RecognizeOptions& options = {}) noexcept = 0;
   virtual const EngineInfo& info() const noexcept = 0;
   virtual void close() noexcept = 0;
 

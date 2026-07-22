@@ -118,6 +118,19 @@ struct OcrResult {
   std::optional<Diagnostics> diagnostics;
 };
 
+struct DetectionBox {
+  Quad box;
+  float score = 0.0f;
+};
+
+struct DetectionResult {
+  std::vector<DetectionBox> boxes;
+  std::uint32_t image_width = 0;
+  std::uint32_t image_height = 0;
+  std::string model_bundle_id;
+  Timing timing;
+};
+
 struct ResourceLimits {
   std::uint32_t max_width = 10'000;
   std::uint32_t max_height = 10'000;
@@ -155,12 +168,24 @@ struct EngineOptions {
   ExecutionOptions execution;
 };
 
+struct Rect {
+  std::uint32_t x = 0;
+  std::uint32_t y = 0;
+  std::uint32_t width = 0;
+  std::uint32_t height = 0;
+};
+
 struct RecognizeOptions {
   std::optional<float> recognition_score_threshold;
   std::optional<std::uint32_t> recognition_batch_size;
   bool include_diagnostics = false;
   bool use_textline_orientation = false;
   std::optional<std::uint32_t> detection_max_side;
+  bool apply_exif = true;
+  // ROI in pageSpace (post-EXIF, pre-Core). When set, the decoded image is
+  // cropped to this rectangle before recognition; returned box coordinates
+  // are offset back to full pageSpace by the adapter.
+  std::optional<Rect> region;
 };
 
 enum class ConcurrencyMode { serialized_reject_when_busy };

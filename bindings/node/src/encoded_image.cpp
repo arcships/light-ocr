@@ -1,9 +1,11 @@
 #include "encoded_image.hpp"
+#include "exif.hpp"
 
 #include <algorithm>
 #include <climits>
 #include <cstddef>
 #include <cstdlib>
+#include <cstring>
 #include <exception>
 #include <limits>
 #include <memory>
@@ -202,7 +204,8 @@ Result<DecodedImage> allocation_failure(const DecodeBudget& budget) {
 
 Result<DecodedImage> decode_encoded_image(
     const std::vector<std::uint8_t>& encoded,
-    const ResourceLimits& limits) noexcept {
+    const ResourceLimits& limits,
+    bool apply_exif) noexcept {
   try {
     if (encoded.empty()) {
       return failure(ErrorCode::invalid_image, "Encoded image is empty");
@@ -290,6 +293,17 @@ Result<DecodedImage> decode_encoded_image(
     result.height = static_cast<std::uint32_t>(decoded_height);
     result.stride = static_cast<std::size_t>(decoded_width * kOutputChannels);
     result.pixel_format = PixelFormat::rgb8;
+
+    // EXIF orientation correction (D106, D-N1-5): parse the orientation tag
+    // from the original JPEG bytes and apply the pixel transform before
+    // returning the decoded image to the recognition pipeline.
+    if (apply_exif) {
+      const std::uint16_t orientation = exif::parse_orientation(encoded);
+      if (orientation != 1) {
+        result = exif::apply_orientation(std::move(result), orientation);
+      }
+    }
+
     return Result<DecodedImage>::success(std::move(result));
   } catch (const std::bad_alloc&) {
     return failure(ErrorCode::resource_limit_exceeded,
@@ -301,6 +315,27 @@ Result<DecodedImage> decode_encoded_image(
     return failure(ErrorCode::internal_error,
                    "Unknown encoded image decoding failure");
   }
+}
+
+DecodedImage crop_decoded_image(DecodedImage image, const Rect& region) noexcept {
+  const std::uint32_t channels = 3;  // rgb8
+  DecodedImage out;
+  out.width = region.width;
+  out.height = region.height;
+  out.stride = static_cast<std::size_t>(region.width) * channels;
+  out.pixel_format = PixelFormat::rgb8;
+  out.bytes.resize(static_cast<std::size_t>(region.width) * region.height * channels);
+
+  for (std::uint32_t row = 0; row < region.height; ++row) {
+    const std::uint8_t* src =
+        image.bytes.data() +
+        static_cast<std::size_t>(region.y + row) * image.stride +
+        static_cast<std::size_t>(region.x) * channels;
+    std::uint8_t* dst = out.bytes.data() +
+        static_cast<std::size_t>(row) * out.stride;
+    std::memcpy(dst, src, static_cast<std::size_t>(region.width) * channels);
+  }
+  return out;
 }
 
 }  // namespace light_ocr::node

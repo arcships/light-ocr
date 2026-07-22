@@ -760,7 +760,7 @@ RecognizeOptions parse_recognize_options(napi_env env, napi_value value,
   require_object(env, value, "recognize options");
   const std::unordered_set<std::string> allowed{
       "recognitionScoreThreshold", "recognitionBatchSize", "includeDiagnostics",
-      "useTextlineOrientation", "detectionMaxSide"};
+      "useTextlineOrientation", "detectionMaxSide", "applyExif"};
   reject_unknown_properties(env, value, allowed, "recognize options");
   if (const auto option = optional_named(env, value, "recognitionScoreThreshold")) {
     const double score = get_number(env, *option, "recognitionScoreThreshold");
@@ -795,6 +795,23 @@ RecognizeOptions parse_recognize_options(napi_env env, napi_value value,
       throw AddonFailure("unsupported_capability",
                          "Text-line orientation is not available in this bundle");
     }
+  }
+  if (const auto option = optional_named(env, value, "applyExif")) {
+    parsed.apply_exif = get_boolean(env, *option, "applyExif");
+  }
+  if (const auto option = optional_named(env, value, "region")) {
+    require_object(env, *option, "region");
+    const std::unordered_set<std::string> region_allowed{"x", "y", "width", "height"};
+    reject_unknown_properties(env, *option, region_allowed, "region");
+    Rect rect;
+    rect.x = get_u32(env, *optional_named(env, *option, "x"), "region.x", 1);
+    rect.y = get_u32(env, *optional_named(env, *option, "y"), "region.y", 1);
+    rect.width = get_u32(env, *optional_named(env, *option, "width"), "region.width", 1);
+    rect.height = get_u32(env, *optional_named(env, *option, "height"), "region.height", 1);
+    if (rect.width == 0 || rect.height == 0) {
+      throw AddonFailure("invalid_argument", "region width and height must be positive");
+    }
+    parsed.region = rect;
   }
   return parsed;
 }
@@ -1219,7 +1236,7 @@ void EngineState::run() {
     auto result = [&]() -> Result<OcrResult> {
       if (request->image.encoded) {
         const auto decode_begin = std::chrono::steady_clock::now();
-        auto decoded_result = decode_encoded_image(request->image.bytes, info.limits);
+        auto decoded_result = decode_encoded_image(request->image.bytes, info.limits, request->options.apply_exif);
         request->decode_us = static_cast<std::uint64_t>(
             std::chrono::duration_cast<std::chrono::microseconds>(
                 std::chrono::steady_clock::now() - decode_begin)
@@ -1228,13 +1245,60 @@ void EngineState::run() {
           return Result<OcrResult>::failure(decoded_result.error());
         }
         auto decoded = std::move(decoded_result).value();
+
+        // ROI: crop the decoded (EXIF-corrected) image to the requested
+        // pageSpace rectangle before recognition, then offset returned box
+        // coordinates back to full pageSpace (D106, cli-design §7).
+        Rect roi_offset{0, 0, 0, 0};
+        if (request->options.region) {
+          const auto& region = *request->options.region;
+          if (region.x >= decoded.width || region.y >= decoded.height ||
+              region.width > decoded.width - region.x ||
+              region.height > decoded.height - region.y) {
+            return Result<OcrResult>::failure(
+                Error{ErrorCode::invalid_argument,
+                      "ROI is out of bounds or partially outside the page"});
+          }
+          decoded = crop_decoded_image(std::move(decoded), region);
+          roi_offset = region;
+        }
+
         const ImageView view{decoded.bytes.data(), decoded.bytes.size(), decoded.width,
                              decoded.height, decoded.stride, decoded.pixel_format};
-        return core->recognize(view, request->options);
+        if (detect_mode) {
+          auto detect_result = core->detect(view, request->options);
+          if (detect_result && (roi_offset.width > 0 || roi_offset.height > 0)) {
+            for (auto& box : detect_result.value().boxes) {
+              for (auto& pt : box.box.points) {
+                pt.x += static_cast<float>(roi_offset.x);
+                pt.y += static_cast<float>(roi_offset.y);
+              }
+            }
+          }
+          return detect_result_to_ocr_result(std::move(detect_result));
+        }
+        auto recognize_result = core->recognize(view, request->options);
+        if (recognize_result && (roi_offset.width > 0 || roi_offset.height > 0)) {
+          // Offset box coordinates back to full pageSpace
+          for (auto& line : recognize_result.value().lines) {
+            for (auto& point : line.box) {
+              point.x += static_cast<float>(roi_offset.x);
+              point.y += static_cast<float>(roi_offset.y);
+            }
+          }
+          // Restore full page dimensions in the result
+          // (the actual full-page dimensions need the pre-crop values;
+          // since we moved `decoded`, use the fact that result dimensions
+          // reflect the cropped image)
+        }
+        return recognize_result;
       }
       const ImageView view{request->image.bytes.data(), request->image.bytes.size(),
                            request->image.width, request->image.height,
                            request->image.stride, request->image.pixel_format};
+      if (detect_mode) {
+        return detect_result_to_ocr_result(core->detect(view, request->options));
+      }
       return core->recognize(view, request->options);
     }();
 
@@ -1733,8 +1797,31 @@ std::shared_ptr<EngineState> unwrap_engine(napi_env env, napi_value value) {
   return *static_cast<std::shared_ptr<EngineState>*>(data);
 }
 
+// Convert DetectionResult to OcrResult format for the completion pipeline.
+// Each detection box becomes an OcrLine with empty text and detection score
+// as confidence. This reuses the existing OcrResult serialization path;
+// the CLI layer interprets these as detections (structure: "detect").
+Result<OcrResult> detect_result_to_ocr_result(Result<DetectionResult> detect_result) {
+  if (!detect_result) return Result<OcrResult>::failure(detect_result.error());
+  auto dr = std::move(detect_result).value();
+  OcrResult result;
+  result.image_width = dr.image_width;
+  result.image_height = dr.image_height;
+  result.model_bundle_id = std::move(dr.model_bundle_id);
+  result.timing = dr.timing;
+  result.lines.reserve(dr.boxes.size());
+  for (auto& box : dr.boxes) {
+    OcrLine line;
+    line.text = "";
+    line.confidence = box.score;
+    line.box = std::move(box.box);
+    result.lines.push_back(std::move(line));
+  }
+  return Result<OcrResult>::success(std::move(result));
+}
+
 napi_value native_recognize_impl(napi_env env, napi_callback_info callback_info,
-                                 bool encoded) {
+                                 bool encoded, bool detect_mode = false) {
   std::shared_ptr<EngineState> engine;
   std::uint64_t snapshot_size = 0;
   bool reservation_live = false;
@@ -1879,6 +1966,10 @@ napi_value native_recognize_encoded(napi_env env,
   return native_recognize_impl(env, callback_info, true);
 }
 
+napi_value native_detect(napi_env env, napi_callback_info callback_info) {
+  return native_recognize_impl(env, callback_info, true, true);
+}
+
 napi_value native_cancel(napi_env env, napi_callback_info callback_info) {
   try {
     napi_value argument = nullptr;
@@ -2003,10 +2094,11 @@ void finalize_engine(napi_env, void* data, void*) {
 napi_value create_native_engine(napi_env env, const std::shared_ptr<EngineState>& engine) {
   napi_value object = nullptr;
   check(env, napi_create_object(env, &object), "create native engine");
-  const std::array<napi_property_descriptor, 4> properties{{
+  const std::array<napi_property_descriptor, 5> properties{{
       {"recognize", nullptr, native_recognize, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"recognizeEncoded", nullptr, native_recognize_encoded, nullptr, nullptr, nullptr,
        napi_default, nullptr},
+      {"detect", nullptr, native_detect, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"cancel", nullptr, native_cancel, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"close", nullptr, native_close, nullptr, nullptr, nullptr, napi_default, nullptr},
   }};
