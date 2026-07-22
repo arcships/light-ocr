@@ -6,15 +6,10 @@ on:
       version:
         description: Lockstep version for all release packages
         required: true
-        default: 0.3.2
+        default: 0.3.3
         type: string
       publish_to_registry:
         description: Publish the fully gated candidate to npm after preflight
-        required: true
-        default: false
-        type: boolean
-      promote_latest:
-        description: Promote the verified release from next to latest
         required: true
         default: false
         type: boolean
@@ -40,6 +35,7 @@ jobs:
           [[ "${RELEASE_VERSION}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
           source_version="$(python -c 'import json; print(json.load(open("bindings/node/package.json", encoding="utf-8"))["version"])')"
           test "$RELEASE_VERSION" = "$source_version"
+          python tools/npm_release.py ensure-unpublished --version "$RELEASE_VERSION"
           if [[ "${{ inputs.publish_to_registry }}" == "true" ]]; then
             test -f contracts/tiled-platform-baselines.json
             test -f contracts/apple-provider-baselines.json
@@ -91,7 +87,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install the hash-locked oracle
-        if: matrix.id != 'windows-arm64'
+        if: matrix.id == 'linux-x64'
         run: python -m pip install --require-hashes -r oracle/requirements.lock
       - name: Bootstrap pinned dependencies and model
         shell: bash
@@ -150,7 +146,7 @@ jobs:
           -DLIGHT_OCR_BUILD_TESTS=ON
           -DLIGHT_OCR_BUILD_TOOLS=ON
           -DLIGHT_OCR_ORACLE_PYTHON="$(command -v python)"
-          -DLIGHT_OCR_PARITY_LIVE_ORACLE=ON
+          -DLIGHT_OCR_PARITY_LIVE_ORACLE=${{ matrix.id == 'linux-x64' && 'ON' || 'OFF' }}
           -DLIGHT_OCR_NODE_INCLUDE_DIR="$NODE_INCLUDE_DIR"
           -DLIGHT_OCR_NODE_EXECUTABLE="$(command -v node)"
       - name: Configure Node addon (Windows)
@@ -165,7 +161,7 @@ jobs:
           -DLIGHT_OCR_BUILD_TESTS=ON
           -DLIGHT_OCR_BUILD_TOOLS=ON
           "-DLIGHT_OCR_ORACLE_PYTHON=$((Get-Command python).Source)"
-          -DLIGHT_OCR_PARITY_LIVE_ORACLE=${{ matrix.id == 'windows-arm64' && 'OFF' || 'ON' }}
+          -DLIGHT_OCR_PARITY_LIVE_ORACLE=OFF
           "-DLIGHT_OCR_NODE_INCLUDE_DIR=$env:NODE_INCLUDE_DIR"
           "-DLIGHT_OCR_NODE_LIBRARY=$env:NODE_LIBRARY"
           "-DLIGHT_OCR_NODE_EXECUTABLE=$((Get-Command node).Source)"
@@ -394,7 +390,7 @@ jobs:
             "../dist/release/arcships-light-ocr-model-ppocrv6-small-${RELEASE_VERSION}.tgz" \
             "../dist/release/arcships-light-ocr-${{ matrix.native }}-${RELEASE_VERSION}.tgz" \
             "../dist/release/arcships-light-ocr-${RELEASE_VERSION}.tgz"
-          cp ../tools/npm/smoke.cjs ../tools/npm/smoke.ts ../tools/npm/tiled-smoke.cjs .
+          cp ../tools/npm/smoke.cjs ../tools/npm/tiled-smoke.cjs .
           npm ls --all
       - name: Run real OCR from CJS and ESM
         shell: bash
@@ -405,15 +401,6 @@ jobs:
           node smoke.cjs
           node tiled-smoke.cjs \
             "$GITHUB_WORKSPACE/corpus/tiled-v1/fixtures/tiled-four-way-intersection-2048"
-      - name: Compile the published TypeScript declarations
-        shell: bash
-        working-directory: package-smoke
-        run: |
-          npm install --ignore-scripts --no-audit --no-fund --no-save \
-            typescript@5.9.3 @types/node@22.20.1
-          npx tsc --strict --noEmit --skipLibCheck false \
-            --target ES2022 --module NodeNext --moduleResolution NodeNext \
-            --types node smoke.ts
   local-registry:
     needs: assemble
     runs-on: ubuntu-24.04
@@ -463,7 +450,12 @@ jobs:
           npm init --yes
           npm install --ignore-scripts --no-audit --no-fund --package-lock=false \
             --registry "$LOCAL_REGISTRY" "@arcships/light-ocr@${RELEASE_VERSION}"
-          cp ../tools/npm/smoke.cjs ../tools/npm/tiled-smoke.cjs .
+          cp ../tools/npm/smoke.cjs ../tools/npm/smoke.ts ../tools/npm/tiled-smoke.cjs .
+          npm install --ignore-scripts --no-audit --no-fund --no-save \
+            typescript@5.9.3 @types/node@22.20.1
+          npx tsc --strict --noEmit --skipLibCheck false \
+            --target ES2022 --module NodeNext --moduleResolution NodeNext \
+            --types node smoke.ts
           kill "$(cat ../.cache/verdaccio/server.pid)"
           wait "$(cat ../.cache/verdaccio/server.pid)" || true
           LIGHT_OCR_SMOKE_FIXTURE="$GITHUB_WORKSPACE/corpus/fixtures/generated-hello-123" \
@@ -512,7 +504,7 @@ jobs:
           --tarball-dir dist/release
           --phase dependencies
           --tag next
-      - name: Verify facade tarball against registry dependencies
+      - name: Verify facade dependency resolution against the registry
         shell: bash
         run: |
           mkdir registry-preflight
@@ -520,9 +512,6 @@ jobs:
           npm init --yes
           npm install --ignore-scripts --no-audit --no-fund --package-lock=false \
             "../dist/release/arcships-light-ocr-${RELEASE_VERSION}.tgz"
-          cp ../tools/npm/smoke.cjs .
-          LIGHT_OCR_SMOKE_FIXTURE="$GITHUB_WORKSPACE/corpus/fixtures/generated-hello-123" \
-            node smoke.cjs
       - name: Publish facade to next
         run: >-
           python tools/npm_release.py publish
@@ -541,13 +530,6 @@ jobs:
           sudo unshare --net -- env \
             LIGHT_OCR_SMOKE_FIXTURE="$GITHUB_WORKSPACE/corpus/fixtures/generated-hello-123" \
             node smoke.cjs
-      - name: Promote the verified release to latest
-        if: inputs.promote_latest
-        run: >-
-          python tools/npm_release.py promote
-          --tarball-dir dist/release
-          --expected-version "${RELEASE_VERSION}"
-          --tag latest
       - name: Show published metadata
         shell: bash
         run: |
