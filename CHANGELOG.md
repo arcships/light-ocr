@@ -2,6 +2,24 @@
 
 This file records user-visible changes to `light-ocr`. Published artifact details and immutable hashes remain in [`docs/releases/`](docs/releases/).
 
+## [Unreleased]
+
+### Added
+
+- Added PP-OCRv6 Tiny and Medium preview facades with the same Node API, TypeScript types, CLI schema, and `OcrError` identity as the stable Small package. Their commands are `light-ocr-tiny` and `light-ocr-medium`; only Small owns `light-ocr`.
+- Added exact, hash-locked Tiny and Medium model bundles. Tiny discloses its 49-language coverage and missing Japanese support through README, `modelProfile`, and CLI info.
+- Added the private `0.1.1` server preview to the N2 composition, exact-pinned to Small `0.4.0`.
+
+### Changed
+
+- Cut Node distribution over to the model-free `@arcships/light-ocr-runtime`; native loading, engine lifecycle, CLI parsing, EXIF handling, types, and facade bundle resolution now have one source under `packages/`.
+- Moved the Core version authority to `VERSION`, allowing a version-only change to use quick workspace CI instead of triggering the complete native matrix.
+- Changed npm releases to independent package versions. Small `0.4.0` reuses the immutable Small model `0.3.4`; runtime and preview packages begin at `0.1.0`.
+- Reduced release work to six required native builds, one Tiny/Medium model assembly, one npm pack per package, and focused installed OCR smoke. Core, sanitizer, fuzz, provider qualification, and model conversion no longer rerun inside release.
+- Kept Tiny and Medium on `next`; promotion moves only the native/runtime/Small stable closure.
+
+Candidate details: [npm 0.4.0 N2 record](docs/releases/npm-0.4.0.md).
+
 ## [0.3.4] - 2026-07-22
 
 ### Fixed

@@ -40,6 +40,18 @@ await engine.close();
 
 `createEngine()` 会根据当前平台自动选择合适的执行方式。如果应用已经完成图片解码，[`recognize()`](bindings/node/README.md#使用) 也可以直接接收 `GRAY8`、`RGB8`、`BGR8` 和 `RGBA8` 像素数据。
 
+### 模型杯型
+
+Small 继续作为稳定默认。N2 在 `next` tag 下增加两个可选 preview 包；三档使用完全相同的 API、类型、结果 schema 和错误模型，每次安装只携带所选的一份模型。
+
+| 杯型 | Package / 命令 | 模型 payload | 状态 |
+| --- | --- | ---: | --- |
+| Small | `@arcships/light-ocr` / `light-ocr` | 约 30 MB | 稳定默认 |
+| Tiny | `@arcships/light-ocr-tiny@next` / `light-ocr-tiny` | 约 6.3 MB | Preview；49 种语言，不含日语 |
+| Medium | `@arcships/light-ocr-medium@next` / `light-ocr-medium` | 约 139 MB | Preview；精度优先 |
+
+Tiny/Medium 只有在真实使用证明存在明确受众后才会提升 stable；它们不会改变 `npm install @arcships/light-ocr` 的安装内容。
+
 ## CLI
 
 安装后即可使用 `light-ocr` 命令，无需额外配置：
@@ -130,6 +142,7 @@ C++ 项目从源码构建静态库，并链接 `light_ocr::core` CMake target。
 - [路线图](docs/roadmap.md)
 - [更新日志](CHANGELOG.md)
 - [npm 0.3.0 发布报告](docs/releases/npm-0.3.0.md)
+- [npm 0.4.0 N2 候选记录](docs/releases/npm-0.4.0.md)
 
 ## 社区与协议
 

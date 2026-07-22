@@ -7,7 +7,13 @@ on:
       - "docker-compose.yml"
       - "package.json"
       - "package-lock.json"
+      - "VERSION"
       - "packages/**"
+      - "models/bundles.lock.json"
+      - "tests/python/**"
+      - "tools/bootstrap_models.py"
+      - "tools/npm/**"
+      - "tools/npm_release.py"
 
 permissions:
   contents: read
@@ -31,5 +37,6 @@ jobs:
         run: |
           npm run typecheck
           npm test
+          python -m unittest discover -s tests/python -p 'test_*.py'
       - name: Parse the server Compose definition
         run: docker compose config --quiet

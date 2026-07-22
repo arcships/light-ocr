@@ -42,6 +42,18 @@ await engine.close();
 
 `createEngine()` automatically chooses the right execution mode for the current platform. If your application already decodes images, [`recognize()`](bindings/node/README.md#usage) also accepts `GRAY8`, `RGB8`, `BGR8`, and `RGBA8` pixel data.
 
+### Model tiers
+
+Small remains the stable default. N2 also provides two opt-in preview packages under the `next` tag; all three expose the same API, types, result schema, and error model, while each install contains only its selected model.
+
+| Tier | Package / command | Model payload | Status |
+| --- | --- | ---: | --- |
+| Small | `@arcships/light-ocr` / `light-ocr` | ~30 MB | stable default |
+| Tiny | `@arcships/light-ocr-tiny@next` / `light-ocr-tiny` | ~6.3 MB | preview; 49 languages, no Japanese |
+| Medium | `@arcships/light-ocr-medium@next` / `light-ocr-medium` | ~139 MB | preview; quality-first |
+
+Tiny and Medium stay on `next` until real use shows a clear reason to promote them; they do not change what `npm install @arcships/light-ocr` installs.
+
 ## CLI
 
 The `light-ocr` command is available after install — no extra setup:
@@ -132,6 +144,7 @@ C++ projects build the static library from source and link the `light_ocr::core`
 - [Roadmap](docs/roadmap.md)
 - [Changelog](CHANGELOG.md)
 - [npm 0.3.0 release report](docs/releases/npm-0.3.0.md)
+- [npm 0.4.0 N2 candidate record](docs/releases/npm-0.4.0.md)
 
 ## Community and license
 

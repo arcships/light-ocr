@@ -1,0 +1,7 @@
+{
+  "name": "@arcships/light-ocr-model-ppocrv6-medium",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Workspace placeholder for the locked PP-OCRv6 Medium model package",
+  "license": "Apache-2.0"
+}

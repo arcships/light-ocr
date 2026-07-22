@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-// light-ocr CLI — N1 entry point (cli-design.md §3, D106)
+// Shared CLI implementation for the tier facades (cli-design.md §3, D106/D107).
 //
 // Subcommand structure (cli-design.md §2.1):
 //   light-ocr recognize <path|--stdin> [flags]   # default OCR
@@ -15,11 +15,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { createEngine, OcrError } = require('../js/index.cjs');
-const { parseExifOrientation } = require('../js/exif.cjs');
-
-const PKG_VERSION = require('../package.json').version;
-const CORE_VERSION = '0.3.4';
+const { parseExifOrientation } = require('./exif.cjs');
 
 const SUBCOMMANDS = new Set(['recognize', 'detect', 'info']);
 const EXIT = {
@@ -59,8 +55,8 @@ const OCR_ERROR_EXIT = {
 const ALLOWED_PROVIDERS = new Set(['auto', 'cpu', 'apple', 'webgpu']);
 const ALLOWED_FORMATS = new Set(['json', 'jsonl', 'text']);
 
-function die(stderr, code, message) {
-  stderr.write(`light-ocr: ${message}\n`);
+function die(stderr, commandName, message) {
+  stderr.write(`${commandName}: ${message}\n`);
 }
 
 function useColor(stderr) {
@@ -214,7 +210,7 @@ function parseRegion(flags) {
 }
 
 // --- subcommand handlers ---
-async function runInfo(rest, flags, stdout, stderr) {
+async function runInfo(rest, flags, stdout, stderr, config) {
   if (rest.length > 0) {
     throw { code: EXIT.invalid_argument, message: `info does not accept a file path: ${rest[0]}` };
   }
@@ -233,22 +229,22 @@ async function runInfo(rest, flags, stdout, stderr) {
     }
   }
   if (hasVersion) {
-    // version triple: npm / core / model
-    let modelId = '';
-    try {
-      const engine = await createEngine();
-      modelId = engine.info.modelBundleId;
-      await engine.close();
-    } catch {
-      // version should still print even if engine creation fails
-    }
-    stdout.write(JSON.stringify({ npm: PKG_VERSION, core: CORE_VERSION, model: modelId }) + '\n');
+    stdout.write(JSON.stringify({
+      npm: config.packageVersion,
+      core: config.coreVersion,
+      model: config.modelProfile.bundleId,
+      tier: config.modelProfile.tier,
+      maturity: config.modelProfile.maturity,
+    }) + '\n');
     return;
   }
   // --model-info
-  const engine = await createEngine();
+  const engine = await config.createEngine();
   try {
-    stdout.write(JSON.stringify(engine.info, null, 2) + '\n');
+    stdout.write(JSON.stringify({
+      ...engine.info,
+      modelProfile: config.modelProfile,
+    }, null, 2) + '\n');
   } finally {
     await engine.close();
   }
@@ -322,7 +318,7 @@ function inferMediaType(filePath, stdinType) {
   return null;
 }
 
-async function runRecognize(rest, flags, stdout, stderr) {
+async function runRecognize(rest, flags, stdout, stderr, config) {
   // Validate all flags before reading input so parameter errors surface
   // before filesystem/network errors (D106: stable failure ordering).
   const format = resolveFormat(flags, 'recognize');
@@ -339,7 +335,7 @@ async function runRecognize(rest, flags, stdout, stderr) {
 
   const engineOptions = {};
   if (provider) engineOptions.execution = { provider };
-  const engine = await createEngine(engineOptions);
+  const engine = await config.createEngine(engineOptions);
   try {
     const recognizeOptions = {};
     if (flags['no-exif'] === true) recognizeOptions.applyExif = false;
@@ -408,7 +404,7 @@ function buildDetectEnvelope(detectionResult, sourceInfo) {
   };
 }
 
-async function runDetect(rest, flags, stdout, stderr) {
+async function runDetect(rest, flags, stdout, stderr, config) {
   // Validate all flags before reading input (same ordering as recognize).
   const provider = resolveProvider(flags);
   resolveSchemaVersion(flags);
@@ -423,7 +419,7 @@ async function runDetect(rest, flags, stdout, stderr) {
 
   const engineOptions = {};
   if (provider) engineOptions.execution = { provider };
-  const engine = await createEngine(engineOptions);
+  const engine = await config.createEngine(engineOptions);
   try {
     const detectOptions = {};
     if (flags['no-exif'] === true) detectOptions.applyExif = false;
@@ -475,20 +471,22 @@ function writeResult(envelope, format, stdout, subcommand) {
 }
 
 // --- help ---
-function printHelp(stdout, verbose) {
-  stdout.write(`light-ocr ${PKG_VERSION} — local OCR for Node.js and Agents\n\n`);
+function printHelp(stdout, verbose, config) {
+  const command = config.commandName;
+  stdout.write(`${command} ${config.packageVersion} — local OCR (${config.modelProfile.tier})\n\n`);
   stdout.write('Usage:\n');
-  stdout.write('  light-ocr recognize <path|--stdin> [flags]   Recognize text in an image (default)\n');
-  stdout.write('  light-ocr detect     <path|--stdin> [flags]   Detect text regions only\n');
-  stdout.write('  light-ocr info       --model-info | --version  Show engine/version info\n');
-  stdout.write('  light-ocr <image> [flags]                     Implicit recognize\n\n');
-  stdout.write('Run `light-ocr <subcommand> --help` for flags of that subcommand.\n');
+  stdout.write(`  ${command} recognize <path|--stdin> [flags]   Recognize text in an image (default)\n`);
+  stdout.write(`  ${command} detect     <path|--stdin> [flags]   Detect text regions only\n`);
+  stdout.write(`  ${command} info       --model-info | --version  Show engine/version info\n`);
+  stdout.write(`  ${command} <image> [flags]                     Implicit recognize\n\n`);
+  stdout.write(`Run \`${command} <subcommand> --help\` for flags of that subcommand.\n`);
 }
 
-function printSubcommandHelp(stdout, subcommand) {
+function printSubcommandHelp(stdout, subcommand, config) {
+  const command = config.commandName;
   if (subcommand === 'recognize') {
-    stdout.write(`light-ocr recognize — recognize text in an image\n\n`);
-    stdout.write('Usage:\n  light-ocr recognize <path> [flags]\n  light-ocr recognize --stdin --type <mime> [flags]\n\n');
+    stdout.write(`${command} recognize — recognize text in an image\n\n`);
+    stdout.write(`Usage:\n  ${command} recognize <path> [flags]\n  ${command} recognize --stdin --type <mime> [flags]\n\n`);
     stdout.write('Flags:\n');
     stdout.write('  --format json|jsonl|text   Output format (default: json)\n');
     stdout.write('  --region x,y,w,h           Restrict recognition to a pageSpace rectangle\n');
@@ -501,8 +499,8 @@ function printSubcommandHelp(stdout, subcommand) {
     return;
   }
   if (subcommand === 'detect') {
-    stdout.write(`light-ocr detect — detect text regions, no recognition\n\n`);
-    stdout.write('Usage:\n  light-ocr detect <path> [flags]\n  light-ocr detect --stdin --type <mime> [flags]\n\n');
+    stdout.write(`${command} detect — detect text regions, no recognition\n\n`);
+    stdout.write(`Usage:\n  ${command} detect <path> [flags]\n  ${command} detect --stdin --type <mime> [flags]\n\n`);
     stdout.write('Flags:\n');
     stdout.write('  --region x,y,w,h           Restrict detection to a pageSpace rectangle\n');
     stdout.write('  --crop                      Reserved; currently fails as unsupported\n');
@@ -513,18 +511,18 @@ function printSubcommandHelp(stdout, subcommand) {
     return;
   }
   if (subcommand === 'info') {
-    stdout.write(`light-ocr info — show engine or version info without reading an image\n\n`);
-    stdout.write('Usage:\n  light-ocr info --model-info\n  light-ocr info --version\n\n');
+    stdout.write(`${command} info — show engine or version info without reading an image\n\n`);
+    stdout.write(`Usage:\n  ${command} info --model-info\n  ${command} info --version\n\n`);
     stdout.write('Flags (mutually exclusive):\n');
     stdout.write('  --model-info   Print EngineInfo JSON\n');
     stdout.write('  --version      Print npm/core/model version triple\n');
     return;
   }
-  printHelp(stdout, false);
+  printHelp(stdout, false, config);
 }
 
 // --- main ---
-async function main(argv) {
+async function main(argv, config) {
   const stdout = process.stdout;
   const stderr = process.stderr;
 
@@ -532,15 +530,15 @@ async function main(argv) {
   try {
     parsed = parseArgs(argv);
   } catch (e) {
-    die(stderr, e.code, e.message);
+    die(stderr, config.commandName, e.message);
     return e.code;
   }
 
   if (parsed.flags.help) {
     if (parsed.positionals.length > 0 && SUBCOMMANDS.has(parsed.positionals[0])) {
-      printSubcommandHelp(stdout, parsed.positionals[0]);
+      printSubcommandHelp(stdout, parsed.positionals[0], config);
     } else {
-      printHelp(stdout, false);
+      printHelp(stdout, false, config);
     }
     return EXIT.success;
   }
@@ -549,9 +547,9 @@ async function main(argv) {
 
   try {
     if (subcommand === 'info') {
-      await runInfo(rest, parsed.flags, stdout, stderr);
+      await runInfo(rest, parsed.flags, stdout, stderr, config);
     } else if (subcommand === 'recognize') {
-      await runRecognize(rest, parsed.flags, stdout, stderr);
+      await runRecognize(rest, parsed.flags, stdout, stderr, config);
     } else if (subcommand === 'detect') {
       // Validate detect flag contract: detect does not expose --format
       resolveFormat(parsed.flags, 'detect');
@@ -564,31 +562,45 @@ async function main(argv) {
           message: '--crop is not available in this release; use detection boxes with --region',
         };
       }
-      await runDetect(rest, parsed.flags, stdout, stderr);
+      await runDetect(rest, parsed.flags, stdout, stderr, config);
     } else {
-      die(stderr, EXIT.usage, `unknown subcommand: ${subcommand}`);
+      die(stderr, config.commandName, `unknown subcommand: ${subcommand}`);
       return EXIT.usage;
     }
     return EXIT.success;
   } catch (e) {
-    if (e instanceof OcrError) {
+    if (e instanceof config.OcrError) {
       const code = OCR_ERROR_EXIT[e.code] ?? EXIT.internal_error;
-      die(stderr, code, `${e.message}${e.detail ? ` (${e.detail})` : ''}`);
+      die(stderr, config.commandName, `${e.message}${e.detail ? ` (${e.detail})` : ''}`);
       return code;
     }
     if (e && typeof e.code === 'number') {
-      die(stderr, e.code, e.message);
+      die(stderr, config.commandName, e.message);
       return e.code;
     }
-    die(stderr, EXIT.internal_error, e?.message || String(e));
+    die(stderr, config.commandName, e?.message || String(e));
     return EXIT.internal_error;
   }
 }
 
-if (require.main === module) {
-  main(process.argv.slice(2)).then((code) => {
-    if (code !== EXIT.success) process.exitCode = code;
+function createCli(config) {
+  if (!config || typeof config !== 'object') throw new TypeError('CLI config must be an object');
+  for (const key of ['createEngine', 'OcrError', 'commandName', 'packageVersion', 'coreVersion', 'modelProfile']) {
+    if (!config[key]) throw new TypeError(`CLI config requires ${key}`);
+  }
+  const frozenConfig = Object.freeze({ ...config });
+  return Object.freeze({
+    main: (argv) => main(argv, frozenConfig),
+    parseArgs,
+    EXIT,
+    OCR_ERROR_EXIT,
+    buildEnvelope,
+    buildDetectEnvelope,
+    buildPageRecord,
+    resolveSchemaVersion,
+    inferMediaType,
+    parseRegion,
   });
 }
 
-module.exports = { main, parseArgs, EXIT, OCR_ERROR_EXIT, buildEnvelope, buildDetectEnvelope, buildPageRecord, resolveSchemaVersion, inferMediaType, parseRegion };
+module.exports = { createCli };

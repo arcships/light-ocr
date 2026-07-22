@@ -9,6 +9,16 @@ export type PerformanceHint = 'latency' | 'throughput';
 /** WebGPU accepts auto/fp32; fp16 is reserved for the Apple provider. */
 export type Precision = 'auto' | 'fp32' | 'fp16';
 
+export interface ModelProfile {
+  readonly tier: 'tiny' | 'small' | 'medium';
+  readonly model: string;
+  readonly bundleId: string;
+  readonly languages: number;
+  readonly excludedLanguages: readonly string[];
+  readonly dictionaryEntries: number;
+  readonly maturity: 'preview' | 'stable';
+}
+
 export interface DetectionOptions {
   readonly strategy?: DetectionStrategy;
   readonly maxSide?: number;

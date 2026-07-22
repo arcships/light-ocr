@@ -13,8 +13,16 @@ on:
       - "models/**"
       - "oracle/**"
       - "src/**"
-      - "tests/**"
-      - "tools/**"
+      - "tests/unit/**"
+      - "tests/integration/**"
+      - "tests/fixtures/**"
+      - "tools/apple/**"
+      - "tools/webgpu/**"
+      - "tools/bootstrap_dependencies.py"
+      - "tools/bootstrap_models.py"
+      - "tools/generate_release_metadata.py"
+      - "tools/package_model_bundle.py"
+      - "tools/run_offline_check.py"
 
 permissions:
   contents: read

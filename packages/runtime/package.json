@@ -13,7 +13,10 @@
       "types": "./src/index.d.ts",
       "import": "./src/index.mjs",
       "require": "./src/index.cjs"
-    }
+    },
+    "./facade": "./src/facade.cjs",
+    "./cli": "./src/cli.cjs",
+    "./metadata": "./src/metadata.cjs"
   },
   "files": [
     "src/",

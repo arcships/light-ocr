@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
 更新时间：2026-07-22<br>
-结论：`@arcships/light-ocr@0.3.4` 与七个依赖包已发布，npm `next`/`latest` 均指向 `0.3.4`。`0.3.0` 交付的 Direct Core ML、Native WebGPU、D112 Auto 与自包含 payload 保持有效；`0.3.4` 修复 N1 CLI ROI 的 native option contract。N2 workspace 已包含 runtime、Small facade 与私有 server preview，但尚未发布 runtime、server、tiny 或 medium。
+结论：npm `0.3.4` 仍是当前公开 stable。N2 工程实现已经完成并形成 `0.4.0` release candidate：Core/Small `0.4.0`、runtime `0.1.0`、Tiny/Medium facade+model `0.1.0` preview，以及 private server `0.1.1`。公共发布和远端六平台 run 证据尚未执行；Tiny/Medium 即使发布也只进入 `next`，Small 保持唯一 stable 默认。
 
 状态含义：
 
@@ -9,25 +9,21 @@
 - **Configured**：自动化已写好，但当前工作区未产生真实远端 run 证据。
 - **Pending**：需要外部平台或制品仓动作。
 
-## N2 阶段 1：runtime / Small facade 拆分
+## N2：runtime / 三档 facade / Server
 
-状态：In progress
+状态：Engineering complete / release configured
 
 - 根目录已采用仅覆盖 `packages/*` 的 npm workspaces；CMake `native/` 源码不伪装为 npm package。
-- `packages/runtime/` 建立 model-free `@arcships/light-ocr-runtime`：直接调用必须显式提供本地 `bundlePath`，不接受 model alias，不下载模型。
-- `packages/light-ocr/` 建立默认 Small facade：复用 runtime 的 engine/types/`OcrError`，精确依赖 runtime 与 Small model，并独占 `light-ocr` bin。
-- `bindings/node/` 暂时保留为 `0.3.x` 兼容发布源。切换前只运行一条 workspace 语义检查，不复制整套原生矩阵。
-- tiny 尚未接入；下一步是消除旧 facade 与 workspace facade 的源码重复，并让 release assembler 能独立产出 runtime + Small meta tarball。
-
-## N2 阶段 2：Server preview
-
-状态：In progress
-
-- 历史 PR #24 的 REST API 已按原约定从 `chatre7/light-ocr-server` 迁回 `packages/light-ocr-server/`，保留来源说明与后续并发上传、优雅停机修复。
-- private `0.1.0` 精确依赖 workspace `@arcships/light-ocr@0.3.4`；当前不发布，也不要求新的 `light-ocr` patch 版本。
+- `packages/runtime/` 是 model-free adapter、native loader、CLI、EXIF、types 和 `OcrError` 的唯一实现；直接调用要求 `bundlePath`。
+- Small facade `0.4.0` 精确依赖 runtime `0.1.0` 和已发布 Small model `0.3.4`，独占 `light-ocr`。
+- Tiny/Medium facade 和 model package 均为 `0.1.0` preview，命令分别为 `light-ocr-tiny` / `light-ocr-medium`；Tiny 明示 49 语言且不含日语。
+- `bindings/node/` 已完成语义切换，只保留 native 开发 harness；release assembler 不再从旧 `js/`/`bin/` 复制源码。
+- 历史 PR #24 的 REST API 已迁回 `packages/light-ocr-server/`；private `0.1.1` 精确依赖 Small `0.4.0`。
 - `/api/v1` 提供 health、info 与 multipart OCR；20 MiB 输入上限、HTTP 层并发拒绝和 `OcrError` HTTP 映射已有 contract tests。
 - Docker preview 复用根 workspace lock，支持 Linux x64/arm64，不再保留历史 `linux/amd64` 强制平台。
-- Workspace PR 使用已发布的 native/model 依赖完成全部包测试和真实 OCR；只有 native/Core 相关路径才进入完整构建，server 不复制原生验证矩阵。
+- release set 独立版本化为六个 native `0.4.0`、runtime `0.1.0`、两个 preview model `0.1.0` 和三个 facade；Small model `0.3.4` 直接复用，不重打包。
+- workspace PR 运行 types、Node/server contract 和 Python package tests；只有 native/Core/model contract 路径进入完整构建。release 不重复 qualification、模型转换、Core test 或双重 npm pack。
+- 本机新 Core 对三个真实 bundle 均识别 `HELLO 123`；Tiny/Small/Medium 初始化约 `0.9s / 1.5s / 6.4s`，单次 OCR 约 `58ms / 112ms / 457ms`（Apple M4 Max，仅为 smoke 快照，不作性能承诺）。
 
 ## 需求验收矩阵
 

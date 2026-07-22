@@ -8,7 +8,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { parseExifOrientation, applyOrientation } = require('../js/exif.cjs');
+const { parseExifOrientation, applyOrientation } = require('../../../packages/runtime/src/exif.cjs');
 
 test('parseExifOrientation: non-JPEG returns 1', () => {
   assert.equal(parseExifOrientation(Buffer.from([0x89, 0x50, 0x4e, 0x47])), 1); // PNG

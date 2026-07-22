@@ -20,6 +20,7 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[1]
 LOCK_PATH = ROOT / "models" / "bundles.lock.json"
 DEFAULT_OUTPUT = ROOT / "models" / "generated" / "ppocrv6-small-onnx-20260714.2"
+TIERS = ("tiny", "small", "medium")
 
 
 class OfflineCacheMiss(RuntimeError):
@@ -67,9 +68,14 @@ def obtain(
     return data
 
 
-def read_archive_members(archive: bytes, record: dict[str, object]) -> dict[str, bytes]:
+def read_archive_members(
+    archive: bytes, record: dict[str, object], *, tier: str = "small"
+) -> dict[str, bytes]:
     expected = record["members"]
-    prefix = f"PP-OCRv6_small_{'det' if record['name'] == 'detection' else 'rec'}_onnx_infer/"
+    prefix = (
+        f"PP-OCRv6_{tier}_"
+        f"{'det' if record['name'] == 'detection' else 'rec'}_onnx_infer/"
+    )
     result: dict[str, bytes] = {}
     with tarfile.open(fileobj=io.BytesIO(archive), mode="r:") as source:
         for member in source.getmembers():
@@ -98,11 +104,22 @@ def read_archive_members(archive: bytes, record: dict[str, object]) -> dict[str,
 
 
 def obtain_artifact_members(
-    artifact: dict[str, object], cache_dir: Path, *, offline: bool = False
+    artifact: dict[str, object], cache_dir: Path, *, offline: bool = False,
+    tier: str = "small",
 ) -> dict[str, bytes]:
+    if "url" not in artifact:
+        result: dict[str, bytes] = {}
+        for name, member in artifact["members"].items():
+            prefix = "" if tier == "small" else f"{tier}-"
+            member_record = {
+                **member,
+                "filename": f"{prefix}{artifact['name']}-{name}",
+            }
+            result[name] = obtain(member_record, cache_dir, offline=offline)
+        return result
     try:
         return read_archive_members(
-            obtain(artifact, cache_dir, offline=offline), artifact
+            obtain(artifact, cache_dir, offline=offline), artifact, tier=tier
         )
     except (urllib.error.URLError, TimeoutError, OfflineCacheMiss) as error:
         members = artifact["members"]
@@ -132,7 +149,9 @@ def parse_yaml_scalar(raw: str) -> str:
     return value
 
 
-def extract_dictionary(config: bytes) -> list[str]:
+def extract_dictionary(
+    config: bytes, expected_entries: int | None = None
+) -> list[str]:
     lines = config.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n").split("\n")
     start = next(
         (index for index, line in enumerate(lines) if line == "  character_dict:"), None
@@ -146,17 +165,33 @@ def extract_dictionary(config: bytes) -> list[str]:
                 break
             continue
         characters.append(parse_yaml_scalar(line[4:]))
-    if len(characters) != 18_708:
-        raise RuntimeError(f"unexpected dictionary entry count: {len(characters)}")
+    if expected_entries is not None and len(characters) not in {
+        expected_entries,
+        expected_entries - 1,
+    }:
+        raise RuntimeError(
+            f"unexpected dictionary entry count: {len(characters)}; "
+            f"expected {expected_entries} effective entries"
+        )
+    if not characters:
+        raise RuntimeError("recognition dictionary is empty")
     if not characters or characters[-1] != " ":
         characters.append(" ")
-    if len(characters) != 18_709 or characters[-2] == " ":
+    if expected_entries is not None and len(characters) != expected_entries:
+        raise RuntimeError("effective dictionary entry count is invalid")
+    if len(characters) < 2 or characters[-2] == " ":
         raise RuntimeError("effective dictionary space rule failed")
     return characters
 
 
-def normalized_config(bundle_id: str, dictionary_entries: int) -> dict[str, object]:
-    return {
+def normalized_config(
+    bundle_id: str,
+    dictionary_entries: int,
+    *,
+    tier: str = "small",
+    language_coverage: dict[str, object] | None = None,
+) -> dict[str, object]:
+    config: dict[str, object] = {
         "schemaVersion": "1.2",
         "bundleId": bundle_id,
         "resourceLimits": {
@@ -278,13 +313,31 @@ def normalized_config(bundle_id: str, dictionary_entries: int) -> dict[str, obje
             "defaultScoreThreshold": 0.0,
         },
     }
+    if tier != "small":
+        if language_coverage is None:
+            raise RuntimeError("non-small bundles require locked language coverage")
+        config["productProfile"] = {
+            "tier": tier,
+            "languageCount": language_coverage["count"],
+            "excludedLanguages": language_coverage["excluded"],
+            "dictionaryEntries": dictionary_entries,
+            "maturity": "preview",
+        }
+    return config
 
 
 def write_bundle(
-    output: Path, cache_dir: Path, force: bool, *, offline: bool = False
+    output: Path, cache_dir: Path, force: bool, *, offline: bool = False,
+    tier: str = "small",
 ) -> None:
     lock = json.loads(LOCK_PATH.read_text("utf-8"))
-    bundle = lock["bundles"][0]
+    bundle = next(
+        (record for record in lock["bundles"] if record.get("tier") == tier), None
+    )
+    if bundle is None and tier == "small" and len(lock.get("bundles", [])) == 1:
+        bundle = lock["bundles"][0]
+    if bundle is None:
+        raise RuntimeError(f"bundle lock does not contain tier: {tier}")
     if output.exists():
         if not force:
             raise RuntimeError(
@@ -295,23 +348,33 @@ def write_bundle(
     try:
         payloads: dict[str, bytes] = {}
         for artifact in bundle["artifacts"]:
-            members = obtain_artifact_members(artifact, cache_dir, offline=offline)
+            members = obtain_artifact_members(
+                artifact, cache_dir, offline=offline, tier=tier
+            )
             target = "det" if artifact["name"] == "detection" else "rec"
             payloads[f"{target}/inference.onnx"] = members["inference.onnx"]
             payloads[f"{target}/inference.yml"] = members["inference.yml"]
 
-        characters = extract_dictionary(payloads["rec/inference.yml"])
+        characters = extract_dictionary(
+            payloads["rec/inference.yml"],
+            int(bundle["languageCoverage"]["dictionaryEntries"]),
+        )
         payloads["rec/dictionary.json"] = canonical_json(
             {"schemaVersion": "1.0", "characters": characters}
         )
         payloads["normalized-config.json"] = canonical_json(
-            normalized_config(bundle["bundleId"], len(characters))
+            normalized_config(
+                bundle["bundleId"],
+                len(characters),
+                tier=tier,
+                language_coverage=bundle["languageCoverage"],
+            )
         )
         payloads["LICENSES/PaddleOCR-Apache-2.0.txt"] = obtain(
             bundle["license"], cache_dir, offline=offline
         )
         notice = (
-            "PP-OCRv6 small ONNX model bundle\n"
+            f"PP-OCRv6 {tier} ONNX model bundle\n"
             f"PaddleOCR revision: {bundle['paddleOcrRevision']}\n"
             f"Detection model revision: {bundle['detectionModelRevision']}\n"
             f"Recognition model revision: {bundle['recognitionModelRevision']}\n"
@@ -323,11 +386,14 @@ def write_bundle(
             path: {"bytes": len(data), "sha256": sha256(data)}
             for path, data in sorted(payloads.items())
         }
-        manifest = {
+        manifest: dict[str, object] = {
             "schemaVersion": "1.0",
             "bundleId": bundle["bundleId"],
             "family": "PP-OCRv6",
-            "coreCompatibility": {"minimum": "0.2.0", "maximumMajor": 0},
+            "coreCompatibility": {
+                "minimum": "0.2.0" if tier == "small" else "0.4.0",
+                "maximumMajor": 0,
+            },
             "upstream": {
                 "repository": "https://github.com/PaddlePaddle/PaddleOCR",
                 "release": "v3.7.0",
@@ -340,7 +406,7 @@ def write_bundle(
             },
             "models": {
                 "detection": {
-                    "id": "PP-OCRv6_small_det_onnx",
+                    "id": f"PP-OCRv6_{tier}_det_onnx",
                     "sourceRevision": bundle["detectionModelRevision"],
                     "modelPath": "det/inference.onnx",
                     "configPath": "det/inference.yml",
@@ -348,7 +414,7 @@ def write_bundle(
                     "outputRanks": [3, 4],
                 },
                 "recognition": {
-                    "id": "PP-OCRv6_small_rec_onnx",
+                    "id": f"PP-OCRv6_{tier}_rec_onnx",
                     "sourceRevision": bundle["recognitionModelRevision"],
                     "modelPath": "rec/inference.onnx",
                     "configPath": "rec/inference.yml",
@@ -361,6 +427,14 @@ def write_bundle(
             "files": manifest_files,
             "licenses": ["Apache-2.0"],
         }
+        if tier != "small":
+            manifest["productProfile"] = {
+                "tier": tier,
+                "languageCount": bundle["languageCoverage"]["count"],
+                "excludedLanguages": bundle["languageCoverage"]["excluded"],
+                "dictionaryEntries": len(characters),
+                "maturity": "preview",
+            }
         manifest_bytes = canonical_json(manifest)
         all_files = {**payloads, "manifest.json": manifest_bytes}
         for relative, data in all_files.items():
@@ -381,7 +455,8 @@ def write_bundle(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--tier", choices=TIERS, default="small")
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--cache-dir", type=Path, default=ROOT / ".cache" / "models")
     parser.add_argument("--force", action="store_true")
     parser.add_argument(
@@ -390,13 +465,24 @@ def main() -> int:
         help="require every locked model input to already exist in the cache",
     )
     arguments = parser.parse_args()
+    output = arguments.output or (
+        ROOT
+        / "models"
+        / "generated"
+        / next(
+            record["bundleId"]
+            for record in json.loads(LOCK_PATH.read_text("utf-8"))["bundles"]
+            if record.get("tier") == arguments.tier
+        )
+    )
     write_bundle(
-        arguments.output.resolve(),
+        output.resolve(),
         arguments.cache_dir.resolve(),
         arguments.force,
         offline=arguments.offline,
+        tier=arguments.tier,
     )
-    print(arguments.output.resolve())
+    print(output.resolve())
     return 0
 
 

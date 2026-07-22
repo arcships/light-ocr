@@ -13,6 +13,7 @@ from unittest import mock
 from tests.python.npm_release_fixtures import (
     current_platform_id,
     model_bundle,
+    n2_model_bundle,
     stage_cpu_native_packages,
 )
 from tools import npm_release
@@ -126,7 +127,7 @@ class NpmReleaseTests(unittest.TestCase):
         self.assertEqual(dist_tag.call_count, 2)
         sleep.assert_called_once_with(3)
 
-    def test_stages_and_deterministically_packs_all_release_packages(self) -> None:
+    def test_stages_and_packs_the_independently_versioned_release_set(self) -> None:
         npm = shutil.which("npm")
         if npm is None:
             self.skipTest("npm is unavailable")
@@ -151,37 +152,47 @@ class NpmReleaseTests(unittest.TestCase):
                 )
 
             staging = root / "staging"
-            source_version = npm_release.read_json(
-                npm_release.ROOT / "bindings" / "node" / "package.json"
-            )["version"]
+            source_version = npm_release.CORE_VERSION
             npm_release.assemble(
                 argparse.Namespace(
                     version=source_version,
-                    bundle=model_bundle(root),
+                    tiny_bundle=n2_model_bundle(root, "tiny"),
+                    medium_bundle=n2_model_bundle(root, "medium"),
                     native_root=native_root,
                     output_dir=staging,
                 )
             )
             facade = json.loads(
-                (staging / "facade" / "package.json").read_text("utf-8")
+                (staging / "facade-small" / "package.json").read_text("utf-8")
             )
-            self.assertEqual(facade["bin"], {"light-ocr": "./bin/light-ocr.cjs"})
-            self.assertIn("bin/", facade["files"])
+            self.assertEqual(facade["bin"], {"light-ocr": "./src/cli.cjs"})
+            self.assertIn("src/", facade["files"])
             self.assertTrue(
-                (staging / "facade" / "bin" / "light-ocr.cjs").is_file()
+                (staging / "facade-small" / "src" / "cli.cjs").is_file()
             )
             self.assertEqual(
-                facade["dependencies"][npm_release.MODEL_PACKAGE], source_version
+                facade["dependencies"][npm_release.MODEL_PACKAGE], "0.3.4"
             )
             self.assertEqual(
-                len(facade["optionalDependencies"]), len(npm_release.PLATFORMS)
+                facade["dependencies"][npm_release.RUNTIME_PACKAGE],
+                npm_release.RUNTIME_VERSION,
+            )
+            runtime = json.loads(
+                (staging / "runtime" / "package.json").read_text("utf-8")
+            )
+            self.assertEqual(
+                len(runtime["optionalDependencies"]), len(npm_release.PLATFORMS)
+            )
+            self.assertEqual(
+                set(runtime["optionalDependencies"].values()), {source_version}
             )
             model = json.loads(
-                (staging / "model-ppocrv6-small" / "package.json").read_text("utf-8")
+                (staging / "model-ppocrv6-tiny" / "package.json").read_text("utf-8")
             )
-            self.assertEqual(model["lightOcr"]["manifestSchemaVersion"], "1.2")
+            self.assertEqual(model["lightOcr"]["manifestSchemaVersion"], "1.0")
             self.assertEqual(model["lightOcr"]["normalizedConfigSchemaVersion"], "1.2")
-            self.assertEqual(model["lightOcr"]["tiledContractVersion"], "tiled-v1")
+            self.assertEqual(model["lightOcr"]["productProfile"]["tier"], "tiny")
+            self.assertTrue((staging / "model-ppocrv6-tiny" / "sbom.spdx.json").is_file())
 
             tarballs = root / "tarballs"
             npm_release.pack(
@@ -191,7 +202,7 @@ class NpmReleaseTests(unittest.TestCase):
                 (tarballs / "release-manifest.json").read_text("utf-8")
             )
             self.assertEqual(release["version"], source_version)
-            expected_packages = len(npm_release.PLATFORMS) + 2
+            expected_packages = len(npm_release.PLATFORMS) + 6
             self.assertEqual(len(release["packages"]), expected_packages)
             self.assertEqual(
                 len(list(tarballs.glob("*.tgz"))), expected_packages
@@ -218,9 +229,16 @@ class NpmReleaseTests(unittest.TestCase):
                     "--no-audit",
                     "--no-fund",
                     "--package-lock=false",
-                    str(tarballs / filenames[npm_release.MODEL_PACKAGE]),
+                    str(tarballs / filenames[npm_release.RUNTIME_PACKAGE]),
+                    str(
+                        tarballs
+                        / filenames[npm_release.MODEL_PACKAGES["tiny"]["name"]]
+                    ),
                     str(tarballs / filenames[native_name]),
-                    str(tarballs / filenames[npm_release.FACADE_PACKAGE]),
+                    str(
+                        tarballs
+                        / filenames[npm_release.FACADE_PACKAGES["tiny"]["name"]]
+                    ),
                 ],
                 cwd=consumer,
                 check=True,
@@ -228,10 +246,10 @@ class NpmReleaseTests(unittest.TestCase):
                 text=True,
             )
             self.assertTrue(
-                (consumer / "node_modules/@arcships/light-ocr/package.json").is_file()
+                (consumer / "node_modules/@arcships/light-ocr-tiny/package.json").is_file()
             )
             cli = consumer / "node_modules" / ".bin" / (
-                "light-ocr.cmd" if os.name == "nt" else "light-ocr"
+                "light-ocr-tiny.cmd" if os.name == "nt" else "light-ocr-tiny"
             )
             completed = subprocess.run(
                 [str(cli), "info", "--version"],
@@ -241,7 +259,9 @@ class NpmReleaseTests(unittest.TestCase):
                 text=True,
                 encoding="utf-8",
             )
-            self.assertEqual(json.loads(completed.stdout)["npm"], source_version)
+            version_info = json.loads(completed.stdout)
+            self.assertEqual(version_info["npm"], "0.1.0")
+            self.assertEqual(version_info["tier"], "tiny")
 
     def test_runtime_descriptor_rejects_mutated_payload_and_qualification_release(
         self,

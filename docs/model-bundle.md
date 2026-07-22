@@ -388,6 +388,28 @@ Recognition color order follows the official YAML and pinned Python/JavaScript b
 
 For a crop ratio `r = width / height`, preprocessing computes the sample tensor width as `truncate(48 * max(320 / 48, r))`, clamps it to 3,200, resizes content to `min(sampleTensorWidth, ceil(48 * r))`, and fills the remaining batch tensor area with normalized zero. A batch tensor uses the largest sample tensor width in that batch.
 
+### 7.4 N2 tier profile
+
+N2 keeps the tensor/parser contract generic but accepts only exact locked detector/recognizer pairs. Tiny and Medium manifests and normalized configs carry the same `productProfile` object:
+
+```json
+{
+  "tier": "tiny",
+  "languageCount": 49,
+  "excludedLanguages": ["ja"],
+  "dictionaryEntries": 6905,
+  "maturity": "preview"
+}
+```
+
+| Tier | Bundle ID | effective dictionary | maturity |
+| --- | --- | ---: | --- |
+| Tiny | `ppocrv6-tiny-onnx-20260722.1` | 6,905 | preview |
+| Small | `ppocrv6-small-onnx-20260714.2` and its qualified provider variants | 18,709 | stable |
+| Medium | `ppocrv6-medium-onnx-20260722.1` | 18,709 | preview |
+
+Core rejects an unknown or mixed model pair even if its name contains `PP-OCRv6`. Legacy Small bundles remain compatible without `productProfile`; new Tiny/Medium bundles must match the profile in both JSON files exactly. The facade repeats the user-facing subset through `modelProfile` and `info --model-info`, so Tiny's missing Japanese coverage is not hidden.
+
 ## 8. Tensor contract
 
 At engine creation:
@@ -410,9 +432,9 @@ The release pipeline:
 4. Rejects links, devices, path traversal, duplicate entries, and unexpected required-file ambiguity.
 5. Generates normalized configuration.
 6. Generates the effective dictionary and its hash.
-7. Runs oracle configuration export and stage probes.
+7. Runs the contract tests and representative real-model smoke required by the package maturity.
 8. Writes manifest, licenses, and checksums.
-9. Runs parity and performance gates.
+9. For stable model updates or a preview-to-stable promotion, runs the separately triggered quality/performance comparison; ordinary preview packaging does not repeat that work.
 10. Archives the immutable bundle, stages its exact unpacked files into the npm model package, and optionally mirrors the standalone USTAR for non-npm consumers.
 
 Production recognition performs no download or conversion.
@@ -430,7 +452,7 @@ Release automation verifies license metadata again. A missing license record blo
 
 ## 11. Update policy
 
-A model or configuration change creates a new bundle ID and requires:
+A stable model/configuration change, or a preview-to-stable promotion, creates a new bundle ID and requires:
 
 - New hashes and source revisions.
 - Full stage-level parity.

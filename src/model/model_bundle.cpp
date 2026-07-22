@@ -857,24 +857,66 @@ std::shared_ptr<const internal::BundleData> parse_bundle(std::vector<BundleFile>
       required<std::string>(detection_model, "id", "models.detection");
   const auto recognition_model_id =
       required<std::string>(recognition_model, "id", "models.recognition");
-  if (detection_model_id != "PP-OCRv6_small_det_onnx") {
-    unsupported_model("Unsupported detection model");
-  }
-  if (recognition_model_id != "PP-OCRv6_small_rec_onnx") {
-    unsupported_model("Unsupported recognition model");
+  struct ModelTierIdentity {
+    const char* tier;
+    const char* detection_id;
+    const char* detection_revision;
+    const char* recognition_id;
+    const char* recognition_revision;
+    std::uint32_t language_count;
+    std::uint32_t dictionary_entries;
+    std::vector<std::string> excluded_languages;
+  };
+  const std::array<ModelTierIdentity, 3> supported_tiers = {{
+      {"tiny", "PP-OCRv6_tiny_det_onnx",
+       "2ba1506c0380b8f0b03dd142459aac66d4421f6c",
+       "PP-OCRv6_tiny_rec_onnx",
+       "2612ab37152ae0a677521bae4e1e3d4fb4cf7c30", 49, 6905, {"ja"}},
+      {"small", "PP-OCRv6_small_det_onnx",
+       "28fe5895c24fd108c19eb3e8479f4ab385fbfc62",
+       "PP-OCRv6_small_rec_onnx",
+       "b8f84f0b80c529de40b4fbb3544b84fa7233a513", 50, 18709, {}},
+      {"medium", "PP-OCRv6_medium_det_onnx",
+       "61323801669c338b7891481ec7bac61ce31b576a",
+       "PP-OCRv6_medium_rec_onnx",
+       "50c7eacafc52fa7bcf4194e8cd08e46f8558504b", 50, 18709, {}},
+  }};
+  const auto identity = std::find_if(
+      supported_tiers.begin(), supported_tiers.end(),
+      [&](const auto& candidate) {
+        return detection_model_id == candidate.detection_id &&
+               recognition_model_id == candidate.recognition_id;
+      });
+  if (identity == supported_tiers.end()) {
+    unsupported_model("Unsupported PP-OCRv6 model tier");
   }
   require(required<std::string>(detection_model, "sourceRevision", "models.detection") ==
-              "28fe5895c24fd108c19eb3e8479f4ab385fbfc62" &&
+                  identity->detection_revision &&
               required<std::uint32_t>(detection_model, "inputRank", "models.detection") == 4 &&
               required<std::vector<std::uint32_t>>(detection_model, "outputRanks",
                                                    "models.detection") ==
                   std::vector<std::uint32_t>({3, 4}),
           "Detection model identity or tensor declaration is unsupported");
   require(required<std::string>(recognition_model, "sourceRevision", "models.recognition") ==
-              "b8f84f0b80c529de40b4fbb3544b84fa7233a513" &&
+                  identity->recognition_revision &&
               required<std::uint32_t>(recognition_model, "inputRank", "models.recognition") == 4 &&
               required<std::uint32_t>(recognition_model, "outputRank", "models.recognition") == 3,
           "Recognition model identity or tensor declaration is unsupported");
+  if (std::string(identity->tier) != "small") {
+    const auto& product = manifest.at("productProfile");
+    require(required<std::string>(product, "tier", "productProfile") == identity->tier &&
+                required<std::uint32_t>(product, "languageCount", "productProfile") ==
+                    identity->language_count &&
+                required<std::vector<std::string>>(product, "excludedLanguages",
+                                                   "productProfile") ==
+                    identity->excluded_languages &&
+                required<std::uint32_t>(product, "dictionaryEntries",
+                                        "productProfile") ==
+                    identity->dictionary_entries &&
+                required<std::string>(product, "maturity", "productProfile") ==
+                    "preview",
+            "Model product profile is unsupported");
+  }
   const auto detection_model_path =
       required<std::string>(detection_model, "modelPath", "models.detection");
   const auto recognition_model_path =
@@ -923,6 +965,21 @@ std::shared_ptr<const internal::BundleData> parse_bundle(std::vector<BundleFile>
           "Unsupported normalized configuration schema", normalized_schema);
   require(required<std::string>(normalized, "bundleId", "normalizedConfig") == bundle_id,
           "Normalized configuration bundle ID does not match manifest");
+  if (std::string(identity->tier) != "small") {
+    const auto& product = normalized.at("productProfile");
+    require(required<std::string>(product, "tier", "productProfile") == identity->tier &&
+                required<std::uint32_t>(product, "languageCount", "productProfile") ==
+                    identity->language_count &&
+                required<std::vector<std::string>>(product, "excludedLanguages",
+                                                   "productProfile") ==
+                    identity->excluded_languages &&
+                required<std::uint32_t>(product, "dictionaryEntries",
+                                        "productProfile") ==
+                    identity->dictionary_entries &&
+                required<std::string>(product, "maturity", "productProfile") ==
+                    "preview",
+            "Normalized model product profile is unsupported");
+  }
 
   auto data = std::make_shared<internal::BundleData>();
   data->id = bundle_id;

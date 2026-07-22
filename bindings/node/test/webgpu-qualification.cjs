@@ -62,7 +62,7 @@ async function main() {
   const arguments_ = parseArguments(process.argv.slice(2));
   process.env.LIGHT_OCR_NODE_BINARY = path.resolve(arguments_.binary);
   process.env.LIGHT_OCR_RUNTIME_DESCRIPTOR = path.resolve(arguments_.descriptor);
-  const { createEngine } = require('../js/index.cjs');
+  const { createEngine } = require('../../../packages/runtime/src/index.cjs');
   const fixturePath = path.resolve(arguments_.fixture);
   const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
   const pixels = fs.readFileSync(path.join(path.dirname(fixturePath), 'pixels.bin'));

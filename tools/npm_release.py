@@ -24,11 +24,49 @@ except ModuleNotFoundError:  # Direct execution sets sys.path to tools/.
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_VERSION = json.loads(
-    (ROOT / "bindings" / "node" / "package.json").read_text("utf-8")
+    (ROOT / "packages" / "light-ocr" / "package.json").read_text("utf-8")
 )["version"]
-BUNDLE_ID = "ppocrv6-small-native-20260719.1"
+CORE_VERSION = (ROOT / "VERSION").read_text("utf-8").strip()
+if SOURCE_VERSION != CORE_VERSION:
+    raise RuntimeError("VERSION and the stable Small facade version disagree")
+RUNTIME_PACKAGE = "@arcships/light-ocr-runtime"
+RUNTIME_VERSION = json.loads(
+    (ROOT / "packages" / "runtime" / "package.json").read_text("utf-8")
+)["version"]
 MODEL_PACKAGE = "@arcships/light-ocr-model-ppocrv6-small"
 FACADE_PACKAGE = "@arcships/light-ocr"
+MODEL_PACKAGES = {
+    "tiny": {
+        "name": "@arcships/light-ocr-model-ppocrv6-tiny",
+        "version": "0.1.0",
+        "bundleId": "ppocrv6-tiny-onnx-20260722.1",
+        "workspace": "model-ppocrv6-tiny",
+    },
+    "medium": {
+        "name": "@arcships/light-ocr-model-ppocrv6-medium",
+        "version": "0.1.0",
+        "bundleId": "ppocrv6-medium-onnx-20260722.1",
+        "workspace": "model-ppocrv6-medium",
+    },
+}
+FACADE_PACKAGES = {
+    "small": {
+        "name": FACADE_PACKAGE,
+        "version": CORE_VERSION,
+        "workspace": "light-ocr",
+    },
+    "tiny": {
+        "name": "@arcships/light-ocr-tiny",
+        "version": "0.1.0",
+        "workspace": "light-ocr-tiny",
+    },
+    "medium": {
+        "name": "@arcships/light-ocr-medium",
+        "version": "0.1.0",
+        "workspace": "light-ocr-medium",
+    },
+}
+BUNDLE_ID = "ppocrv6-small-native-20260719.1"  # Legacy test-fixture identity.
 NPM_REGISTRY = "https://registry.npmjs.org/"
 REGISTRY_WAIT_SECONDS = 600
 PLATFORMS: dict[str, dict[str, Any]] = {
@@ -766,135 +804,193 @@ def artifact_hashes(package: Path, name: str, version: str) -> None:
     )
 
 
+def stage_workspace_package(workspace: str, output: Path) -> dict[str, Any]:
+    source = ROOT / "packages" / workspace
+    source_json = read_json(source / "package.json")
+    package = common_package(
+        source_json["name"], source_json["version"], source_json["description"]
+    )
+    copied_fields = (
+        "keywords",
+        "type",
+        "main",
+        "module",
+        "types",
+        "bin",
+        "exports",
+        "files",
+        "engines",
+        "dependencies",
+        "optionalDependencies",
+    )
+    for field in copied_fields:
+        if field in source_json:
+            package[field] = source_json[field]
+
+    output.mkdir()
+    for entry in source_json.get("files", []):
+        relative = entry.rstrip("/")
+        source_path = source / relative
+        destination = output / relative
+        if source_path.is_dir():
+            copy_tree(source_path, destination)
+        else:
+            copy_file(source_path, destination)
+    write_json(output / "package.json", package)
+    reject_symlinks(output)
+    return package
+
+
+def write_model_sbom(package: Path, name: str, version: str) -> None:
+    files = []
+    for path in sorted((package / "bundle").rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(package).as_posix()
+        files.append(
+            {
+                "SPDXID": f"SPDXRef-File-{hashlib.sha256(relative.encode()).hexdigest()[:16]}",
+                "fileName": f"./{relative}",
+                "checksums": [
+                    {"algorithm": "SHA256", "checksumValue": sha256(path)}
+                ],
+                "licenseConcluded": "NOASSERTION",
+                "copyrightText": "NOASSERTION",
+            }
+        )
+    write_json(
+        package / "sbom.spdx.json",
+        {
+            "spdxVersion": "SPDX-2.3",
+            "dataLicense": "CC0-1.0",
+            "SPDXID": "SPDXRef-DOCUMENT",
+            "name": f"{name}-{version}",
+            "documentNamespace": (
+                "https://github.com/arcships/light-ocr/sbom/"
+                f"{name.removeprefix('@').replace('/', '-')}/{version}"
+            ),
+            "creationInfo": {
+                "created": "2026-07-22T00:00:00Z",
+                "creators": ["Tool: light-ocr npm_release.py"],
+            },
+            "packages": [
+                {
+                    "name": name,
+                    "SPDXID": "SPDXRef-Package",
+                    "versionInfo": version,
+                    "downloadLocation": "NOASSERTION",
+                    "filesAnalyzed": True,
+                    "licenseConcluded": "NOASSERTION",
+                    "licenseDeclared": "Apache-2.0",
+                    "copyrightText": "NOASSERTION",
+                }
+            ],
+            "files": files,
+        },
+    )
+
+
+def stage_model_package(tier: str, bundle: Path, output: Path) -> None:
+    contract = MODEL_PACKAGES[tier]
+    workspace = read_json(
+        ROOT / "packages" / contract["workspace"] / "package.json"
+    )
+    if workspace["name"] != contract["name"] or workspace["version"] != contract["version"]:
+        raise RuntimeError(f"{tier} model workspace identity is inconsistent")
+    manifest = read_json(bundle / "manifest.json")
+    normalized = read_json(bundle / manifest.get("normalizedConfigPath", ""))
+    expected_profile = {
+        "tier": tier,
+        "languageCount": 49 if tier == "tiny" else 50,
+        "excludedLanguages": ["ja"] if tier == "tiny" else [],
+        "dictionaryEntries": 6905 if tier == "tiny" else 18709,
+        "maturity": "preview",
+    }
+    if (
+        manifest.get("bundleId") != contract["bundleId"]
+        or manifest.get("schemaVersion") != "1.0"
+        or normalized.get("schemaVersion") != "1.2"
+        or manifest.get("productProfile") != expected_profile
+        or normalized.get("productProfile") != expected_profile
+    ):
+        raise RuntimeError(f"{tier} model bundle does not match the N2 contract")
+
+    output.mkdir()
+    copy_tree(bundle, output / "bundle")
+    package = common_package(
+        contract["name"],
+        contract["version"],
+        f"Pinned PP-OCRv6 {tier.title()} model bundle for light-ocr",
+    )
+    package.update(
+        {
+            "files": [
+                "bundle/",
+                "artifact-hashes.json",
+                "sbom.spdx.json",
+                "README.md",
+                "LICENSE",
+                "NOTICE",
+            ],
+            "exports": {"./bundle/manifest.json": "./bundle/manifest.json"},
+            "lightOcr": {
+                "bundleId": contract["bundleId"],
+                "manifestSchemaVersion": manifest["schemaVersion"],
+                "normalizedConfigSchemaVersion": normalized["schemaVersion"],
+                "productProfile": expected_profile,
+                "paddleOcrRevision": "b03f46425e8ff4442b268ce449e3eef758146cd4",
+            },
+        }
+    )
+    write_json(output / "package.json", package)
+    add_project_files(
+        output,
+        package_readme(
+            contract["name"],
+            f"The pinned PP-OCRv6 {tier.title()} preview model bundle.",
+            False,
+        ),
+    )
+    write_model_sbom(output, contract["name"], contract["version"])
+    artifact_hashes(output, contract["name"], contract["version"])
+
+
 def assemble(arguments: argparse.Namespace) -> None:
     if not re.fullmatch(
         r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)", arguments.version
     ):
         raise RuntimeError("version must be a plain stable SemVer value")
     version = arguments.version
-    if version != SOURCE_VERSION:
+    if version != CORE_VERSION:
         raise RuntimeError(
-            f"release version {version} does not match source version {SOURCE_VERSION}"
+            f"release version {version} does not match source version {CORE_VERSION}"
         )
     output = arguments.output_dir.resolve()
     native_root = arguments.native_root.resolve()
-    bundle = arguments.bundle.resolve()
+    tiny_bundle = arguments.tiny_bundle.resolve()
+    medium_bundle = arguments.medium_bundle.resolve()
     remove_and_create(output)
 
-    manifest = read_json(bundle / "manifest.json")
-    if manifest.get("bundleId") != BUNDLE_ID:
-        raise RuntimeError("model bundle ID does not match the npm release contract")
-    normalized_config = read_json(bundle / manifest["normalizedConfigPath"])
-    tiled_contract = normalized_config.get("runtimeProfiles", {}).get("tiled", {})
-    apple_provider = manifest.get("providers", {}).get("apple", {})
-    webgpu_provider = manifest.get("providers", {}).get("webgpu", {})
-    validated_families = apple_provider.get("validatedDeviceFamilies", [])
-    if (
-        manifest.get("schemaVersion") != "1.2"
-        or normalized_config.get("schemaVersion") != "1.2"
-        or tiled_contract.get("contractVersion") != "tiled-v1"
-        or apple_provider.get("schemaVersion") != "1.1"
-        or apple_provider.get("devicePolicy") != "open-macos"
-        or apple_provider.get("architectures") != ["arm64", "x86_64"]
-        or webgpu_provider.get("schemaVersion") != "1.0"
-        or webgpu_provider.get("conversionId")
-        != "onnxruntime-float16-1.24.4-20260719.1"
-        or webgpu_provider.get("precision") != "fp16"
-        or webgpu_provider.get("graphOptimizationLevel") != "extended"
-        or webgpu_provider.get("cpuPartition") != "allow-required"
-        or webgpu_provider.get("requiredCpuOperators")
-        != ["Concat", "Gather", "Slice"]
-        or not isinstance(validated_families, list)
-        or len(validated_families) < 1
-        or len(validated_families) != len(set(validated_families))
-        or any(
-            family not in {"Apple M1", "Apple M2", "Apple M3", "Apple M4"}
-            for family in validated_families
+    runtime = stage_workspace_package("runtime", output / "runtime")
+    if runtime["version"] != RUNTIME_VERSION:
+        raise RuntimeError("runtime workspace version is inconsistent")
+    runtime["optionalDependencies"] = {
+        PLATFORMS[key]["package"]: CORE_VERSION for key in sorted(PLATFORMS)
+    }
+    write_json(output / "runtime" / "package.json", runtime)
+    (output / "runtime" / "src" / "metadata.cjs").write_text(
+        "'use strict';\n\n"
+        f"module.exports = Object.freeze({{ coreVersion: '{CORE_VERSION}' }});\n",
+        encoding="utf-8",
+    )
+    for tier, contract in FACADE_PACKAGES.items():
+        facade = stage_workspace_package(
+            contract["workspace"], output / f"facade-{tier}"
         )
-    ):
-        raise RuntimeError(
-            "model bundle does not contain the tiled-v1 Apple/WebGPU release contract"
-        )
-
-    facade = output / "facade"
-    facade.mkdir()
-    copy_tree(ROOT / "bindings" / "node" / "js", facade / "js")
-    copy_tree(ROOT / "bindings" / "node" / "bin", facade / "bin")
-    facade_json = common_package(
-        FACADE_PACKAGE,
-        version,
-        "Offline PP-OCRv6 OCR for Node.js, powered by an embeddable C++ core",
-    )
-    facade_json.update(
-        {
-            "keywords": [
-                "ocr",
-                "offline-ocr",
-                "pp-ocrv6",
-                "paddleocr",
-                "node-api",
-                "napi",
-            ],
-            "type": "commonjs",
-            "main": "./js/index.cjs",
-            "module": "./js/index.mjs",
-            "types": "./js/index.d.ts",
-            "bin": {"light-ocr": "./bin/light-ocr.cjs"},
-            "exports": {
-                ".": {
-                    "types": "./js/index.d.ts",
-                    "import": "./js/index.mjs",
-                    "require": "./js/index.cjs",
-                }
-            },
-            "files": ["js/", "bin/", "README.md", "LICENSE", "NOTICE"],
-            "engines": {"node": "^22.0.0 || ^24.0.0"},
-            "dependencies": {MODEL_PACKAGE: version},
-            "optionalDependencies": {
-                PLATFORMS[key]["package"]: version for key in sorted(PLATFORMS)
-            },
-        }
-    )
-    write_json(facade / "package.json", facade_json)
-    add_project_files(
-        facade,
-        package_readme(
-            FACADE_PACKAGE,
-            "Offline OCR for Node.js applications, powered by PP-OCRv6 Small.",
-            True,
-        ),
-    )
-
-    model = output / "model-ppocrv6-small"
-    model.mkdir()
-    copy_tree(bundle, model / "bundle")
-    model_json = common_package(
-        MODEL_PACKAGE,
-        version,
-        "Pinned PP-OCRv6 Small model bundle for @arcships/light-ocr",
-    )
-    model_json.update(
-        {
-            "files": ["bundle/", "README.md", "LICENSE", "NOTICE"],
-            "exports": {"./bundle/manifest.json": "./bundle/manifest.json"},
-            "lightOcr": {
-                "bundleId": BUNDLE_ID,
-                "manifestSchemaVersion": manifest["schemaVersion"],
-                "normalizedConfigSchemaVersion": normalized_config["schemaVersion"],
-                "tiledContractVersion": tiled_contract["contractVersion"],
-                "paddleOcrRevision": "b03f46425e8ff4442b268ce449e3eef758146cd4",
-            },
-        }
-    )
-    write_json(model / "package.json", model_json)
-    add_project_files(
-        model,
-        package_readme(
-            MODEL_PACKAGE,
-            "The pinned PP-OCRv6 Small model bundle for `@arcships/light-ocr`.",
-            False,
-        ),
-    )
+        if facade["name"] != contract["name"] or facade["version"] != contract["version"]:
+            raise RuntimeError(f"{tier} facade workspace identity is inconsistent")
+    stage_model_package("tiny", tiny_bundle, output / "model-ppocrv6-tiny")
+    stage_model_package("medium", medium_bundle, output / "model-ppocrv6-medium")
 
     for platform_id, platform in PLATFORMS.items():
         source = native_source(native_root, platform_id)
@@ -976,14 +1072,22 @@ def package_directories(staging: Path) -> list[Path]:
     packages = sorted(
         path for path in staging.iterdir() if (path / "package.json").is_file()
     )
-    expected = len(PLATFORMS) + 2
-    if len(packages) != expected:
+    expected_names = {
+        *(platform["package"] for platform in PLATFORMS.values()),
+        RUNTIME_PACKAGE,
+        *(contract["name"] for contract in MODEL_PACKAGES.values()),
+        *(contract["name"] for contract in FACADE_PACKAGES.values()),
+    }
+    if len(packages) != len(expected_names):
         raise RuntimeError(
-            f"expected {expected} staged packages, found {len(packages)}"
+            f"expected {len(expected_names)} staged packages, found {len(packages)}"
         )
     names = [read_json(path / "package.json")["name"] for path in packages]
-    if len(set(names)) != expected:
-        raise RuntimeError("staged package names are not unique")
+    if set(names) != expected_names:
+        raise RuntimeError(
+            f"staged package set is invalid: expected={sorted(expected_names)}, "
+            f"actual={sorted(names)}"
+        )
     return packages
 
 
@@ -1049,24 +1153,16 @@ def pack(arguments: argparse.Namespace) -> None:
     remove_and_create(output)
     release_records = []
     with tempfile.TemporaryDirectory(prefix="light-ocr-npm-pack-") as temporary:
-        first = Path(temporary) / "first"
-        second = Path(temporary) / "second"
-        first.mkdir()
-        second.mkdir()
+        packed = Path(temporary) / "packed"
+        packed.mkdir()
         for package in package_directories(staging):
             reject_symlinks(package)
-            record = run_npm_pack(arguments.npm, package, first)
-            repeat = run_npm_pack(arguments.npm, package, second)
-            first_tarball = first / record["filename"]
-            second_tarball = second / repeat["filename"]
-            first_sha256 = sha256(first_tarball)
-            if first_sha256 != sha256(second_tarball):
-                raise RuntimeError(
-                    f"npm pack is not deterministic for {record['name']}"
-                )
-            validate_tarball(package, first_tarball, record)
+            record = run_npm_pack(arguments.npm, package, packed)
+            tarball = packed / record["filename"]
+            tarball_sha256 = sha256(tarball)
+            validate_tarball(package, tarball, record)
             destination = output / record["filename"]
-            shutil.copyfile(first_tarball, destination)
+            shutil.copyfile(tarball, destination)
             release_records.append(
                 {
                     "name": record["name"],
@@ -1074,19 +1170,16 @@ def pack(arguments: argparse.Namespace) -> None:
                     "filename": record["filename"],
                     "bytes": destination.stat().st_size,
                     "unpackedBytes": record["unpackedSize"],
-                    "sha256": first_sha256,
+                    "sha256": tarball_sha256,
                     "shasum": record["shasum"],
                     "integrity": record["integrity"],
                     "fileCount": len(record["files"]),
                 }
             )
-    versions = {record["version"] for record in release_records}
-    if len(versions) != 1:
-        raise RuntimeError("npm packages do not share one lockstep version")
     release_manifest = {
-        "schemaVersion": "1.0",
+        "schemaVersion": "2.0",
         "gitRevision": git_revision(),
-        "version": next(iter(versions)),
+        "version": CORE_VERSION,
         "distTag": "next",
         "npmVersion": subprocess.run(
             [arguments.npm, "--version"],
@@ -1146,10 +1239,10 @@ def wait_for_integrity(npm: str, specification: str, expected: str) -> None:
 
 
 def ensure_unpublished(arguments: argparse.Namespace) -> None:
-    if arguments.version != SOURCE_VERSION:
+    if arguments.version != CORE_VERSION:
         raise RuntimeError(
             f"release version {arguments.version} does not match source version "
-            f"{SOURCE_VERSION}"
+            f"{CORE_VERSION}"
         )
     specification = f"{FACADE_PACKAGE}@{arguments.version}"
     if npm_integrity(arguments.npm, specification) is not None:
@@ -1203,11 +1296,15 @@ def publish(arguments: argparse.Namespace) -> None:
     release = read_json(tarballs / "release-manifest.json")
     records = {record["name"]: record for record in release["packages"]}
     if arguments.phase == "dependencies":
-        names = [MODEL_PACKAGE] + sorted(
-            platform["package"] for platform in PLATFORMS.values()
+        names = (
+            sorted(platform["package"] for platform in PLATFORMS.values())
+            + [RUNTIME_PACKAGE]
+            + sorted(contract["name"] for contract in MODEL_PACKAGES.values())
         )
     else:
-        names = [FACADE_PACKAGE]
+        names = [
+            FACADE_PACKAGES[tier]["name"] for tier in ("small", "tiny", "medium")
+        ]
     for name in names:
         record = records[name]
         specification = f"{name}@{record['version']}"
@@ -1249,10 +1346,12 @@ def promote(arguments: argparse.Namespace) -> None:
     ):
         raise RuntimeError("release manifest version does not match promotion request")
     records = {record["name"]: record for record in release["packages"]}
+    # Tiny and Medium intentionally stay on `next` until their G2 evidence is
+    # accepted. The stable closure is the native runtime, model-free JS runtime,
+    # and Small facade; Small continues to exact-pin the existing 0.3.4 model.
     names = (
-        [MODEL_PACKAGE]
-        + sorted(platform["package"] for platform in PLATFORMS.values())
-        + [FACADE_PACKAGE]
+        sorted(platform["package"] for platform in PLATFORMS.values())
+        + [RUNTIME_PACKAGE, FACADE_PACKAGE]
     )
     for name in names:
         record = records[name]
@@ -1286,7 +1385,8 @@ def main() -> int:
 
     assembly = subparsers.add_parser("assemble")
     assembly.add_argument("--version", required=True)
-    assembly.add_argument("--bundle", type=Path, required=True)
+    assembly.add_argument("--tiny-bundle", type=Path, required=True)
+    assembly.add_argument("--medium-bundle", type=Path, required=True)
     assembly.add_argument("--native-root", type=Path, required=True)
     assembly.add_argument("--output-dir", type=Path, required=True)
     assembly.set_defaults(handler=assemble)

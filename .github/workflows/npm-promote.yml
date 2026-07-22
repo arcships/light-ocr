@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Already-published lockstep version to promote
+        description: Already-published Core/Small version to promote
         required: true
         type: string
       release_run_id:
@@ -56,11 +56,13 @@ jobs:
           path: dist/release
           github-token: ${{ github.token }}
           run-id: ${{ inputs.release_run_id }}
-      - name: Verify published integrity and promote dependencies before facade
+      - name: Promote only the stable native/runtime/Small closure
         run: >-
           python tools/npm_release.py promote
           --tarball-dir dist/release
           --expected-version "${RELEASE_VERSION}"
           --tag "${{ inputs.tag }}"
       - name: Show promoted metadata
-        run: npm dist-tag ls "@arcships/light-ocr"
+        run: |
+          npm dist-tag ls "@arcships/light-ocr-runtime"
+          npm dist-tag ls "@arcships/light-ocr"

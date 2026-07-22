@@ -24,7 +24,7 @@ function loadHelloFixture() {
 }
 
 async function run() {
-  const { createEngine } = require('../js/index.cjs');
+  const { createEngine } = require('../../../packages/runtime/src/index.cjs');
   const engine = await createEngine({
     bundlePath,
     execution: { provider: 'cpu' },

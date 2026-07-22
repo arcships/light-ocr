@@ -8,8 +8,8 @@ const { pathToFileURL } = require('node:url');
 const { Worker } = require('node:worker_threads');
 const zlib = require('node:zlib');
 
-const { createEngine, OcrError } = require('../js/index.cjs');
-const { validateRuntimeDescriptor } = require('../js/load-native.cjs');
+const { createEngine, OcrError } = require('../../../packages/runtime/src/index.cjs');
+const { validateRuntimeDescriptor } = require('../../../packages/runtime/src/load-native.cjs');
 
 const repositoryRoot = path.resolve(__dirname, '../../..');
 const bundlePath = path.resolve(
@@ -293,7 +293,7 @@ test('native addon rejects a forged runtime ABI before candidate creation', () =
 });
 
 test('ESM and CommonJS facades expose the same API', async () => {
-  const esm = await import(pathToFileURL(path.join(repositoryRoot, 'bindings/node/js/index.mjs')));
+  const esm = await import(pathToFileURL(path.join(repositoryRoot, 'packages/runtime/src/index.mjs')));
   assert.strictEqual(esm.createEngine, createEngine);
   assert.strictEqual(esm.OcrError, OcrError);
 });
@@ -937,7 +937,7 @@ test('close drains requests admitted before it', async () => {
 });
 
 test('worker environment teardown closes an unclosed engine', async () => {
-  const modulePath = path.join(repositoryRoot, 'bindings/node/js/index.cjs');
+  const modulePath = path.join(repositoryRoot, 'packages/runtime/src/index.cjs');
   const source = `
     const { parentPort, workerData } = require('node:worker_threads');
     const { createEngine } = require(workerData.modulePath);
