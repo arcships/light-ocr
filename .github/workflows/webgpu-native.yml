@@ -3,6 +3,28 @@ name: native webgpu
 on:
   push:
     branches: [main]
+    paths:
+      - "CMakeLists.txt"
+      - "bindings/node/**"
+      - "cmake/**"
+      - "contracts/**"
+      - "include/**"
+      - "models/bundles.lock.json"
+      - "models/deps.lock.json"
+      - "models/derived/**"
+      - "reports/webgpu-qualification/**"
+      - "src/**"
+      - "tests/integration/**"
+      - "tests/unit/**"
+      - "tests/python/test_npm_release.py"
+      - "tests/python/test_npm_webgpu_release.py"
+      - "tests/python/test_webgpu_*.py"
+      - "tests/python/test_windows_node_addon.py"
+      - "tools/bootstrap_dependencies.py"
+      - "tools/bootstrap_models.py"
+      - "tools/generate_release_metadata.py"
+      - "tools/npm_release.py"
+      - "tools/webgpu/**"
   workflow_dispatch:
 
 permissions:
@@ -35,6 +57,14 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "22"
+      - name: Restore locked build inputs
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            .cache/dependencies
+            .cache/models
+            .cache/webgpu-packages
+          key: webgpu-inputs-${{ runner.os }}-${{ hashFiles('models/deps.lock.json', 'models/bundles.lock.json', 'models/derived/**', 'tools/webgpu/runtime-lock.json') }}
       - name: Validate contract unit tests
         run: >-
           python -m unittest
@@ -56,9 +86,7 @@ jobs:
         shell: bash
         run: |
           python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies
-          python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies --offline
           python tools/bootstrap_models.py --cache-dir .cache/models
-          python tools/package_model_bundle.py
           python tools/webgpu/package_bundle.py
       - name: Reproduce the locked internal FP16 derivations (Linux)
         if: runner.os != 'Windows'
