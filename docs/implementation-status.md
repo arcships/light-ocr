@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
 更新时间：2026-07-22<br>
-结论：`@arcships/light-ocr@0.3.4` 与七个依赖包已发布，npm `next`/`latest` 均指向 `0.3.4`。`0.3.0` 交付的 Direct Core ML、Native WebGPU、D112 Auto 与自包含 payload 保持有效；`0.3.4` 修复 N1 CLI ROI 的 native option contract。N2 阶段 1 已按 D107 启动内部 workspace 迁移，但尚未发布 runtime、tiny 或 medium。
+结论：`@arcships/light-ocr@0.3.4` 与七个依赖包已发布，npm `next`/`latest` 均指向 `0.3.4`。`0.3.0` 交付的 Direct Core ML、Native WebGPU、D112 Auto 与自包含 payload 保持有效；`0.3.4` 修复 N1 CLI ROI 的 native option contract。N2 workspace 已包含 runtime、Small facade 与私有 server preview，但尚未发布 runtime、server、tiny 或 medium。
 
 状态含义：
 
@@ -18,6 +18,16 @@
 - `packages/light-ocr/` 建立默认 Small facade：复用 runtime 的 engine/types/`OcrError`，精确依赖 runtime 与 Small model，并独占 `light-ocr` bin。
 - `bindings/node/` 暂时保留为 `0.3.x` 兼容发布源。切换前只运行一条 workspace 语义检查，不复制整套原生矩阵。
 - tiny 尚未接入；下一步是消除旧 facade 与 workspace facade 的源码重复，并让 release assembler 能独立产出 runtime + Small meta tarball。
+
+## N2 阶段 2：Server preview
+
+状态：In progress
+
+- 历史 PR #24 的 REST API 已按原约定从 `chatre7/light-ocr-server` 迁回 `packages/light-ocr-server/`，保留来源说明与后续并发上传、优雅停机修复。
+- private `0.1.0` 精确依赖 workspace `@arcships/light-ocr@0.3.4`；当前不发布，也不要求新的 `light-ocr` patch 版本。
+- `/api/v1` 提供 health、info 与 multipart OCR；20 MiB 输入上限、HTTP 层并发拒绝和 `OcrError` HTTP 映射已有 contract tests。
+- Docker preview 复用根 workspace lock，支持 Linux x64/arm64，不再保留历史 `linux/amd64` 强制平台。
+- Workspace PR 使用已发布的 native/model 依赖完成全部包测试和真实 OCR；只有 native/Core 相关路径才进入完整构建，server 不复制原生验证矩阵。
 
 ## 需求验收矩阵
 

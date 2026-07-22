@@ -1,0 +1,35 @@
+{
+  "name": "@arcships/light-ocr-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Preview REST API server for light-ocr",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arcships/light-ocr.git",
+    "directory": "packages/light-ocr-server"
+  },
+  "type": "commonjs",
+  "main": "src/server.js",
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "Dockerfile"
+  ],
+  "engines": {
+    "node": "^22.0.0 || ^24.0.0"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js",
+    "test:contract": "node --test test/config.test.js test/errors.test.js test/ocr-concurrency.test.js test/server.test.js",
+    "test:integration": "node --test test/app.test.js"
+  },
+  "dependencies": {
+    "@arcships/light-ocr": "0.3.4",
+    "express": "5.2.1",
+    "multer": "2.2.0"
+  }
+}
