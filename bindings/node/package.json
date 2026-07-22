@@ -1,6 +1,6 @@
 {
   "name": "@arcships/light-ocr",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "private": true,
   "description": "Node-API adapter for the light-ocr C++ core",
   "license": "Apache-2.0",
