@@ -150,25 +150,25 @@ bindings/node/          # @arcships/light-ocr，JS + native addon 混合
 └── package.json
 ```
 
-### 5.2 阶段 1：建立 monorepo 骨架（N2 启动时）
+### 5.2 阶段 1：建立 monorepo 骨架（N2，已完成）
 
-- 创建 `packages/runtime/`，从 `bindings/node/js/` 迁移 JS facade 代码。
+- `packages/runtime/` 已成为 adapter、native loader、CLI 与 EXIF 的唯一共享实现。
 - 创建 `packages/light-ocr/`，依赖 `runtime` + 模型包，包含 CLI bin。
 - `native/` 保持 addon 源码 + CMake，平台预编译包独立发布。
-- `bindings/node/` 标记为 deprecated，保留到确认迁移稳定后删除。
-- 此阶段保留 `bindings/node/` 作为 `0.3.x` 发布兼容入口，但只增加一条 workspace 契约检查，不重复运行两套完整原生矩阵；切换发布源之前必须证明 workspace facade 与旧入口的 API、错误类型和真实 OCR 语义一致。
+- `bindings/node/` 仅保留 native addon 源码和开发测试，不再包含或装配 JS facade/bin。
+- release assembler 已切到 `packages/`，并按 runtime/native/model/facade 的独立版本生成 package set。
 
-### 5.3 阶段 2：加入 server（N2，已启动）
+### 5.3 阶段 2：加入 server（N2，已完成 preview 接入）
 
 - `packages/light-ocr-server/` 已从历史 PR #24 及其独立仓库迁回 workspace，保留原贡献者归属。
-- Server 先以 private `0.1.0` preview 验证 HTTP 契约，不推动 `light-ocr` 版本，也不进入当前 npm release。
+- Server 以 private `0.1.1` preview 验证 HTTP 契约，精确依赖 Small `0.4.0`，不进入公共 npm release。
 - Preview Dockerfile 从根 workspace lock 安装精确依赖；server 与 runtime 正式发布后再切换为 registry-only production image。
 - 本地开发时 `npm install` 自动 symlink workspace 内的 `light-ocr`，无需先发布。
 
-### 5.4 阶段 3：加入 tiny、medium（N2 GA）
+### 5.4 阶段 3：加入 tiny、medium（N2，已完成 preview 接入）
 
-- 两个新包加入 workspace。
-- 验证三杯型共享同一 API、类型、测试套件。
+- 两个 facade 和两个纯数据 model package identity 已加入 workspace。
+- 三档共享同一 API、类型、CLI/schema/error contract；Small stable，Tiny/Medium 保持 `next` preview。
 
 ### 5.5 阶段 4：document、layout（N3、N4）
 

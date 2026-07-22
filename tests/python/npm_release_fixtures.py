@@ -87,6 +87,39 @@ def model_bundle(root: Path) -> Path:
     return bundle
 
 
+def n2_model_bundle(root: Path, tier: str) -> Path:
+    if tier not in npm_release.MODEL_PACKAGES:
+        raise ValueError(f"unsupported tier: {tier}")
+    contract = npm_release.MODEL_PACKAGES[tier]
+    bundle = root / f"bundle-{tier}"
+    bundle.mkdir()
+    profile = {
+        "tier": tier,
+        "languageCount": 49 if tier == "tiny" else 50,
+        "excludedLanguages": ["ja"] if tier == "tiny" else [],
+        "dictionaryEntries": 6905 if tier == "tiny" else 18709,
+        "maturity": "preview",
+    }
+    (bundle / "manifest.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": "1.0",
+                "bundleId": contract["bundleId"],
+                "normalizedConfigPath": "normalized-config.json",
+                "productProfile": profile,
+            }
+        )
+        + "\n",
+        "utf-8",
+    )
+    (bundle / "normalized-config.json").write_text(
+        json.dumps({"schemaVersion": "1.2", "productProfile": profile}) + "\n",
+        "utf-8",
+    )
+    (bundle / "payload.bin").write_bytes(f"{tier}-model".encode())
+    return bundle
+
+
 def webgpu_stage_inputs(
     root: Path, lock: dict[str, object]
 ) -> tuple[dict[str, Path], Path, Path]:

@@ -32,3 +32,29 @@ test('small facade keeps model and bundlePath mutually exclusive', async () => {
       && /cannot be used together/.test(error.message),
   );
 });
+
+test('all three tiers expose one API and one CLI contract', () => {
+  const facades = [
+    facade,
+    require('../../light-ocr-tiny/src/index.cjs'),
+    require('../../light-ocr-medium/src/index.cjs'),
+  ];
+  const clis = [
+    require('../src/cli.cjs'),
+    require('../../light-ocr-tiny/src/cli.cjs'),
+    require('../../light-ocr-medium/src/cli.cjs'),
+  ];
+  for (const candidate of facades) {
+    assert.deepEqual(Object.keys(candidate).sort(), [
+      'OcrError',
+      'createEngine',
+      'modelProfile',
+    ]);
+    assert.strictEqual(candidate.OcrError, runtime.OcrError);
+  }
+  const cliKeys = Object.keys(clis[0]).sort();
+  for (const candidate of clis.slice(1)) {
+    assert.deepEqual(Object.keys(candidate).sort(), cliKeys);
+    assert.strictEqual(candidate.OCR_ERROR_EXIT, clis[0].OCR_ERROR_EXIT);
+  }
+});

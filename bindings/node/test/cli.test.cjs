@@ -8,7 +8,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { main, parseArgs, EXIT, OCR_ERROR_EXIT } = require('../bin/light-ocr.cjs');
+const { main, parseArgs, EXIT, OCR_ERROR_EXIT } = require('../../../packages/light-ocr/src/cli.cjs');
 
 // Capture stdout/stderr written by main() by swapping process streams.
 async function runCli(argv) {
@@ -101,6 +101,17 @@ test('info: requires one of --model-info or --version exit 64', async () => {
   const { code, stderr } = await runCli(['info']);
   assert.equal(code, EXIT.usage);
   assert.match(stderr, /requires --model-info or --version/);
+});
+
+test('info: --version is metadata-only and reports the Small tier', async () => {
+  const { code, stdout, stderr } = await runCli(['info', '--version']);
+  assert.equal(code, EXIT.success);
+  assert.equal(stderr, '');
+  const info = JSON.parse(stdout);
+  assert.equal(info.core, '0.4.0');
+  assert.equal(info.tier, 'small');
+  assert.equal(info.maturity, 'stable');
+  assert.equal(info.model, 'ppocrv6-small-native-20260719.1');
 });
 
 test('detect: --format rejected with exit 65 before not-implemented', async () => {
@@ -198,7 +209,7 @@ test('exit code map: covers all OcrErrorCode values', () => {
 
 // --- step 2: envelope tests (no native needed) ---
 const { buildEnvelope, buildPageRecord, resolveSchemaVersion, inferMediaType } =
-  require('../bin/light-ocr.cjs');
+  require('../../../packages/light-ocr/src/cli.cjs');
 
 const sampleResult = {
   lines: [
@@ -288,7 +299,7 @@ test('recognize: unsupported --schema-version exit 65', async () => {
 });
 
 // --- step 4: ROI parsing tests ---
-const { parseRegion } = require('../bin/light-ocr.cjs');
+const { parseRegion } = require('../../../packages/light-ocr/src/cli.cjs');
 
 test('parseRegion: valid x,y,w,h', () => {
   const r = parseRegion({ region: '100,80,640,320' });
@@ -319,7 +330,7 @@ test('parseRegion: non-integer throws', () => {
 });
 
 // --- step 5: detect envelope tests ---
-const { buildDetectEnvelope } = require('../bin/light-ocr.cjs');
+const { buildDetectEnvelope } = require('../../../packages/light-ocr/src/cli.cjs');
 
 const sampleDetection = {
   // Detection results come through as OcrResult format (lines with empty text,

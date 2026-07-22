@@ -7,6 +7,7 @@ const { after, before, test } = require('node:test');
 
 const { createApp } = require('../src/app');
 const { initEngine } = require('../src/engine');
+const packageMetadata = require('../package.json');
 
 let engine;
 let server;
@@ -36,7 +37,7 @@ test('GET /api/v1/info returns execution info and version', async () => {
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.execution.requestedProvider, 'cpu');
-  assert.equal(body.version, '0.1.0');
+  assert.equal(body.version, packageMetadata.version);
 });
 
 test('POST /api/v1/ocr recognizes text in a real image', async () => {

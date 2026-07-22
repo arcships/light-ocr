@@ -7,7 +7,11 @@ if(APPLE AND (NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET OR
     "Minimum macOS deployment target" FORCE)
 endif()
 
-project(light_ocr VERSION 0.3.4 LANGUAGES CXX)
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" LIGHT_OCR_VERSION LIMIT_COUNT 1)
+if(NOT LIGHT_OCR_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+  message(FATAL_ERROR "VERSION must contain one stable SemVer value")
+endif()
+project(light_ocr VERSION "${LIGHT_OCR_VERSION}" LANGUAGES CXX)
 
 if(APPLE)
   enable_language(OBJCXX)

@@ -1,8 +1,8 @@
 {
-  "name": "@arcships/light-ocr",
-  "version": "0.3.4",
+  "name": "@arcships/light-ocr-native-development",
+  "version": "0.4.0",
   "private": true,
-  "description": "Node-API adapter for the light-ocr C++ core",
+  "description": "Private Node-API native development harness for light-ocr",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -13,19 +13,6 @@
     "url": "https://github.com/arcships/light-ocr/issues"
   },
   "type": "commonjs",
-  "main": "./js/index.cjs",
-  "module": "./js/index.mjs",
-  "types": "./js/index.d.ts",
-  "bin": {
-    "light-ocr": "./bin/light-ocr.cjs"
-  },
-  "exports": {
-    ".": {
-      "types": "./js/index.d.ts",
-      "import": "./js/index.mjs",
-      "require": "./js/index.cjs"
-    }
-  },
   "engines": {
     "node": "^22.0.0 || ^24.0.0"
   },

@@ -723,6 +723,76 @@ LIGHT_OCR_TEST(model_bundle_rejects_incompatible_core_and_unsupported_model) {
   EXPECT_EQ(unsupported_result.error().code, ErrorCode::unsupported_model);
 }
 
+LIGHT_OCR_TEST(model_bundle_accepts_locked_tiny_and_medium_profiles) {
+  struct Tier {
+    const char* name;
+    const char* detection_revision;
+    const char* recognition_revision;
+    std::uint32_t language_count;
+    std::uint32_t dictionary_entries;
+    std::vector<std::string> excluded_languages;
+  };
+  const std::vector<Tier> tiers = {
+      {"tiny", "2ba1506c0380b8f0b03dd142459aac66d4421f6c",
+       "2612ab37152ae0a677521bae4e1e3d4fb4cf7c30", 49, 6905, {"ja"}},
+      {"medium", "61323801669c338b7891481ec7bac61ce31b576a",
+       "50c7eacafc52fa7bcf4194e8cd08e46f8558504b", 50, 18709, {}},
+  };
+  for (const auto& tier : tiers) {
+    auto files = valid_bundle_files();
+    Json characters = Json::array();
+    for (std::uint32_t index = 1; index < tier.dictionary_entries; ++index) {
+      characters.push_back("c" + std::to_string(index));
+    }
+    characters.push_back(" ");
+    replace_payload(
+        &files, "rec/dictionary.json",
+        Json{{"schemaVersion", "1.0"}, {"characters", characters}}.dump());
+    for (const auto& file : files) {
+      if (file.path != "normalized-config.json") continue;
+      auto normalized =
+          Json::parse(std::string(file.bytes->begin(), file.bytes->end()));
+      normalized["recognition"]["decode"]["dictionaryEntries"] =
+          tier.dictionary_entries;
+      normalized["productProfile"] = {
+          {"tier", tier.name},
+          {"languageCount", tier.language_count},
+          {"excludedLanguages", tier.excluded_languages},
+          {"dictionaryEntries", tier.dictionary_entries},
+          {"maturity", "preview"},
+      };
+      replace_payload(&files, "normalized-config.json", normalized.dump());
+      break;
+    }
+    for (auto& file : files) {
+      if (file.path != "manifest.json") continue;
+      auto manifest =
+          Json::parse(std::string(file.bytes->begin(), file.bytes->end()));
+      manifest["coreCompatibility"]["minimum"] = "0.4.0";
+      manifest["models"]["detection"]["id"] =
+          "PP-OCRv6_" + std::string(tier.name) + "_det_onnx";
+      manifest["models"]["detection"]["sourceRevision"] =
+          tier.detection_revision;
+      manifest["models"]["recognition"]["id"] =
+          "PP-OCRv6_" + std::string(tier.name) + "_rec_onnx";
+      manifest["models"]["recognition"]["sourceRevision"] =
+          tier.recognition_revision;
+      manifest["productProfile"] = {
+          {"tier", tier.name},
+          {"languageCount", tier.language_count},
+          {"excludedLanguages", tier.excluded_languages},
+          {"dictionaryEntries", tier.dictionary_entries},
+          {"maturity", "preview"},
+      };
+      file.bytes = bytes(manifest.dump());
+      break;
+    }
+    refresh_checksums(&files);
+    auto result = ModelBundle::create(std::move(files));
+    EXPECT_TRUE(result);
+  }
+}
+
 LIGHT_OCR_TEST(model_bundle_rejects_excessive_file_count_before_parsing) {
   std::vector<BundleFile> files;
   for (std::size_t index = 0; index < 65; ++index) {

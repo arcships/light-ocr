@@ -1,8 +1,8 @@
 {
   "name": "@arcships/light-ocr",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "private": true,
-  "description": "Offline PP-OCRv6 Small OCR for Node.js",
+  "description": "Offline PP-OCRv6 Small OCR for Node.js — the stable default tier",
   "license": "Apache-2.0",
   "type": "commonjs",
   "main": "./src/index.cjs",

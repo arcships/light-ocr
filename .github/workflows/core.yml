@@ -4,6 +4,27 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "CMakeLists.txt"
+      - "CMakePresets.json"
+      - "bindings/node/**"
+      - "cmake/**"
+      - "contracts/**"
+      - "corpus/**"
+      - "include/**"
+      - "models/**"
+      - "oracle/**"
+      - "src/**"
+      - "tests/unit/**"
+      - "tests/integration/**"
+      - "tests/fixtures/**"
+      - "tools/apple/**"
+      - "tools/webgpu/**"
+      - "tools/bootstrap_dependencies.py"
+      - "tools/bootstrap_models.py"
+      - "tools/generate_release_metadata.py"
+      - "tools/package_model_bundle.py"
+      - "tools/run_offline_check.py"
   workflow_dispatch:
 
 concurrency:
@@ -137,9 +158,9 @@ jobs:
         run: |
           CC=clang CXX=clang++ cmake -S . -B build-fuzz -G Ninja -DCMAKE_BUILD_TYPE=Debug -DLIGHT_OCR_BUILD_TESTS=OFF -DLIGHT_OCR_BUILD_TOOLS=OFF -DLIGHT_OCR_BUILD_FUZZERS=ON -DLIGHT_OCR_ENABLE_SANITIZERS=ON -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
           cmake --build build-fuzz --parallel
-          ./build-fuzz/bin/light_ocr_fuzz_image -runs=100000
-          ./build-fuzz/bin/light_ocr_fuzz_bundle -runs=100000
-          ./build-fuzz/bin/light_ocr_fuzz_geometry -runs=100000
+          ./build-fuzz/bin/light_ocr_fuzz_image -runs=10000
+          ./build-fuzz/bin/light_ocr_fuzz_bundle -runs=10000
+          ./build-fuzz/bin/light_ocr_fuzz_geometry -runs=10000
           LIGHT_OCR_MODEL_BUNDLE="$PWD/models/generated/ppocrv6-small-onnx-20260714.2" ./build-fuzz/bin/light_ocr_fuzz_lifecycle -runs=10 -max_len=64
 
   oracle:

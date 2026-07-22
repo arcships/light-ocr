@@ -235,39 +235,39 @@ export function createEngine(options?: CreateEngineOptions): Promise<OcrEngine>;
 
 ## 7. 版本策略
 
-八个 package 使用 lockstep SemVer：同一次 release set 的版本完全相同。Facade 对 model/native 始终使用 exact version，因此不能加载另一批次的 Core、ORT 或模型。
+`0.3.x` 及以前的 release set 使用历史 lockstep 规则；N2 起按 D107 独立版本化。`VERSION` 是 Core/稳定 Small 候选的版本来源，runtime、model、preview facade 与 server 各自使用独立 SemVer。所有跨包依赖仍使用 exact version，禁止 `^`、`~`、tag 或 workspace range 进入发布 manifest。
 
 模型内容身份与 npm 版本分离：
 
-- npm version 表示 package release set，例如 `0.2.0`。
+- npm version 表示该 package 自身的 release，例如 Small/native `0.4.0`、runtime `0.1.0` 或 preview model `0.1.0`。
 - bundle ID 表示 OCR 模型与配置身份，例如 `ppocrv6-small-onnx-20260714.2`。
-- 任何模型 bytes、normalized config、dictionary 或 manifest 变化都创建新 bundle ID，并发布新的完整 release set。
+- 任何模型 bytes、normalized config、dictionary 或 manifest 变化都创建新 bundle ID，并只发布需要变化的 model/facade 组合。
 - 只修改 README 不需要创建新 bundle ID，但仍需要新的 npm version。
 
 首批未完成四平台矩阵时只发布到 `next` tag。所有 release gates 通过后，才允许把同一已验证版本提升为 `latest`；不能用重新打包的同版本覆盖已发布 package。
 
 ## 8. 构建与发布流程
 
-仓库不提交第二份 31 MB 模型副本。release staging 从三个已验证来源组装 packages：
+仓库不提交模型二进制副本。N2 release staging 从 workspace、两个锁定 preview bundle 和六个平台 native input 组装：
 
 ```text
-bindings/node/js + facade manifest template
-models/generated/ppocrv6-small-onnx-20260714.2
-reports/release/<platform> native artifacts
+packages/runtime + packages/light-ocr{,-tiny,-medium}
+models/generated/ppocrv6-{tiny,medium}-onnx-*
+dist/native-input/<platform>
                          ↓
-dist/npm/<eight staging directories>
+dist/npm/<twelve staging directories>
 ```
 
 `dist/npm` 是临时生成目录，不是源码 authority。打包器必须使用 `files` allowlist，并拒绝 source、test fixture、cache、绝对路径、symlink、额外动态库和未登记文件。
 
-发布顺序必须是原子可恢复的：
+发布顺序保持可恢复，但不重复已经在资格工作流完成的验证：
 
-1. 生成八个 staging directories，验证 package metadata 和文件 inventory。
-2. 对每个目录执行 `npm pack --dry-run`，再生成 `.tgz` 并记录 filename、bytes、SHA-256 和 npm integrity。
-3. 把八个 `.tgz` 放入一次性本地 npm registry；在无仓库文件可见的临时目录只安装 facade，验证 exact dependency graph、平台筛选和真实模型。
-4. 先发布 model package 和六个 native packages 到 `next`。
-5. 确认七个依赖都可读取且 metadata 正确后，最后发布 facade 到 `next`。
-6. 完整 release evidence 归档后再移动 dist-tag。
+1. 六个平台仅构建 addon/runtime payload 并生成 license、SBOM 与 descriptor，不在 release 内重跑 Core/qualification。
+2. assembly job 只生成 Tiny/Medium bundle 一次，复用已发布 Small model `0.3.4`，组装十二个 staging directories。
+3. 每个目录执行一次 `npm pack --json --ignore-scripts`，核对 inventory，并记录 filename、bytes、SHA-256 和 npm integrity；不做无收益的第二次压包。
+4. 六个平台离线安装各自 native + runtime + Small facade 并跑真实 OCR；代表性 Linux x64 额外跑 Tiny/Medium。
+5. 先发布 native、runtime 和两个 preview model 到 `next`，registry 能解析稳定 facade 后再发布三个 facade。
+6. promotion 只移动 native/runtime/Small 的 stable closure；Tiny/Medium 保持 `next`，直到 G2 有实际晋升证据。
 
 `@arcships` scope 必须已由发布账号或组织控制。scoped package 的发布清单固定 `publishConfig.access: public`，发布流程也显式使用 public access，避免 scope 默认私有策略造成误配置。
 
@@ -281,25 +281,25 @@ dist/npm/<eight staging directories>
 
 ## 9. Release gates
 
-一个 npm release candidate 至少满足：
+一个 N2 npm release candidate 至少满足：
 
-- 六个 native packages 分别在目标 OS/arch 原生构建；Node.js 22/24 加载、真实 OCR、AbortSignal、close、GC 和 worker teardown 全绿。
-- `npm pack --dry-run` inventory 与 allowlist 完全一致；package 内没有源码、缓存、测试图像、原始上游 archive 或绝对构建路径。
+- 六个 native packages 分别在目标 OS/arch 原生构建并完成安装后真实 Small OCR；生命周期、sanitizer、fuzz 和 provider qualification 由 Core/qualification workflow 负责，不在 release 重复。
+- `npm pack` inventory 与 allowlist 完全一致；package 内没有源码缓存、测试图像、原始上游 archive 或绝对构建路径。
 - Facade 的 ESM、CJS 和 TypeScript compile tests 均通过。
-- 从一次性本地 registry 执行 `npm install @arcships/light-ocr` 后，`createEngine()` 不传 `bundlePath` 即完成真实 PP-OCRv6 识别。
+- Small、Tiny、Medium 都能在安装后的隔离目录中不传 `bundlePath` 完成真实 PP-OCRv6 识别；Tiny/Medium 只要求代表性平台 preview smoke。
 - `--ignore-scripts` 安装后行为相同，证明没有 install/postinstall 下载或编译依赖。
 - 在网络禁用环境里，对已经安装好的 package 重复 create/recognize/close 成功。
 - 模型 package 的 bundle 文件总字节、manifest、`SHA256SUMS` 和 bundle ID 与 `models/bundles.lock.json` 对应生成物一致。
 - native package 的 addon、ORT library、artifact hashes、license inventory 和 SPDX SBOM 一致。
-- 从干净 release commit 生成并记录八个 npm tarballs 的 SHA-256、registry integrity、dist-tag 和 CI artifact URL。
+- 从干净 release commit 生成并记录十二个 npm tarballs 的 SHA-256、registry integrity、dist-tag 和 CI artifact URL。
 - 仓库根 `LICENSE`/`NOTICE`、facade/native package 的 SPDX `license` 字段与 Apache-2.0 一致。
 
-## 10. v1 明确不做
+## 10. `0.1.0` 首发时明确不做（历史约束）
 
 - install/postinstall 时从 GitHub、对象存储或 Paddle 官方地址下载模型或二进制。
 - 首次 `createEngine()` 时下载、解压或自动更新模型。
 - 将模型直接复制进六个 native packages；这会造成六份重复分发。
-- 无模型 facade、按需语言包、tiny/medium、orientation 或 GPU packages。
+- 当时不做无模型 facade、按需语言包、tiny/medium、orientation 或 GPU packages；N2 的 runtime/tier 与 `0.3.0` provider 分发已由后续决策替代这些历史范围。
 - 源码编译 fallback、`node-gyp` fallback 或消费者系统 ORT fallback。
 - Electron、Bun、Deno、Linux musl 支持声明。
 - Yarn Plug'n'Play/zip archive 兼容声明；v1 release gate 以官方 npm 的物理安装目录为准。

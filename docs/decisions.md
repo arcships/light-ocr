@@ -215,7 +215,7 @@ Consequence: Qualification, report review, examples, release notes, and performa
 
 Status: Accepted
 Authority: N1 CLI, result contract, ROI and detect-only entry ([roadmap §5](roadmap.md)); detailed design in [cli-design.md](cli-design.md)
-Decision: The `light-ocr` bin ships in `bindings/node/bin/light-ocr.cjs` and is exposed by the `@arcships/light-ocr` facade via a `bin` field, so installing the facade yields the `light-ocr` command with no second install entry. The CLI uses a three-subcommand structure rather than a flat flag surface, because N1's primary audience is Agents that resolve intent from a top-level verb before reading that verb's flags:
+Decision: The `light-ocr` bin is exposed by the `@arcships/light-ocr` facade, so installing the facade yields the command with no second install entry. Since N2, its implementation lives in the shared runtime and each facade owns only a thin command wrapper. The CLI uses a three-subcommand structure rather than a flat flag surface, because N1's primary audience is Agents that resolve intent from a top-level verb before reading that verb's flags:
 
 ```text
 light-ocr recognize <path|--stdin> [flags]   # default OCR: detection + recognition
@@ -253,18 +253,18 @@ Consequence: This decision fixes the stable CLI surface for N1. Adding flags req
 
 ### D107 — Split model-free runtime from exact model facades
 
-Status: Accepted for N2 stage 1
+Status: Accepted and implemented
 Authority: N2 package topology and monorepo migration ([roadmap §3.1, §3.4 and §6](roadmap.md)); directory and migration details in [monorepo-design.md](monorepo-design.md)
 
 Decision: `@arcships/light-ocr-runtime` owns the Node adapter, scheduler, encoded-image/native loading and public OCR types without carrying a default model. Direct runtime callers must pass an explicit local `bundlePath`; the runtime never accepts a model alias and never downloads a bundle. `@arcships/light-ocr`, `@arcships/light-ocr-tiny` and `@arcships/light-ocr-medium` are thin model facades that exact-pin one compatible runtime and one model package, reuse the runtime's `OcrError` identity and public engine/result types, and differ only in their built-in model resolution and package/CLI names. The default `@arcships/light-ocr` facade remains PP-OCRv6 Small and remains the only owner of the `light-ocr` bin.
 
 Packages use independent versions. A facade release exact-pins its tested runtime, native and model combination; no caret, tilde, tag or workspace range enters a published manifest. The new runtime starts private in the workspace and may publish as a preview only after its standalone tarball, platform optional dependencies and model-free API pass install tests. Starting N2 does not itself authorize a `0.4.0` facade release; the minor version is cut only after the runtime topology is publishable and the default Small experience remains compatible.
 
-Migration uses npm workspaces under `packages/*`. The non-package `native/` CMake tree stays outside npm workspaces. `bindings/node/` remains the `0.3.x` compatibility/release source until the new runtime and Small facade pass one focused semantic-equivalence check; CI does not run duplicate full native matrices during this overlap. Tiny is added only after this cutover. Medium remains prerelease until its own product-quality evidence justifies GA.
+Migration uses npm workspaces under `packages/*`. The non-package native CMake tree stays outside npm workspaces. The semantic cutover is complete: `bindings/node/` is now only the native development harness, while runtime, Small, Tiny, and Medium sources live under `packages/`. Tiny and Medium publish only under `next`; promotion keeps them preview until comparative product evidence justifies GA.
 
 Reason: Three model cups need one adapter, error model and result schema, while users must install only the model they selected. Separating model selection from runtime mechanics prevents three copies of the Node implementation and lets unchanged native/model packages be reused without rebuilding them for a facade-only change.
 
-Consequence: Runtime/model/native packages can evolve independently, while each user-facing facade records an exact compatible composition. Model aliases are facade concerns; explicit `bundlePath` is the runtime escape hatch. N2 stage 1 is an internal migration and adds no new public cup until package cutover evidence exists.
+Consequence: Runtime/model/native packages can evolve independently, while each user-facing facade records an exact compatible composition. Model aliases are facade concerns; explicit `bundlePath` is the runtime escape hatch. Release acceptance requires exact locked bundles, one-model installation, shared contract tests, package integrity, and a representative real OCR smoke. Larger Pareto studies are promotion evidence, not repeated release-CI work; lack of that evidence keeps Tiny/Medium on `next` without blocking the completed N2 engineering cutover or N3.
 
 ## 3. Deferred decisions
 
@@ -276,7 +276,7 @@ Deferred items: C ABI, shared-library naming, symbol versioning, long-term ABI c
 ### D103 — Additional model capabilities
 
 Status: Deferred  
-Deferred items: PP-OCRv6 tiny/medium, orientation models, document preprocessing, layout, table, formula, and shipping accelerator Execution Providers. The provider-neutral Perf-1A contract is accepted by D111; it does not publish an accelerator.
+Deferred items: orientation models, document preprocessing, layout, table, formula, and additional accelerator Execution Providers. PP-OCRv6 Tiny/Medium package topology is resolved by D107.
 
 Each is a separately versioned capability or bundle and requires its own compatibility and resource policy.
 

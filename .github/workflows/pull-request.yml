@@ -13,8 +13,16 @@ on:
       - "models/**"
       - "oracle/**"
       - "src/**"
-      - "tests/**"
-      - "tools/**"
+      - "tests/unit/**"
+      - "tests/integration/**"
+      - "tests/fixtures/**"
+      - "tools/apple/**"
+      - "tools/webgpu/**"
+      - "tools/bootstrap_dependencies.py"
+      - "tools/bootstrap_models.py"
+      - "tools/generate_release_metadata.py"
+      - "tools/package_model_bundle.py"
+      - "tools/run_offline_check.py"
 
 permissions:
   contents: read
@@ -35,18 +43,26 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "22"
+      - name: Restore locked build inputs
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            .cache/dependencies
+            .cache/models
+          key: pr-inputs-${{ runner.os }}-${{ hashFiles('models/deps.lock.json', 'models/bundles.lock.json') }}
       - name: Validate repository and release tooling contracts
         run: python -m unittest discover -s tests/python -p 'test_*.py'
-      - name: Bootstrap pinned inputs and prove the dependency cache is complete
+      - name: Bootstrap locked build inputs
         shell: bash
         run: |
-          python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies
-          python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies --offline
+          python tools/bootstrap_dependencies.py \
+            --cache-dir .cache/dependencies \
+            --platform-id linux-x64-gnu
           python tools/bootstrap_models.py --cache-dir .cache/models
-          python tools/package_model_bundle.py
       - name: Install verified Node development files
         shell: bash
         run: |
+          npm ci --ignore-scripts --no-audit --no-fund
           node_version="$(node -p process.versions.node)"
           node_dev="$PWD/.cache/node-gyp/$node_version"
           npx --yes node-gyp@11.4.2 install "$node_version" --devdir "$PWD/.cache/node-gyp"

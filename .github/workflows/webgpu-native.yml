@@ -184,7 +184,7 @@ jobs:
         run: |
           sterile="$(mktemp -d)"
           cd "$sterile"
-          node -e "const x=require(process.env.GITHUB_WORKSPACE+'/bindings/node/js/load-native.cjs').loadNative(); console.log(JSON.stringify(x.binding.runtimeContract))"
+          node -e "const x=require(process.env.GITHUB_WORKSPACE+'/packages/runtime/src/load-native.cjs').loadNative(); console.log(JSON.stringify(x.binding.runtimeContract))"
       - name: Generate license, SBOM, and native package input
         shell: bash
         run: |
@@ -208,7 +208,7 @@ jobs:
             "${qualification_args[@]}"
           LIGHT_OCR_NODE_BINARY="$PWD/dist/webgpu-native/${{ matrix.id }}/native/light_ocr_node.node" \
           LIGHT_OCR_RUNTIME_DESCRIPTOR="$PWD/dist/webgpu-native/${{ matrix.id }}/native/runtime-descriptor.json" \
-          node -e "const x=require('./bindings/node/js/load-native.cjs').loadNative(); console.log(JSON.stringify(x.runtimePolicy))"
+          node -e "const x=require('./packages/runtime/src/load-native.cjs').loadNative(); console.log(JSON.stringify(x.runtimePolicy))"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: native-webgpu-${{ matrix.id }}

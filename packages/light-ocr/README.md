@@ -7,4 +7,4 @@ npm install @arcships/light-ocr
 light-ocr info --version
 ```
 
-This workspace is the N2 migration target. The published `0.3.x` package continues to use the compatibility source until runtime cutover validation is complete.
+`0.4.0` is the N2 topology cutover: the facade contains only Small model configuration and delegates the API, native loading, EXIF handling, and CLI implementation to the shared runtime. Tiny and Medium use separate packages and commands, so installing this package still installs only Small.

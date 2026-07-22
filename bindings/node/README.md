@@ -162,7 +162,7 @@ await engine.close();
 import { createEngine } from '@arcships/light-ocr';
 ```
 
-TypeScript types are included in [`index.d.ts`](js/index.d.ts).
+TypeScript types are included in the shared runtime [`index.d.ts`](../../packages/runtime/src/index.d.ts).
 
 ## Capabilities
 

@@ -2,6 +2,7 @@ export * from '@arcships/light-ocr-runtime';
 
 import type {
   CreateEngineOptions as RuntimeCreateEngineOptions,
+  ModelProfile,
   OcrEngine,
 } from '@arcships/light-ocr-runtime';
 
@@ -13,3 +14,8 @@ export type CreateEngineOptions = Omit<RuntimeCreateEngineOptions, 'bundlePath'>
 };
 
 export function createEngine(options?: CreateEngineOptions): Promise<OcrEngine>;
+export const modelProfile: ModelProfile & {
+  readonly tier: 'small';
+  readonly model: BuiltInModel;
+  readonly maturity: 'stable';
+};
