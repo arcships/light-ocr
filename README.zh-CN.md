@@ -40,6 +40,38 @@ await engine.close();
 
 `createEngine()` 会根据当前平台自动选择合适的执行方式。如果应用已经完成图片解码，[`recognize()`](bindings/node/README.md#使用) 也可以直接接收 `GRAY8`、`RGB8`、`BGR8` 和 `RGBA8` 像素数据。
 
+## CLI
+
+安装后即可使用 `light-ocr` 命令，无需额外配置：
+
+```bash
+# 识别文字 + 坐标
+light-ocr image.png --format json
+
+# 只要文字
+light-ocr image.png --format text
+
+# 只检测文字区域（不识别）
+light-ocr detect image.png
+
+# 区域识别
+light-ocr recognize image.png --region 100,80,640,320 --format json
+
+# 引擎信息
+light-ocr info --version
+```
+
+三个子命令：`recognize`（默认）、`detect`（只检测框）、`info`（诊断）。输出使用 `schemaVersion: 1` 版本化 envelope，带稳定 line/detection ID。EXIF 方向自动修正。完整参考见 [CLI 设计](docs/cli-design.md) 和 [npm README](bindings/node/README.md#cli)。
+
+## Agent Skill
+
+内置 [Agent Skill](.agents/skills/local-ocr/SKILL.md)，供可调用本地命令的 AI Agent 使用。提供场景驱动的工作流、命令选择决策流和退出码参考：
+
+- 何时使用 OCR 而非多模态模型
+- 大图先 detect 再 recognize 的两步模式
+- 票据/表单的 ROI 字段提取
+- 用确定性 OCR 验证多模态模型输出
+
 ## 主要能力
 
 - **本地处理。**图片和 OCR 结果始终留在本机。
@@ -86,13 +118,16 @@ C++ 项目从源码构建静态库，并链接 `light_ocr::core` CMake target。
 
 ## 文档
 
+- [CLI 参考](docs/cli-design.md)
 - [Node.js API 与示例](bindings/node/README.md)
+- [Agent Skill](.agents/skills/local-ocr/SKILL.md)
 - [C++ API](docs/native-api.md)
 - [Apple Silicon 加速](docs/apple-device-acceleration.md)
 - [Linux WebGPU 加速](docs/linux-device-acceleration.md)
 - [Windows WebGPU 加速](docs/windows-device-acceleration.md)
 - [模型包](docs/model-bundle.md)
 - [构建与发布](docs/build-and-release.md)
+- [路线图](docs/roadmap.md)
 - [更新日志](CHANGELOG.md)
 - [npm 0.3.0 发布报告](docs/releases/npm-0.3.0.md)
 

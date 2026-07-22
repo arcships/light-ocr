@@ -40,7 +40,39 @@ for (const line of result.lines) {
 await engine.close();
 ```
 
-`createEngine()` automatically chooses the right execution mode for the current platform. If your application already decodes images, [`recognize()`](bindings/node/README.md#使用) also accepts `GRAY8`, `RGB8`, `BGR8`, and `RGBA8` pixel data.
+`createEngine()` automatically chooses the right execution mode for the current platform. If your application already decodes images, [`recognize()`](bindings/node/README.md#usage) also accepts `GRAY8`, `RGB8`, `BGR8`, and `RGBA8` pixel data.
+
+## CLI
+
+The `light-ocr` command is available after install — no extra setup:
+
+```bash
+# Recognize text + coordinates
+light-ocr image.png --format json
+
+# Just text
+light-ocr image.png --format text
+
+# Detect text regions only (no recognition)
+light-ocr detect image.png
+
+# Region of interest
+light-ocr recognize image.png --region 100,80,640,320 --format json
+
+# Engine info
+light-ocr info --version
+```
+
+Three subcommands: `recognize` (default), `detect` (boxes only), `info` (diagnostics). Output wraps in a versioned `schemaVersion: 1` envelope with stable line/detection IDs. EXIF orientation is corrected automatically. See the [CLI design](docs/cli-design.md) and [npm README](bindings/node/README.md#cli) for full reference.
+
+## Agent Skill
+
+An [Agent Skill](.agents/skills/local-ocr/SKILL.md) is included for AI agents that can call local commands. It provides scenario-driven workflows, a decision flow for command selection, and exit code reference:
+
+- When to use OCR vs. a multimodal model
+- Detect-then-recognize two-step pattern for large images
+- ROI field extraction for receipts and forms
+- Verifying multimodal output against deterministic OCR
 
 ## What you get
 
@@ -88,13 +120,16 @@ C++ projects build the static library from source and link the `light_ocr::core`
 
 ## Documentation
 
+- [CLI reference](docs/cli-design.md)
 - [Node.js API and examples](bindings/node/README.md)
+- [Agent Skill](.agents/skills/local-ocr/SKILL.md)
 - [C++ API](docs/native-api.md)
 - [Apple Silicon acceleration](docs/apple-device-acceleration.md)
 - [Linux WebGPU acceleration](docs/linux-device-acceleration.md)
 - [Windows WebGPU acceleration](docs/windows-device-acceleration.md)
 - [Model bundle](docs/model-bundle.md)
 - [Build and release](docs/build-and-release.md)
+- [Roadmap](docs/roadmap.md)
 - [Changelog](CHANGELOG.md)
 - [npm 0.3.0 release report](docs/releases/npm-0.3.0.md)
 
