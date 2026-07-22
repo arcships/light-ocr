@@ -388,7 +388,8 @@ if(LIGHT_OCR_BUILD_TESTS)
     set_tests_properties(light_ocr_oracle_golden_lock_verify
       light_ocr_oracle_bounded_golden_lock_verify light_ocr_ground_truth_verify
       light_ocr_tiled_ground_truth_verify light_ocr_tiled_golden_lock_verify
-      light_ocr_contract_manifest_verify light_ocr_parity_corpus
+      light_ocr_contract_manifest_verify light_ocr_parity_smoke
+      light_ocr_parity_bounded_smoke light_ocr_parity_corpus
       light_ocr_parity_bounded_corpus
       light_ocr_quality_baseline light_ocr_tiled_parity_corpus
       light_ocr_tiled_quality

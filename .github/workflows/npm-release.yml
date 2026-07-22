@@ -164,7 +164,7 @@ jobs:
           -DLIGHT_OCR_BUILD_NODE=ON
           -DLIGHT_OCR_BUILD_TESTS=ON
           -DLIGHT_OCR_BUILD_TOOLS=ON
-          "-DLIGHT_OCR_ORACLE_PYTHON=${{ matrix.id == 'windows-arm64' && '' || '$((Get-Command python).Source)' }}"
+          "-DLIGHT_OCR_ORACLE_PYTHON=$((Get-Command python).Source)"
           -DLIGHT_OCR_PARITY_LIVE_ORACLE=${{ matrix.id == 'windows-arm64' && 'OFF' || 'ON' }}
           "-DLIGHT_OCR_NODE_INCLUDE_DIR=$env:NODE_INCLUDE_DIR"
           "-DLIGHT_OCR_NODE_LIBRARY=$env:NODE_LIBRARY"
