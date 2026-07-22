@@ -42,6 +42,17 @@ async function main() {
         engine.info.execution.selectionTrace.selectedProvider,
         'cpu',
       );
+    } else if (process.arch === 'arm64') {
+      // Linux arm64 and Windows arm64 packages are CPU-only: the WebGPU
+      // plugin has no arm64 binary and Windows arm64 is not yet qualified.
+      assert.deepEqual(
+        engine.info.execution.selectionTrace.orderedCandidates,
+        ['cpu'],
+      );
+      assert.equal(
+        engine.info.execution.selectionTrace.selectedProvider,
+        'cpu',
+      );
     } else {
       assert.deepEqual(
         engine.info.execution.selectionTrace.orderedCandidates,
