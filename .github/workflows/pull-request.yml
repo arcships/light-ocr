@@ -62,6 +62,7 @@ jobs:
       - name: Install verified Node development files
         shell: bash
         run: |
+          npm ci --ignore-scripts --no-audit --no-fund
           node_version="$(node -p process.versions.node)"
           node_dev="$PWD/.cache/node-gyp/$node_version"
           npx --yes node-gyp@11.4.2 install "$node_version" --devdir "$PWD/.cache/node-gyp"
