@@ -212,7 +212,7 @@ CMD ["node", "packages/light-ocr-server/src/server.js"]
 - **本地开发**：根目录执行 `npm install`，workspace 自动链接三个包；使用 `npm start --workspace @arcships/light-ocr-server`。
 - **Preview Docker 构建**：使用根 `package-lock.json`，把 runtime、Small facade 和 server 源码装入同一镜像；Linux x64/arm64 都使用对应的已发布 native package，不钉死平台。
 - **正式生产构建**：runtime、Small facade 与 server 发布后，可切为 registry-only image，不再复制 workspace 源码。
-- **CI**：前段只跑无 native 的 HTTP contract；代表性原生构建完成后只补一条真实 OCR 请求，不增加第二套原生矩阵。
+- **CI**：workspace 路径使用已发布的 native/model 精确依赖跑类型、HTTP contract 和一条真实 OCR；只有 C++、CMake、native bindings、模型或发布工具变更才进入完整 Core job。
 
 ### 6.3 与 docker-compose 的关系
 

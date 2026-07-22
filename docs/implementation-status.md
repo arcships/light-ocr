@@ -27,7 +27,7 @@
 - private `0.1.0` 精确依赖 workspace `@arcships/light-ocr@0.3.4`；当前不发布，也不要求新的 `light-ocr` patch 版本。
 - `/api/v1` 提供 health、info 与 multipart OCR；20 MiB 输入上限、HTTP 层并发拒绝和 `OcrError` HTTP 映射已有 contract tests。
 - Docker preview 复用根 workspace lock，支持 Linux x64/arm64，不再保留历史 `linux/amd64` 强制平台。
-- PR 只新增纯 HTTP contract 和代表性构建后的单次真实 OCR，不复制 Core/native 验证矩阵。
+- Workspace PR 使用已发布的 native/model 依赖完成全部包测试和真实 OCR；只有 native/Core 相关路径才进入完整构建，server 不复制原生验证矩阵。
 
 ## 需求验收矩阵
 

@@ -1,0 +1,35 @@
+name: workspace
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - "docker-compose.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "packages/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workspace-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - name: Install the exact workspace
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check types and package contracts
+        run: |
+          npm run typecheck
+          npm test
+      - name: Parse the server Compose definition
+        run: docker compose config --quiet
