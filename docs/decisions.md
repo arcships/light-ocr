@@ -251,6 +251,21 @@ Reason: Roadmap §5.2 requires a small, stable command surface, but the draft ha
 
 Consequence: This decision fixes the stable CLI surface for N1. Adding flags requires a new decision; exit codes are additive-only. The `info` subcommand departure from roadmap §5.2's top-level flag wording is recorded here. Core `Engine::detect()` signature and `DetectionResult` structure are implementation details resolved during implementation per [cli-design.md §8](cli-design.md), not a separate product decision.
 
+### D107 — Split model-free runtime from exact model facades
+
+Status: Accepted for N2 stage 1
+Authority: N2 package topology and monorepo migration ([roadmap §3.1, §3.4 and §6](roadmap.md)); directory and migration details in [monorepo-design.md](monorepo-design.md)
+
+Decision: `@arcships/light-ocr-runtime` owns the Node adapter, scheduler, encoded-image/native loading and public OCR types without carrying a default model. Direct runtime callers must pass an explicit local `bundlePath`; the runtime never accepts a model alias and never downloads a bundle. `@arcships/light-ocr`, `@arcships/light-ocr-tiny` and `@arcships/light-ocr-medium` are thin model facades that exact-pin one compatible runtime and one model package, reuse the runtime's `OcrError` identity and public engine/result types, and differ only in their built-in model resolution and package/CLI names. The default `@arcships/light-ocr` facade remains PP-OCRv6 Small and remains the only owner of the `light-ocr` bin.
+
+Packages use independent versions. A facade release exact-pins its tested runtime, native and model combination; no caret, tilde, tag or workspace range enters a published manifest. The new runtime starts private in the workspace and may publish as a preview only after its standalone tarball, platform optional dependencies and model-free API pass install tests. Starting N2 does not itself authorize a `0.4.0` facade release; the minor version is cut only after the runtime topology is publishable and the default Small experience remains compatible.
+
+Migration uses npm workspaces under `packages/*`. The non-package `native/` CMake tree stays outside npm workspaces. `bindings/node/` remains the `0.3.x` compatibility/release source until the new runtime and Small facade pass one focused semantic-equivalence check; CI does not run duplicate full native matrices during this overlap. Tiny is added only after this cutover. Medium remains prerelease until its own product-quality evidence justifies GA.
+
+Reason: Three model cups need one adapter, error model and result schema, while users must install only the model they selected. Separating model selection from runtime mechanics prevents three copies of the Node implementation and lets unchanged native/model packages be reused without rebuilding them for a facade-only change.
+
+Consequence: Runtime/model/native packages can evolve independently, while each user-facing facade records an exact compatible composition. Model aliases are facade concerns; explicit `bundlePath` is the runtime escape hatch. N2 stage 1 is an internal migration and adds no new public cup until package cutover evidence exists.
+
 ## 3. Deferred decisions
 
 ### D102 — Public native SDK and ABI policy

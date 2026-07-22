@@ -1,0 +1,17 @@
+{
+  "name": "light-ocr-workspace",
+  "private": true,
+  "packageManager": "npm@11.0.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "npm test --workspaces --if-present",
+    "test:workspace": "npm test --workspace @arcships/light-ocr-runtime && npm test --workspace @arcships/light-ocr",
+    "typecheck": "tsc --strict --noEmit --skipLibCheck false --target ES2022 --module NodeNext --moduleResolution NodeNext --types node tools/npm/smoke.ts packages/runtime/test/types.ts"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "typescript": "5.9.3"
+  }
+}

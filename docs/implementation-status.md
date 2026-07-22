@@ -1,13 +1,23 @@
 # C++ Core 与 Node-API 实施状态
 
-更新时间：2026-07-19<br>
-结论：`@arcships/light-ocr@0.3.0` 与五个依赖包已发布，npm `next`/`latest` 均指向 `0.3.0`。该版本交付 Direct Core ML Apple provider、Linux x64 glibc/Windows x64 official Native WebGPU Plugin EP、D112 Auto 与自包含 npm payload；Apple M4、Linux/NVIDIA 与 Windows/AMD 的审阅证据及产物哈希均已进入 production lock。
+更新时间：2026-07-22<br>
+结论：`@arcships/light-ocr@0.3.4` 与七个依赖包已发布，npm `next`/`latest` 均指向 `0.3.4`。`0.3.0` 交付的 Direct Core ML、Native WebGPU、D112 Auto 与自包含 payload 保持有效；`0.3.4` 修复 N1 CLI ROI 的 native option contract。N2 阶段 1 已按 D107 启动内部 workspace 迁移，但尚未发布 runtime、tiny 或 medium。
 
 状态含义：
 
 - **Done**：代码存在，并有本地实际运行证据。
 - **Configured**：自动化已写好，但当前工作区未产生真实远端 run 证据。
 - **Pending**：需要外部平台或制品仓动作。
+
+## N2 阶段 1：runtime / Small facade 拆分
+
+状态：In progress
+
+- 根目录已采用仅覆盖 `packages/*` 的 npm workspaces；CMake `native/` 源码不伪装为 npm package。
+- `packages/runtime/` 建立 model-free `@arcships/light-ocr-runtime`：直接调用必须显式提供本地 `bundlePath`，不接受 model alias，不下载模型。
+- `packages/light-ocr/` 建立默认 Small facade：复用 runtime 的 engine/types/`OcrError`，精确依赖 runtime 与 Small model，并独占 `light-ocr` bin。
+- `bindings/node/` 暂时保留为 `0.3.x` 兼容发布源。切换前只运行一条 workspace 语义检查，不复制整套原生矩阵。
+- tiny 尚未接入；下一步是消除旧 facade 与 workspace facade 的源码重复，并让 release assembler 能独立产出 runtime + Small meta tarball。
 
 ## 需求验收矩阵
 
