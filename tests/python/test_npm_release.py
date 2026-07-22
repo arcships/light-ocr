@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -78,6 +79,41 @@ class NpmReleaseTests(unittest.TestCase):
         self.assertIn("--prefer-online", command)
         self.assertIn(f"--registry={npm_release.NPM_REGISTRY}", command)
 
+    @mock.patch("tools.npm_release.npm_integrity", return_value=None)
+    def test_unpublished_release_can_enter_the_expensive_pipeline(
+        self, integrity: mock.Mock
+    ) -> None:
+        npm_release.ensure_unpublished(
+            argparse.Namespace(version=npm_release.SOURCE_VERSION, npm="npm")
+        )
+
+        integrity.assert_called_once_with(
+            "npm", f"{npm_release.FACADE_PACKAGE}@{npm_release.SOURCE_VERSION}"
+        )
+
+    @mock.patch(
+        "tools.npm_release.npm_integrity", return_value="sha512-published-integrity"
+    )
+    def test_published_release_must_use_the_promotion_workflow(
+        self, integrity: mock.Mock
+    ) -> None:
+        with self.assertRaisesRegex(
+            RuntimeError, "already published.*npm promote workflow"
+        ):
+            npm_release.ensure_unpublished(
+                argparse.Namespace(version=npm_release.SOURCE_VERSION, npm="npm")
+            )
+
+        integrity.assert_called_once()
+
+    def test_unpublished_guard_rejects_a_version_that_does_not_match_source(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(RuntimeError, "does not match source version"):
+            npm_release.ensure_unpublished(
+                argparse.Namespace(version="999.0.0", npm="npm")
+            )
+
     @mock.patch("tools.npm_release.time.sleep")
     @mock.patch("tools.npm_release.npm_dist_tag")
     def test_dist_tag_verification_waits_for_registry_convergence(
@@ -129,7 +165,14 @@ class NpmReleaseTests(unittest.TestCase):
             facade = json.loads(
                 (staging / "facade" / "package.json").read_text("utf-8")
             )
-            self.assertEqual(facade["dependencies"][npm_release.MODEL_PACKAGE], source_version)
+            self.assertEqual(facade["bin"], {"light-ocr": "./bin/light-ocr.cjs"})
+            self.assertIn("bin/", facade["files"])
+            self.assertTrue(
+                (staging / "facade" / "bin" / "light-ocr.cjs").is_file()
+            )
+            self.assertEqual(
+                facade["dependencies"][npm_release.MODEL_PACKAGE], source_version
+            )
             self.assertEqual(
                 len(facade["optionalDependencies"]), len(npm_release.PLATFORMS)
             )
@@ -187,6 +230,18 @@ class NpmReleaseTests(unittest.TestCase):
             self.assertTrue(
                 (consumer / "node_modules/@arcships/light-ocr/package.json").is_file()
             )
+            cli = consumer / "node_modules" / ".bin" / (
+                "light-ocr.cmd" if os.name == "nt" else "light-ocr"
+            )
+            completed = subprocess.run(
+                [str(cli), "info", "--version"],
+                cwd=consumer,
+                check=True,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+            )
+            self.assertEqual(json.loads(completed.stdout)["npm"], source_version)
 
     def test_runtime_descriptor_rejects_mutated_payload_and_qualification_release(
         self,
