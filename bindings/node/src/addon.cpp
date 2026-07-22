@@ -1008,6 +1008,7 @@ struct Request {
   bool discard_result = false;
   bool operation_live = false;
   std::uint64_t decode_us = 0;
+  bool detect_mode = false;
 };
 
 enum class CompletionKind { create, recognize, maintenance, close, reap };
@@ -1265,7 +1266,7 @@ void EngineState::run() {
 
         const ImageView view{decoded.bytes.data(), decoded.bytes.size(), decoded.width,
                              decoded.height, decoded.stride, decoded.pixel_format};
-        if (detect_mode) {
+        if (request->detect_mode) {
           auto detect_result = core->detect(view, request->options);
           if (detect_result && (roi_offset.width > 0 || roi_offset.height > 0)) {
             for (auto& box : detect_result.value().boxes) {
@@ -1279,24 +1280,19 @@ void EngineState::run() {
         }
         auto recognize_result = core->recognize(view, request->options);
         if (recognize_result && (roi_offset.width > 0 || roi_offset.height > 0)) {
-          // Offset box coordinates back to full pageSpace
           for (auto& line : recognize_result.value().lines) {
-            for (auto& point : line.box) {
+            for (auto& point : line.box.points) {
               point.x += static_cast<float>(roi_offset.x);
               point.y += static_cast<float>(roi_offset.y);
             }
           }
-          // Restore full page dimensions in the result
-          // (the actual full-page dimensions need the pre-crop values;
-          // since we moved `decoded`, use the fact that result dimensions
-          // reflect the cropped image)
         }
         return recognize_result;
       }
       const ImageView view{request->image.bytes.data(), request->image.bytes.size(),
                            request->image.width, request->image.height,
                            request->image.stride, request->image.pixel_format};
-      if (detect_mode) {
+      if (request->detect_mode) {
         return detect_result_to_ocr_result(core->detect(view, request->options));
       }
       return core->recognize(view, request->options);
@@ -1904,6 +1900,7 @@ napi_value native_recognize_impl(napi_env env, napi_callback_info callback_info,
     }
     request->image = std::move(snapshot);
     request->options = options;
+    request->detect_mode = detect_mode;
 
     std::int64_t adjusted = 0;
     check(env, napi_adjust_external_memory(env, static_cast<std::int64_t>(snapshot_size), &adjusted),

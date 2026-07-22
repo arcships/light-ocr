@@ -79,7 +79,7 @@ std::uint16_t parse_orientation(const std::vector<std::uint8_t>& encoded) noexce
       if (magic != 0x002a) return 1;
 
       // IFD0 offset from TIFF start
-      std::uint32_t ifd_offset = tiff_start + read_u32(&encoded[tiff_start + 4], le);
+      std::uint32_t ifd_offset = static_cast<std::uint32_t>(tiff_start + read_u32(&encoded[tiff_start + 4], le));
       if (ifd_offset + 2 > offset + length) return 1;
 
       std::uint16_t entry_count = read_u16(&encoded[ifd_offset], le);
