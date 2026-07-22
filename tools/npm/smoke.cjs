@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -14,6 +15,26 @@ async function main() {
 
   const cjs = require('@arcships/light-ocr');
   const esm = await import('@arcships/light-ocr');
+  const packageRoot = path.dirname(path.dirname(require.resolve('@arcships/light-ocr')));
+  const packageMetadata = JSON.parse(
+    fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8'),
+  );
+  const cli = path.resolve(
+    packageRoot,
+    '..',
+    '..',
+    '.bin',
+    process.platform === 'win32' ? 'light-ocr.cmd' : 'light-ocr',
+  );
+  const cliVersion = spawnSync(cli, ['info', '--version'], {
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+  });
+  assert.equal(cliVersion.status, 0, cliVersion.stderr || cliVersion.error?.message);
+  const versionTriple = JSON.parse(cliVersion.stdout);
+  assert.equal(versionTriple.npm, packageMetadata.version);
+  assert.equal(versionTriple.core, packageMetadata.version);
+  assert.equal(versionTriple.model, 'ppocrv6-small-native-20260719.1');
   const appleSupported = process.platform === 'darwin' && process.arch === 'arm64';
   assert.strictEqual(esm.createEngine, cjs.createEngine);
   assert.strictEqual(esm.OcrError, cjs.OcrError);

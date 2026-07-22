@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 'use strict';
 
 // light-ocr CLI — N1 entry point (cli-design.md §3, D106)
@@ -18,7 +19,7 @@ const { createEngine, OcrError } = require('../js/index.cjs');
 const { parseExifOrientation } = require('../js/exif.cjs');
 
 const PKG_VERSION = require('../package.json').version;
-const CORE_VERSION = '0.3.2';
+const CORE_VERSION = '0.3.3';
 
 const SUBCOMMANDS = new Set(['recognize', 'detect', 'info']);
 const EXIT = {
@@ -449,16 +450,6 @@ async function runDetect(rest, flags, stdout, stderr) {
       },
     });
 
-    // --crop: each detection gets a PNG crop (base64-encoded)
-    // Crop is done in CLI JS layer from the decoded image. Since CLI doesn't
-    // decode (C++ decode is inside recognizeEncoded/detect), crop requires
-    // either a separate decode or Core returning crop bytes. For now, crop
-    // is not available (D-N1-3 pending); --crop returns info in appliedTransforms.
-    if (flags.crop === true) {
-      // TODO: implement crop when Core detect supports returning crop bytes
-      // or when CLI can decode independently. For now, note in source.
-    }
-
     // detect output is always JSON (no --format flag)
     stdout.write(JSON.stringify(envelope, null, 2) + '\n');
   } finally {
@@ -514,7 +505,7 @@ function printSubcommandHelp(stdout, subcommand) {
     stdout.write('Usage:\n  light-ocr detect <path> [flags]\n  light-ocr detect --stdin --type <mime> [flags]\n\n');
     stdout.write('Flags:\n');
     stdout.write('  --region x,y,w,h           Restrict detection to a pageSpace rectangle\n');
-    stdout.write('  --crop                      Attach a PNG crop per detection\n');
+    stdout.write('  --crop                      Reserved; currently fails as unsupported\n');
     stdout.write('  --provider auto|cpu|apple|webgpu  Execution provider (default: auto)\n');
     stdout.write('  --no-exif                   Disable EXIF orientation correction\n');
     stdout.write('  --schema-version 1          Request exact output schema\n');
@@ -566,6 +557,12 @@ async function main(argv) {
       resolveFormat(parsed.flags, 'detect');
       if (parsed.flags.crop !== undefined && parsed.flags.crop !== true) {
         throw { code: EXIT.invalid_argument, message: '--crop is a boolean flag' };
+      }
+      if (parsed.flags.crop === true) {
+        throw {
+          code: EXIT.unsupported_capability,
+          message: '--crop is not available in this release; use detection boxes with --region',
+        };
       }
       await runDetect(rest, parsed.flags, stdout, stderr);
     } else {

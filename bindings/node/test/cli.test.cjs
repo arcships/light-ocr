@@ -64,10 +64,11 @@ test('help: subcommand help prints that subcommand flags', async () => {
   assert.match(stdout, /--region/);
 });
 
-test('help: detect help prints --crop and omits --format', async () => {
+test('help: detect marks reserved --crop unsupported and omits --format', async () => {
   const { code, stdout } = await runCli(['detect', '--help']);
   assert.equal(code, EXIT.success);
   assert.match(stdout, /--crop/);
+  assert.match(stdout, /currently fails as unsupported/);
   // detect does not expose --format
   assert.doesNotMatch(stdout, /--format/);
 });
@@ -106,6 +107,12 @@ test('detect: --format rejected with exit 65 before not-implemented', async () =
   const { code, stderr } = await runCli(['detect', 'image.png', '--format', 'json']);
   assert.equal(code, EXIT.invalid_argument);
   assert.match(stderr, /does not accept --format/);
+});
+
+test('detect: reserved --crop fails closed before reading input', async () => {
+  const { code, stderr } = await runCli(['detect', 'missing.png', '--crop']);
+  assert.equal(code, EXIT.unsupported_capability);
+  assert.match(stderr, /--crop is not available/);
 });
 
 test('detect: not-implemented returns exit 67', async () => {

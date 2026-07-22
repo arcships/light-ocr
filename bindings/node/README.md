@@ -49,7 +49,7 @@ light-ocr info --model-info
 | `--schema-version` | `1` | Request exact output schema |
 | `--quiet` | — | Suppress non-error stderr |
 
-`detect` does not accept `--format` (output is always JSON with `detections[]`). `detect --crop` attaches a PNG crop per detection.
+`detect` does not accept `--format` (output is always JSON with `detections[]`). The reserved `detect --crop` flag currently fails with `unsupported_capability`; use returned boxes with `recognize --region` until crop bytes are implemented.
 
 ### Scenarios
 

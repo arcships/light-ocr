@@ -2,6 +2,22 @@
 
 This file records user-visible changes to `light-ocr`. Published artifact details and immutable hashes remain in [`docs/releases/`](docs/releases/).
 
+## [0.3.3] - 2026-07-22
+
+### Fixed
+
+- Fixed npm facade assembly to include the declared `light-ocr` bin, its executable script, and the required Node shebang. The package smoke now installs and executes `node_modules/.bin/light-ocr info --version`, preventing a source-only CLI from passing release validation again.
+- Changed the reserved `detect --crop` flag from a silent no-op to a fail-closed `unsupported_capability` response until crop bytes are implemented.
+
+### Changed
+
+- Split publication and promotion into single-purpose workflows. `npm release` now rejects an already-published facade version before starting the six-platform build; `npm promote` alone may update `latest` from the original immutable release artifact.
+- Removed release work that produced no additional evidence: live oracle setup now runs only on Linux x64 where its acceptance tests execute, TypeScript declarations compile once instead of in all 12 runtime jobs, and the pre-facade registry check validates dependency resolution without repeating the post-publication OCR smoke.
+
+### Notes
+
+- npm `0.3.2` is immutable and its facade tarball omitted the CLI bin even though the source and changelog contained it. `0.3.3` is the corrective patch release; the `0.3.2` artifact remains recorded for provenance.
+
 ## [0.3.2] - 2026-07-22
 
 ### Added

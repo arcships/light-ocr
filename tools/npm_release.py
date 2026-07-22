@@ -819,6 +819,7 @@ def assemble(arguments: argparse.Namespace) -> None:
     facade = output / "facade"
     facade.mkdir()
     copy_tree(ROOT / "bindings" / "node" / "js", facade / "js")
+    copy_tree(ROOT / "bindings" / "node" / "bin", facade / "bin")
     facade_json = common_package(
         FACADE_PACKAGE,
         version,
@@ -838,6 +839,7 @@ def assemble(arguments: argparse.Namespace) -> None:
             "main": "./js/index.cjs",
             "module": "./js/index.mjs",
             "types": "./js/index.d.ts",
+            "bin": {"light-ocr": "./bin/light-ocr.cjs"},
             "exports": {
                 ".": {
                     "types": "./js/index.d.ts",
@@ -845,7 +847,7 @@ def assemble(arguments: argparse.Namespace) -> None:
                     "require": "./js/index.cjs",
                 }
             },
-            "files": ["js/", "README.md", "LICENSE", "NOTICE"],
+            "files": ["js/", "bin/", "README.md", "LICENSE", "NOTICE"],
             "engines": {"node": "^22.0.0 || ^24.0.0"},
             "dependencies": {MODEL_PACKAGE: version},
             "optionalDependencies": {
@@ -1143,6 +1145,21 @@ def wait_for_integrity(npm: str, specification: str, expected: str) -> None:
     )
 
 
+def ensure_unpublished(arguments: argparse.Namespace) -> None:
+    if arguments.version != SOURCE_VERSION:
+        raise RuntimeError(
+            f"release version {arguments.version} does not match source version "
+            f"{SOURCE_VERSION}"
+        )
+    specification = f"{FACADE_PACKAGE}@{arguments.version}"
+    if npm_integrity(arguments.npm, specification) is not None:
+        raise RuntimeError(
+            f"{specification} is already published; promote the original release "
+            "artifact with the npm promote workflow instead of rebuilding it"
+        )
+    print(json.dumps({"package": specification, "status": "unpublished"}))
+
+
 def npm_dist_tag(npm: str, package: str, tag: str) -> str | None:
     completed = subprocess.run(
         [
@@ -1279,6 +1296,11 @@ def main() -> int:
     packing.add_argument("--output-dir", type=Path, required=True)
     packing.add_argument("--npm", default="npm")
     packing.set_defaults(handler=pack)
+
+    unpublished = subparsers.add_parser("ensure-unpublished")
+    unpublished.add_argument("--version", required=True)
+    unpublished.add_argument("--npm", default="npm")
+    unpublished.set_defaults(handler=ensure_unpublished)
 
     publishing = subparsers.add_parser("publish")
     publishing.add_argument("--tarball-dir", type=Path, required=True)
