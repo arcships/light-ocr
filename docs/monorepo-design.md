@@ -1,6 +1,6 @@
 # light-ocr Monorepo 设计
 
-状态：已接受用于 N2 阶段 1（2026-07-22）。
+状态：阶段 1 已落地，server preview 已提前进入阶段 2（2026-07-22）。
 受众：维护者、贡献者。本文定义 monorepo 的目录结构、包依赖关系、迁移路径和约束，不替代各包自身的实现设计。
 
 ## 1. 动机
@@ -158,10 +158,11 @@ bindings/node/          # @arcships/light-ocr，JS + native addon 混合
 - `bindings/node/` 标记为 deprecated，保留到确认迁移稳定后删除。
 - 此阶段保留 `bindings/node/` 作为 `0.3.x` 发布兼容入口，但只增加一条 workspace 契约检查，不重复运行两套完整原生矩阵；切换发布源之前必须证明 workspace facade 与旧入口的 API、错误类型和真实 OCR 语义一致。
 
-### 5.3 阶段 2：加入 server（N2 完成或 N3 前后）
+### 5.3 阶段 2：加入 server（N2，已启动）
 
-- `packages/light-ocr-server/` 加入 workspace。
-- Dockerfile 使用两阶段构建或从 npm registry 安装依赖。
+- `packages/light-ocr-server/` 已从历史 PR #24 及其独立仓库迁回 workspace，保留原贡献者归属。
+- Server 先以 private `0.1.0` preview 验证 HTTP 契约，不推动 `light-ocr` 版本，也不进入当前 npm release。
+- Preview Dockerfile 从根 workspace lock 安装精确依赖；server 与 runtime 正式发布后再切换为 registry-only production image。
 - 本地开发时 `npm install` 自动 symlink workspace 内的 `light-ocr`，无需先发布。
 
 ### 5.4 阶段 3：加入 tiny、medium（N2 GA）
@@ -175,7 +176,7 @@ bindings/node/          # @arcships/light-ocr，JS + native addon 混合
 
 ## 6. Server Docker 构建
 
-Server 是特殊的包：它既作为 npm 包发布，也作为 Docker 镜像分发。
+Server 是特殊的包：preview 期作为私有 workspace 和 Docker 镜像验证，契约稳定后再同时发布 npm 包与 Docker 镜像。
 
 ### 6.1 Dockerfile 策略
 
@@ -185,11 +186,16 @@ FROM node:22-trixie-slim
 
 WORKDIR /app
 
-# 从 npm registry 安装（生产模式不需要 workspace）
+# Preview 从根 workspace lock 安装，正式发布后可缩为 registry-only image
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+COPY packages/runtime/package.json ./packages/runtime/package.json
+COPY packages/light-ocr/package.json ./packages/light-ocr/package.json
+COPY packages/light-ocr-server/package.json ./packages/light-ocr-server/package.json
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
-COPY src/ ./src/
+COPY packages/runtime/src ./packages/runtime/src
+COPY packages/light-ocr/src ./packages/light-ocr/src
+COPY packages/light-ocr-server/src ./packages/light-ocr-server/src
 
 RUN groupadd -r ocr && useradd -r -g ocr ocr
 USER ocr
@@ -198,14 +204,15 @@ EXPOSE 3000
 ENV EXECUTION_MODE=cpu
 ENV QUEUE_CAPACITY=4
 
-CMD ["node", "src/server.js"]
+CMD ["node", "packages/light-ocr-server/src/server.js"]
 ```
 
 ### 6.2 本地开发 vs 生产构建
 
-- **本地开发**：`npm install`（workspace 解析为 `packages/light-ocr/` 的 symlink），直接 `node src/server.js`，改动即时生效。
-- **生产 Docker 构建**：`npm install` 走 npm registry，拉取已发布的 `@arcships/light-ocr`。镜像构建独立于 monorepo。
-- **CI 集成测试**：先 `npm install`（workspace），再 `npm test --workspace packages/light-ocr-server`，验证 server + engine 的端到端行为。
+- **本地开发**：根目录执行 `npm install`，workspace 自动链接三个包；使用 `npm start --workspace @arcships/light-ocr-server`。
+- **Preview Docker 构建**：使用根 `package-lock.json`，把 runtime、Small facade 和 server 源码装入同一镜像；Linux x64/arm64 都使用对应的已发布 native package，不钉死平台。
+- **正式生产构建**：runtime、Small facade 与 server 发布后，可切为 registry-only image，不再复制 workspace 源码。
+- **CI**：前段只跑无 native 的 HTTP contract；代表性原生构建完成后只补一条真实 OCR 请求，不增加第二套原生矩阵。
 
 ### 6.3 与 docker-compose 的关系
 
@@ -213,14 +220,14 @@ CMD ["node", "src/server.js"]
 
 ```yaml
 services:
-  light-ocr-api:
+  light-ocr-server:
     build:
       context: .
       dockerfile: packages/light-ocr-server/Dockerfile
     ports:
       - "3000:3000"
     environment:
-      - EXECUTION_MODE=cpu
+      EXECUTION_MODE: cpu
 ```
 
 ## 7. 约束

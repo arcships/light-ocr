@@ -68,6 +68,11 @@ jobs:
           LIGHT_OCR_RUNTIME_DESCRIPTOR: ${{ github.workspace }}/build-pr/node-runtime/native/runtime-descriptor.json
           LIGHT_OCR_MODEL_BUNDLE: ${{ github.workspace }}/models/generated/ppocrv6-small-onnx-20260714.2
         run: npm test
+      - name: Exercise the server through one real OCR request
+        env:
+          LIGHT_OCR_NODE_BINARY: ${{ github.workspace }}/build-pr/node-runtime/native/light_ocr_node.node
+          LIGHT_OCR_RUNTIME_DESCRIPTOR: ${{ github.workspace }}/build-pr/node-runtime/native/runtime-descriptor.json
+        run: npm run test:integration --workspace @arcships/light-ocr-server
       - name: Prove runtime operation without network access
         shell: bash
         run: >-
