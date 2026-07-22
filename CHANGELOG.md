@@ -12,7 +12,8 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 ### Changed
 
 - Split publication and promotion into single-purpose workflows. `npm release` now rejects an already-published facade version before starting the six-platform build; `npm promote` alone may update `latest` from the original immutable release artifact.
-- Removed release work that produced no additional evidence: live oracle setup now runs only on Linux x64 where its acceptance tests execute, TypeScript declarations compile once instead of in all 12 runtime jobs, and the pre-facade registry check validates dependency resolution without repeating the post-publication OCR smoke.
+- Replaced the ten-job pull-request fan-out with one representative Linux Core/Node/offline gate; the full six-platform, sanitizer, oracle, and WebGPU suites now run once after changes reach `main`.
+- Removed release work that produced no additional evidence: live oracle setup now runs only on Linux x64 where its acceptance tests execute, TypeScript declarations compile once, every platform installs on Node 22 while Node 24 compatibility is checked once on Linux x64, tiled OCR runs once, and registry checks no longer repeat the same tiled contract.
 
 ### Notes
 
