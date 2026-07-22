@@ -2,6 +2,13 @@
 
 This file records user-visible changes to `light-ocr`. Published artifact details and immutable hashes remain in [`docs/releases/`](docs/releases/).
 
+## [0.3.4] - 2026-07-22
+
+### Fixed
+
+- Fixed the native Node-API option contract so the documented `region` option reaches the existing ROI implementation for both `recognize` and `detect`, including valid zero-based `x` and `y` coordinates.
+- Extended the existing package smoke to execute a real `light-ocr recognize --region` command, covering CLI argument parsing, encoded-image decoding, native option admission, model inference, and text output in one focused check.
+
 ## [0.3.3] - 2026-07-22
 
 ### Fixed
