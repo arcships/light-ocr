@@ -711,8 +711,6 @@ class EngineImpl final : public Engine {
       }
       // DETECT_PLACEHOLDER
       internal::DetectionBoxes detected;
-      std::uint32_t detection_input_width = 0;
-      std::uint32_t detection_input_height = 0;
       auto run_detection_pass = [&](const cv::Mat& pass_image,
                                     std::uint32_t original_width,
                                     std::uint32_t original_height,
