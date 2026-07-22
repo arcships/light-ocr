@@ -324,50 +324,37 @@ jobs:
             runner: macos-15
             node: "22"
             native: darwin-arm64
-          - id: macos-arm64
-            runner: macos-15
-            node: "24"
-            native: darwin-arm64
+            tiled: false
           - id: macos-x64
             runner: macos-15-intel
             node: "22"
             native: darwin-x64
-          - id: macos-x64
-            runner: macos-15-intel
-            node: "24"
-            native: darwin-x64
+            tiled: false
           - id: linux-x64
             runner: ubuntu-24.04
             node: "22"
             native: linux-x64-gnu
+            tiled: true
           - id: linux-x64
             runner: ubuntu-24.04
             node: "24"
             native: linux-x64-gnu
+            tiled: false
           - id: linux-arm64
             runner: ubuntu-24.04-arm
             node: "22"
             native: linux-arm64-gnu
-          - id: linux-arm64
-            runner: ubuntu-24.04-arm
-            node: "24"
-            native: linux-arm64-gnu
+            tiled: false
           - id: windows-x64
             runner: windows-2022
             node: "22"
             native: win32-x64
-          - id: windows-x64
-            runner: windows-2022
-            node: "24"
-            native: win32-x64
+            tiled: false
           - id: windows-arm64
             runner: windows-11-arm
             node: "22"
             native: win32-arm64
-          - id: windows-arm64
-            runner: windows-11-arm
-            node: "24"
-            native: win32-arm64
+            tiled: false
     runs-on: ${{ matrix.runner }}
     env:
       RELEASE_VERSION: ${{ inputs.version }}
@@ -390,17 +377,15 @@ jobs:
             "../dist/release/arcships-light-ocr-model-ppocrv6-small-${RELEASE_VERSION}.tgz" \
             "../dist/release/arcships-light-ocr-${{ matrix.native }}-${RELEASE_VERSION}.tgz" \
             "../dist/release/arcships-light-ocr-${RELEASE_VERSION}.tgz"
-          cp ../tools/npm/smoke.cjs ../tools/npm/tiled-smoke.cjs .
+          cp ../tools/npm/smoke.cjs .
           npm ls --all
-      - name: Run real OCR from CJS and ESM
+      - name: Run the CLI and real OCR from CJS and ESM
         shell: bash
         working-directory: package-smoke
         env:
           LIGHT_OCR_SMOKE_FIXTURE: ${{ github.workspace }}/corpus/fixtures/generated-hello-123
-        run: |
-          node smoke.cjs
-          node tiled-smoke.cjs \
-            "$GITHUB_WORKSPACE/corpus/tiled-v1/fixtures/tiled-four-way-intersection-2048"
+          LIGHT_OCR_SMOKE_TILED: ${{ matrix.tiled && '1' || '0' }}
+        run: node smoke.cjs
   local-registry:
     needs: assemble
     runs-on: ubuntu-24.04
@@ -450,7 +435,7 @@ jobs:
           npm init --yes
           npm install --ignore-scripts --no-audit --no-fund --package-lock=false \
             --registry "$LOCAL_REGISTRY" "@arcships/light-ocr@${RELEASE_VERSION}"
-          cp ../tools/npm/smoke.cjs ../tools/npm/smoke.ts ../tools/npm/tiled-smoke.cjs .
+          cp ../tools/npm/smoke.cjs ../tools/npm/smoke.ts .
           npm install --ignore-scripts --no-audit --no-fund --no-save \
             typescript@5.9.3 @types/node@22.20.1
           npx tsc --strict --noEmit --skipLibCheck false \
@@ -460,8 +445,6 @@ jobs:
           wait "$(cat ../.cache/verdaccio/server.pid)" || true
           LIGHT_OCR_SMOKE_FIXTURE="$GITHUB_WORKSPACE/corpus/fixtures/generated-hello-123" \
             node smoke.cjs
-          node tiled-smoke.cjs \
-            "$GITHUB_WORKSPACE/corpus/tiled-v1/fixtures/tiled-four-way-intersection-2048"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:

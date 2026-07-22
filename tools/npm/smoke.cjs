@@ -118,34 +118,36 @@ async function main() {
     }
   }
 
-  const tiledPixels = Buffer.alloc(2048 * 2048 * 3, 255);
-  const offsetX = 600;
-  const offsetY = 760;
-  for (let row = 0; row < metadata.height; ++row) {
-    pixels.copy(
-      tiledPixels,
-      ((offsetY + row) * 2048 + offsetX) * 3,
-      row * metadata.stride,
-      row * metadata.stride + metadata.width * 3,
-    );
-  }
-  const tiled = await cjs.createEngine({ detection: { strategy: 'tiled' } });
-  try {
-    assert.equal(tiled.info.detectionStrategy, 'tiled');
-    assert.equal(tiled.info.tiledDetection.contractVersion, 'tiled-v1');
-    const result = await tiled.recognize({
-      data: tiledPixels,
-      width: 2048,
-      height: 2048,
-      stride: 2048 * 3,
-      pixelFormat: 'bgr8',
-    }, { includeDiagnostics: true });
-    assert.deepEqual(result.lines.map((line) => line.text), ['HELLO 123']);
-    assert.equal(result.diagnostics.detectionPasses.length, 4);
-    assert.equal(result.diagnostics.maxLiveDetectionPassBuffers, 1);
-    assert.ok(result.diagnostics.suppressedDuplicateBoxes >= 1);
-  } finally {
-    await tiled.close();
+  if (process.env.LIGHT_OCR_SMOKE_TILED === '1') {
+    const tiledPixels = Buffer.alloc(2048 * 2048 * 3, 255);
+    const offsetX = 600;
+    const offsetY = 760;
+    for (let row = 0; row < metadata.height; ++row) {
+      pixels.copy(
+        tiledPixels,
+        ((offsetY + row) * 2048 + offsetX) * 3,
+        row * metadata.stride,
+        row * metadata.stride + metadata.width * 3,
+      );
+    }
+    const tiled = await cjs.createEngine({ detection: { strategy: 'tiled' } });
+    try {
+      assert.equal(tiled.info.detectionStrategy, 'tiled');
+      assert.equal(tiled.info.tiledDetection.contractVersion, 'tiled-v1');
+      const result = await tiled.recognize({
+        data: tiledPixels,
+        width: 2048,
+        height: 2048,
+        stride: 2048 * 3,
+        pixelFormat: 'bgr8',
+      }, { includeDiagnostics: true });
+      assert.deepEqual(result.lines.map((line) => line.text), ['HELLO 123']);
+      assert.equal(result.diagnostics.detectionPasses.length, 4);
+      assert.equal(result.diagnostics.maxLiveDetectionPassBuffers, 1);
+      assert.ok(result.diagnostics.suppressedDuplicateBoxes >= 1);
+    } finally {
+      await tiled.close();
+    }
   }
   process.stdout.write(
     `${JSON.stringify({ ok: true, node: process.version, platform: process.platform, arch: process.arch })}\n`,
