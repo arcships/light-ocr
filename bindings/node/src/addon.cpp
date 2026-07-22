@@ -760,7 +760,7 @@ RecognizeOptions parse_recognize_options(napi_env env, napi_value value,
   require_object(env, value, "recognize options");
   const std::unordered_set<std::string> allowed{
       "recognitionScoreThreshold", "recognitionBatchSize", "includeDiagnostics",
-      "useTextlineOrientation", "detectionMaxSide", "applyExif"};
+      "useTextlineOrientation", "detectionMaxSide", "applyExif", "region"};
   reject_unknown_properties(env, value, allowed, "recognize options");
   if (const auto option = optional_named(env, value, "recognitionScoreThreshold")) {
     const double score = get_number(env, *option, "recognitionScoreThreshold");
@@ -804,8 +804,8 @@ RecognizeOptions parse_recognize_options(napi_env env, napi_value value,
     const std::unordered_set<std::string> region_allowed{"x", "y", "width", "height"};
     reject_unknown_properties(env, *option, region_allowed, "region");
     Rect rect;
-    rect.x = get_u32(env, *optional_named(env, *option, "x"), "region.x", 1);
-    rect.y = get_u32(env, *optional_named(env, *option, "y"), "region.y", 1);
+    rect.x = get_u32(env, *optional_named(env, *option, "x"), "region.x", 0);
+    rect.y = get_u32(env, *optional_named(env, *option, "y"), "region.y", 0);
     rect.width = get_u32(env, *optional_named(env, *option, "width"), "region.width", 1);
     rect.height = get_u32(env, *optional_named(env, *option, "height"), "region.height", 1);
     if (rect.width == 0 || rect.height == 0) {

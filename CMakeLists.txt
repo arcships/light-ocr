@@ -7,7 +7,7 @@ if(APPLE AND (NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET OR
     "Minimum macOS deployment target" FORCE)
 endif()
 
-project(light_ocr VERSION 0.3.3 LANGUAGES CXX)
+project(light_ocr VERSION 0.3.4 LANGUAGES CXX)
 
 if(APPLE)
   enable_language(OBJCXX)

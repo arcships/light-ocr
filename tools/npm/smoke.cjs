@@ -5,6 +5,11 @@ const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const encodedBlankPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAIAAAA2iEnWAAAAFUlEQVR4nGP8//8/AwMDEwMDA4ICADkbAwP+wj6MAAAAAElFTkSuQmCC',
+  'base64',
+);
+
 async function main() {
   const fixtureDirectory = process.env.LIGHT_OCR_SMOKE_FIXTURE;
   assert.ok(fixtureDirectory, 'LIGHT_OCR_SMOKE_FIXTURE is required');
@@ -35,6 +40,24 @@ async function main() {
   assert.equal(versionTriple.npm, packageMetadata.version);
   assert.equal(versionTriple.core, packageMetadata.version);
   assert.equal(versionTriple.model, 'ppocrv6-small-native-20260719.1');
+  const cliRecognition = spawnSync(
+    cli,
+    [
+      'recognize', '--stdin', '--type', 'image/png', '--format', 'text',
+      '--region', '0,0,2,3',
+    ],
+    {
+      input: encodedBlankPng,
+      encoding: 'utf8',
+      shell: process.platform === 'win32',
+    },
+  );
+  assert.equal(
+    cliRecognition.status,
+    0,
+    cliRecognition.stderr || cliRecognition.error?.message,
+  );
+  assert.equal(cliRecognition.stdout, '');
   const appleSupported = process.platform === 'darwin' && process.arch === 'arm64';
   assert.strictEqual(esm.createEngine, cjs.createEngine);
   assert.strictEqual(esm.OcrError, cjs.OcrError);

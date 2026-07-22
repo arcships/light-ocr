@@ -19,7 +19,7 @@ const { createEngine, OcrError } = require('../js/index.cjs');
 const { parseExifOrientation } = require('../js/exif.cjs');
 
 const PKG_VERSION = require('../package.json').version;
-const CORE_VERSION = '0.3.3';
+const CORE_VERSION = '0.3.4';
 
 const SUBCOMMANDS = new Set(['recognize', 'detect', 'info']);
 const EXIT = {
