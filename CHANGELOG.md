@@ -2,6 +2,31 @@
 
 This file records user-visible changes to `light-ocr`. Published artifact details and immutable hashes remain in [`docs/releases/`](docs/releases/).
 
+## [0.3.2] - 2026-07-22
+
+### Added
+
+- Added the `light-ocr` CLI bin with three subcommands: `recognize` (default OCR), `detect` (detection-only, no recognition), and `info` (engine/version diagnostics). The CLI is pure JavaScript (CJS, zero-dependency) and ships as a `bin` entry in the facade package.
+- Added a versioned `DocumentResult` envelope (`schemaVersion: 1`) wrapping `OcrResult` with stable line IDs (`L0`, `L1`, …) and detection IDs (`D0`, `D1`, …) for future Layout region association.
+- Added `--schema-version 1` to request an exact output schema; unsupported versions return `invalid_argument`.
+- Added `--region x,y,w,h` ROI support: pageSpace axis-aligned rectangle, adapter-layer pixel crop after EXIF correction, box coordinates offset back to full pageSpace. Out-of-bounds or partially-intersecting regions return `invalid_argument` without clamping.
+- Added EXIF orientation correction for JPEG images: a self-contained C++ EXIF parser reads the orientation tag and applies the pixel transform before recognition. `--no-exif` disables correction; `appliedTransforms` records the applied state.
+- Added `detect` subcommand support in Core: `Engine::detect()` reuses the detection stage and skips recognition. `DetectionResult` carries boxes (Quad + score), image dimensions, model bundle ID, and timing.
+- Added `applyExif` and `region` options to `RecognizeOptions` (Node API + TypeScript types).
+- Added an Agent Skill at `.agents/skills/local-ocr/SKILL.md` with scenario-driven workflows, decision flow, and exit code reference.
+- Added stable exit codes (64–72) mapped to `OcrErrorCode`, with flag validation ordered before input reading so parameter errors surface first.
+- Added a Windows delay-load hook (`win_delay_load_hook.cpp`) so the native addon loads under Electron and other renamed Node-API hosts, not just `node.exe`.
+
+### Changed
+
+- The `detect` subcommand does not expose `--format`; its output is always structured JSON with `structure: "detect"` and `detections[]` instead of `lines[]`.
+- `info --model-info` and `info --version` are mutually exclusive (version triple is a subset of EngineInfo).
+- CLI flag surface restricted to Agent/user-facing options; provider-internal fields (`sessionFallback`, `cpuPartition`, `precision`, `detectionStrategy`, `maxSide`, `includeDiagnostics`) are not exposed as CLI flags.
+
+### Notes
+
+- This is the first release with the N1 CLI entry point (roadmap §5). The CLI, EXIF, ROI, and detect features are newly implemented; Agent task eval and npm install smoke validation follow per roadmap §5.7.
+
 ## [0.3.1] - 2026-07-21
 
 ### Added
