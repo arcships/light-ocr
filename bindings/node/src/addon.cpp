@@ -1268,26 +1268,30 @@ void EngineState::run() {
                              decoded.height, decoded.stride, decoded.pixel_format};
         if (request->detect_mode) {
           auto detect_result = core->detect(view, request->options);
-          if (detect_result && (roi_offset.width > 0 || roi_offset.height > 0)) {
-            for (auto& box : detect_result.value().boxes) {
+          if (!detect_result) return detect_result_to_ocr_result(std::move(detect_result));
+          auto dr = std::move(detect_result).value();
+          if (roi_offset.width > 0 || roi_offset.height > 0) {
+            for (auto& box : dr.boxes) {
               for (auto& pt : box.box.points) {
                 pt.x += static_cast<float>(roi_offset.x);
                 pt.y += static_cast<float>(roi_offset.y);
               }
             }
           }
-          return detect_result_to_ocr_result(std::move(detect_result));
+          return detect_result_to_ocr_result(Result<DetectionResult>::success(std::move(dr)));
         }
         auto recognize_result = core->recognize(view, request->options);
-        if (recognize_result && (roi_offset.width > 0 || roi_offset.height > 0)) {
-          for (auto& line : recognize_result.value().lines) {
+        if (!recognize_result) return recognize_result;
+        auto rr = std::move(recognize_result).value();
+        if (roi_offset.width > 0 || roi_offset.height > 0) {
+          for (auto& line : rr.lines) {
             for (auto& point : line.box.points) {
               point.x += static_cast<float>(roi_offset.x);
               point.y += static_cast<float>(roi_offset.y);
             }
           }
         }
-        return recognize_result;
+        return Result<OcrResult>::success(std::move(rr));
       }
       const ImageView view{request->image.bytes.data(), request->image.bytes.size(),
                            request->image.width, request->image.height,
