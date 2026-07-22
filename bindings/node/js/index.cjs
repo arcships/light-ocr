@@ -131,6 +131,10 @@ class OcrEngineImpl {
     return this.#recognize('recognizeEncoded', data, options);
   }
 
+  detect(data, options = {}) {
+    return this.#recognize('detect', data, options);
+  }
+
   #recognize(nativeMethod, image, options) {
     let signal;
     let nativeOptions;

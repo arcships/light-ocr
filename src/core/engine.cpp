@@ -653,6 +653,168 @@ class EngineImpl final : public Engine {
     }
   }
 
+  Result<DetectionResult> detect(const ImageView& image,
+                                const RecognizeOptions& options) noexcept override {
+    try {
+      {
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        if (closing_) return failure<DetectionResult>(ErrorCode::invalid_engine, "Engine is closed");
+        if (active_) {
+          return failure<DetectionResult>(ErrorCode::resource_limit_exceeded,
+                                          "Engine already has an active call");
+        }
+        active_ = true;
+      }
+      struct AdmissionGuard {
+        EngineImpl* engine;
+        ~AdmissionGuard() noexcept {
+          try {
+            std::lock_guard<std::mutex> lock(engine->state_mutex_);
+            engine->active_ = false;
+            engine->state_changed_.notify_all();
+          } catch (...) {
+          }
+        }
+      } guard{this};
+
+      const auto total_begin = Clock::now();
+      const auto detection_max_side = options.detection_max_side.value_or(
+          info_.detection_max_side);
+      if (detection_max_side == 0 ||
+          detection_max_side > info_.detection_max_side ||
+          (info_.detection_strategy != DetectionStrategy::bounded &&
+           info_.detection_strategy != DetectionStrategy::tiled &&
+           info_.detection_strategy != DetectionStrategy::upstream_exact) ||
+          (info_.detection_strategy == DetectionStrategy::bounded &&
+           detection_max_side % bundle_->detection.dimension_multiple != 0) ||
+          (info_.detection_strategy == DetectionStrategy::upstream_exact &&
+           options.detection_max_side.has_value()) ||
+          (info_.detection_strategy == DetectionStrategy::tiled &&
+           options.detection_max_side.has_value())) {
+        return failure<DetectionResult>(ErrorCode::invalid_argument,
+                                        "Request options are outside effective limits");
+      }
+
+      Timing timing;
+      auto stage_begin = Clock::now();
+      auto validated_result = internal::validate_and_convert_image(image, info_.limits);
+      auto stage_end = Clock::now();
+      timing.input_validation_us = elapsed_us(stage_begin, stage_end);
+      if (!validated_result) return Result<DetectionResult>::failure(validated_result.error());
+      auto validated = std::move(validated_result).value();
+      std::uint64_t image_bytes = 0;
+      if (!internal::checked_mul<std::uint64_t>(validated.bgr.total(),
+                                                validated.bgr.elemSize(), &image_bytes) ||
+          image_bytes > info_.limits.max_temporary_bytes) {
+        return failure<DetectionResult>(ErrorCode::resource_limit_exceeded,
+                                        "Converted image exceeds the request memory budget");
+      }
+      // DETECT_PLACEHOLDER
+      internal::DetectionBoxes detected;
+      auto run_detection_pass = [&](const cv::Mat& pass_image,
+                                    std::uint32_t original_width,
+                                    std::uint32_t original_height,
+                                    DetectionStrategy preprocess_strategy,
+                                    std::uint32_t pass_max_side,
+                                    const ResourceLimits& pass_limits,
+                                    bool reject_candidate_overflow,
+                                    DetectionPassShape* pass_shape)
+          -> Result<internal::DetectionBoxes> {
+        stage_begin = Clock::now();
+        auto detection_input_result = internal::make_detection_input(
+            pass_image, bundle_->detection, preprocess_strategy, pass_max_side, pass_limits);
+        stage_end = Clock::now();
+        timing.detection_preprocess_us += elapsed_us(stage_begin, stage_end);
+        if (!detection_input_result) return Result<internal::DetectionBoxes>::failure(detection_input_result.error());
+        auto detection_input = std::move(detection_input_result).value();
+        pass_shape->tensor_height = static_cast<std::uint32_t>(detection_input.shape[2]);
+        pass_shape->tensor_width = static_cast<std::uint32_t>(detection_input.shape[3]);
+        stage_begin = Clock::now();
+        auto detection_output_result = detection_->run(detection_input.values, detection_input.shape);
+        stage_end = Clock::now();
+        timing.detection_inference_us += elapsed_us(stage_begin, stage_end);
+        if (!detection_output_result) return Result<internal::DetectionBoxes>::failure(detection_output_result.error());
+        auto detection_output = std::move(detection_output_result).value();
+        stage_begin = Clock::now();
+        auto detected_result = internal::db_postprocess(
+            detection_output.data(), detection_output.size(), detection_output.shape(),
+            original_width, original_height, bundle_->detection, pass_limits, false, reject_candidate_overflow);
+        stage_end = Clock::now();
+        timing.detection_postprocess_us += elapsed_us(stage_begin, stage_end);
+        if (!detected_result) return Result<internal::DetectionBoxes>::failure(detected_result.error());
+        auto pass_detected = std::move(detected_result).value();
+        pass_shape->contour_candidates = pass_detected.total_contours;
+        pass_shape->raw_candidates = static_cast<std::uint32_t>(pass_detected.boxes.size());
+        return Result<internal::DetectionBoxes>::success(std::move(pass_detected));
+      };
+      auto detection_limits = info_.limits;
+      detection_limits.max_temporary_bytes -= image_bytes;
+      if (info_.detection_strategy == DetectionStrategy::tiled) {
+        if (!bundle_->tiled_detection) return failure<DetectionResult>(ErrorCode::unsupported_capability, "Tiled detection is unavailable in this bundle");
+        auto tile_plan_result = internal::plan_detection_tiles(image.width, image.height, *bundle_->tiled_detection, info_.limits.max_detection_tiles);
+        if (!tile_plan_result) return Result<DetectionResult>::failure(tile_plan_result.error());
+        auto tile_plan = std::move(tile_plan_result).value();
+        std::vector<internal::TiledCandidate> raw_candidates;
+        raw_candidates.reserve(std::min<std::size_t>(info_.limits.max_detection_candidates, 256));
+        std::uint32_t total_contours = 0;
+        for (const auto& tile : tile_plan) {
+          auto pass_limits = detection_limits;
+          pass_limits.max_detection_candidates = info_.limits.max_detection_candidates - total_contours;
+          DetectionPassShape pass_shape;
+          const cv::Mat tile_view = validated.bgr(cv::Rect(static_cast<int>(tile.x), static_cast<int>(tile.y), static_cast<int>(tile.width), static_cast<int>(tile.height)));
+          auto pass_result = run_detection_pass(tile_view, tile.width, tile.height, DetectionStrategy::bounded, bundle_->tiled_detection->tile_side, pass_limits, true, &pass_shape);
+          if (!pass_result) return Result<DetectionResult>::failure(pass_result.error());
+          auto pass_detected = std::move(pass_result).value();
+          std::uint32_t updated_contours = 0;
+          if (!internal::checked_add(total_contours, pass_detected.total_contours, &updated_contours) || updated_contours > info_.limits.max_detection_candidates || pass_detected.boxes.size() != pass_detected.scores.size()) {
+            return failure<DetectionResult>(ErrorCode::resource_limit_exceeded, "Tiled detection candidates exceed the effective limit");
+          }
+          total_contours = updated_contours;
+          for (std::size_t index = 0; index < pass_detected.boxes.size(); ++index) {
+            auto candidate_result = internal::make_tiled_candidate(pass_detected.boxes[index], pass_detected.scores[index], tile, image.width, image.height, static_cast<std::uint32_t>(index), bundle_->tiled_detection->artificial_boundary_margin);
+            if (!candidate_result) return Result<DetectionResult>::failure(candidate_result.error());
+            raw_candidates.push_back(std::move(candidate_result).value());
+          }
+        }
+        stage_begin = Clock::now();
+        auto merge_result = internal::merge_tiled_candidates(std::move(raw_candidates), *bundle_->tiled_detection);
+        stage_end = Clock::now();
+        timing.detection_merge_us = elapsed_us(stage_begin, stage_end);
+        if (!merge_result) return Result<DetectionResult>::failure(merge_result.error());
+        auto merged = std::move(merge_result).value();
+        detected.contour_candidates = total_contours;
+        detected.total_contours = total_contours;
+        detected.boxes.reserve(merged.representatives.size());
+        detected.scores.reserve(merged.representatives.size());
+        for (auto& representative : merged.representatives) {
+          detected.boxes.push_back(std::move(representative.global_quad));
+          detected.scores.push_back(static_cast<float>(representative.db_score));
+        }
+      } else {
+        DetectionPassShape pass_shape;
+        auto detected_result = run_detection_pass(validated.bgr, image.width, image.height, info_.detection_strategy, detection_max_side, detection_limits, false, &pass_shape);
+        if (!detected_result) return Result<DetectionResult>::failure(detected_result.error());
+        detected = std::move(detected_result).value();
+      }
+      DetectionResult result;
+      result.boxes.reserve(detected.boxes.size());
+      for (std::size_t i = 0; i < detected.boxes.size(); ++i) {
+        result.boxes.push_back(DetectionBox{detected.boxes[i], detected.scores[i]});
+      }
+      result.image_width = image.width;
+      result.image_height = image.height;
+      result.model_bundle_id = bundle_->id;
+      timing.total_us = elapsed_us(total_begin, Clock::now());
+      result.timing = timing;
+      return Result<DetectionResult>::success(std::move(result));
+    } catch (const std::exception& exception) {
+      return failure<DetectionResult>(ErrorCode::internal_error, "Unexpected detection failure",
+                                      exception.what());
+    } catch (...) {
+      return failure<DetectionResult>(ErrorCode::internal_error, "Unknown detection failure");
+    }
+  }
+
   const EngineInfo& info() const noexcept override { return info_; }
 
   void close() noexcept override {

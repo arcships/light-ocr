@@ -446,7 +446,8 @@ if(LIGHT_OCR_BUILD_FUZZERS)
   light_ocr_add_fuzzer(light_ocr_fuzz_image tests/fuzz/image_fuzz.cpp)
   light_ocr_add_fuzzer(light_ocr_fuzz_encoded_image
     tests/fuzz/encoded_image_fuzz.cpp
-    bindings/node/src/encoded_image.cpp)
+    bindings/node/src/encoded_image.cpp
+    bindings/node/src/exif.cpp)
   target_link_libraries(light_ocr_fuzz_encoded_image PRIVATE light_ocr::stb)
   target_include_directories(light_ocr_fuzz_encoded_image PRIVATE bindings/node/src)
   light_ocr_add_fuzzer(light_ocr_fuzz_bundle tests/fuzz/bundle_fuzz.cpp)

@@ -211,6 +211,46 @@ Reason: The final Linux and Windows FP32 reports each passed 164/164 Gates and a
 
 Consequence: Qualification, report review, examples, release notes, and performance displays use only `cpu`, WebGPU FP32 `allow`, `strict`, and Auto. The required `Concat`, `Gather`, and `Slice` CPU partition remains explicit; `cpuPartition=forbid` continues to fail closed. No WebGPU FP16 speedup is advertised.
 
+### D106 — CLI surface, stdout/stderr, exit codes and JSON schema
+
+Status: Accepted
+Authority: N1 CLI, result contract, ROI and detect-only entry ([roadmap §5](roadmap.md)); detailed design in [cli-design.md](cli-design.md)
+Decision: The `light-ocr` bin ships in `bindings/node/bin/light-ocr.cjs` and is exposed by the `@arcships/light-ocr` facade via a `bin` field, so installing the facade yields the `light-ocr` command with no second install entry. The CLI uses a three-subcommand structure rather than a flat flag surface, because N1's primary audience is Agents that resolve intent from a top-level verb before reading that verb's flags:
+
+```text
+light-ocr recognize <path|--stdin> [flags]   # default OCR: detection + recognition
+light-ocr detect     <path|--stdin> [flags]   # detect only: boxes, no recognition
+light-ocr info       --model-info | --version # diagnostics, no image read
+light-ocr image.png ...                      # implicit recognize
+```
+
+`light-ocr image.png` without a subcommand is equivalent to `light-ocr recognize image.png`, preserving first-use intuition. `--model-info` and `--version` are flags of the `info` subcommand and are mutually exclusive (the version triple is a subset of `EngineInfo`); this departs from [roadmap §5.2](roadmap.md) which lists them as top-level flags, in order to keep the verb structure uniform across `recognize`/`detect`/`info`. The semantics are equivalent.
+
+First-version flags are restricted to what Agent and ordinary users actually need. Provider-internal fields are **not** exposed as CLI flags and are fixed by runtime defaults: `sessionFallback` (single-value enum, migration legacy), `cpuPartition` (provider-qualification detail), `precision` (fp16 is Apple-only and fails elsewhere), `detectionStrategy` (dev/parity strategy), `maxSide` (calibrated accuracy/speed tradeoff), and `includeDiagnostics` (developer-facing provider placement debug). `--score-threshold` and `--no-color` are retained as advanced flags relegated to the second help tier. `detect` does not expose `--format` at all: its output is always structured JSON (box quad + score, no text semantics), which structurally eliminates the `--format text` + `detect` failure path instead of reporting it at runtime.
+
+stdout carries only machine results (`json`/`jsonl`/`text`, `info` JSON, version triple); stderr carries logs, warnings, progress and usage hints. `--quiet` suppresses non-error stderr without changing the stdout contract. `--no-color` controls stderr ANSI; non-TTY or `NO_COLOR` auto-disables color. Exit codes are a stable surface mapped to the existing `OcrErrorCode` taxonomy, additive-only after release:
+
+| exit | category | trigger |
+| --- | --- | --- |
+| 0 | success | normal output |
+| 64 | usage | argument parse failure, missing file, mutex flag conflict |
+| 65 | invalid_argument | ROI out of bounds, unsupported flag combo, unsupported `--schema-version` |
+| 66 | invalid_image | image not decodable or unsupported format |
+| 67 | unsupported_capability | capability not available in this build |
+| 68 | model | invalid/unsupported/corrupt model bundle |
+| 69 | resource_limit_exceeded | over pixel/memory/timeout limits |
+| 70 | env/package | runtime init / package load / platform / adapter failure |
+| 71 | inference_failed / postprocess_failed | inference or postprocess failure |
+| 72 | internal_error | internal error or engine closed |
+
+The CLI wraps results in a versioned `DocumentResult` envelope (`schemaVersion`, `source`, `pages[]`) over the existing single-image `OcrResult`. `schemaVersion` is an integer major version; additive fields keep v1, semantic changes require a new version. `--schema-version 1` requests an exact schema and fails `invalid_argument` if unsupported (no silent downgrade). `OcrLine.id` (`L{index}`) is a CLI-envelope stable ID for future Layout region association. `detect` output replaces `pages[0].lines` with `detections[]` and sets `structure: "detect"`; `--crop` embeds per-box PNG crops as base64 in each detection (single-stream stdout contract forbids binary sidecars).
+
+ROI is implemented in the adapter layer (after EXIF correction, before Core), keeping the Core boundary unchanged; out-of-bounds or partially-intersecting regions return `invalid_argument` without clamping. Flag validation (format, provider, schema-version, region) is performed before input reading so parameter errors surface before filesystem errors — an invalid `--region` with a nonexistent file returns exit 65, not 64. EXIF orientation uses a self-contained minimal JPEG APP1 parser (zero-dependency, stb-style); PNG `eXIf` is treated as no transform in v1. `--no-exif` disables correction while still recording the "not applied" state in `appliedTransforms`.
+
+Reason: Roadmap §5.2 requires a small, stable command surface, but the draft had transparently mapped every `ExecutionOptions`/`DetectionOptions` field to a CLI flag, turning the CLI into a configuration panel. Restricting to Agent/user-facing flags keeps the entry layer honest, while the subcommand structure lets Agents resolve intent from the verb before loading that verb's flag set. The six removed flags either have single values, are provider-internal, or are developer-debug; none serve an Agent or ordinary user.
+
+Consequence: This decision fixes the stable CLI surface for N1. Adding flags requires a new decision; exit codes are additive-only. The `info` subcommand departure from roadmap §5.2's top-level flag wording is recorded here. Core `Engine::detect()` signature and `DetectionResult` structure are implementation details resolved during implementation per [cli-design.md §8](cli-design.md), not a separate product decision.
+
 ## 3. Deferred decisions
 
 ### D102 — Public native SDK and ABI policy
