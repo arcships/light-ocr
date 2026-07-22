@@ -1,0 +1,6 @@
+interface:
+  display_name: "Local OCR"
+  short_description: "Offline OCR with coordinates via light-ocr CLI"
+  default_prompt: "Use $skill-local-ocr to extract text and coordinates from a local image."
+policy:
+  allow_implicit_invocation: true
