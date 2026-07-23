@@ -16,7 +16,9 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 - Moved the Core version authority to `VERSION`, allowing a version-only change to use quick workspace CI instead of triggering the complete native matrix.
 - Changed npm releases to independent package versions. Small `0.4.0` reuses the immutable Small model `0.3.4`; runtime and preview packages begin at `0.1.0`.
 - Reduced release work to six required native builds, one Tiny/Medium model assembly, one npm pack per package, and focused installed OCR smoke. Core, sanitizer, fuzz, provider qualification, and model conversion no longer rerun inside release.
-- Kept Tiny and Medium on `next`; promotion moves only the native/runtime/Small stable closure.
+- Published Tiny and Medium with preview maturity through `next`; npm also exposes
+  each first and only version through its registry-required `latest` tag. The
+  promotion workflow only advances the native/runtime/Small stable closure.
 
 Candidate details: [npm 0.4.0 N2 record](docs/releases/npm-0.4.0.md).
 
