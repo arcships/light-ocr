@@ -141,7 +141,8 @@ jobs:
             --build-dir build-npm \
             --output-dir "reports/npm/${{ matrix.id }}" \
             --platform-id "${{ matrix.id }}" \
-            --configuration Release
+            --configuration Release \
+            --model-free
       - name: Stage native package input
         shell: bash
         run: >-
