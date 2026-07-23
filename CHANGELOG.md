@@ -4,6 +4,8 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-23
+
 ### Added
 
 - Added PP-OCRv6 Tiny and Medium preview facades with the same Node API, TypeScript types, CLI schema, and `OcrError` identity as the stable Small package. Their commands are `light-ocr-tiny` and `light-ocr-medium`; only Small owns `light-ocr`.
@@ -20,7 +22,7 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
   each first and only version through its registry-required `latest` tag. The
   promotion workflow only advances the native/runtime/Small stable closure.
 
-Candidate details: [npm 0.4.0 N2 record](docs/releases/npm-0.4.0.md).
+Release details: [npm 0.4.0 N2 record](docs/releases/npm-0.4.0.md).
 
 ## [0.3.4] - 2026-07-22
 
