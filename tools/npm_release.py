@@ -1225,16 +1225,28 @@ def npm_integrity(npm: str, specification: str) -> str | None:
 
 
 def wait_for_integrity(npm: str, specification: str, expected: str) -> None:
+    wait_for_integrities(npm, {specification: expected})
+
+
+def wait_for_integrities(npm: str, expected: dict[str, str]) -> None:
+    pending = dict(expected)
     attempts = REGISTRY_WAIT_SECONDS // 3
     for _ in range(attempts):
-        actual = npm_integrity(npm, specification)
-        if actual == expected:
+        for specification, integrity in list(pending.items()):
+            actual = npm_integrity(npm, specification)
+            if actual == integrity:
+                del pending[specification]
+                continue
+            if actual is not None:
+                raise RuntimeError(
+                    f"registry integrity mismatch for {specification}"
+                )
+        if not pending:
             return
-        if actual is not None and actual != expected:
-            raise RuntimeError(f"registry integrity mismatch for {specification}")
         time.sleep(3)
     raise RuntimeError(
-        f"registry did not expose {specification} within {REGISTRY_WAIT_SECONDS} seconds"
+        "registry did not expose "
+        f"{', '.join(sorted(pending))} within {REGISTRY_WAIT_SECONDS} seconds"
     )
 
 
@@ -1273,13 +1285,16 @@ def npm_dist_tag(npm: str, package: str, tag: str) -> str | None:
         raise RuntimeError(
             f"npm dist-tag lookup failed for {package}: {completed.stderr.strip()}"
         )
-    value = json.loads(completed.stdout)
+    output = completed.stdout.strip()
+    value = json.loads(output) if output else None
     if value is not None and not isinstance(value, str):
         raise RuntimeError(f"registry returned invalid {tag} tag for {package}")
     return value
 
 
-def wait_for_dist_tag(npm: str, package: str, tag: str, version: str) -> None:
+def wait_for_dist_tag(
+    npm: str, package: str, tag: str, version: str | None
+) -> None:
     attempts = REGISTRY_WAIT_SECONDS // 3
     for _ in range(attempts):
         if npm_dist_tag(npm, package, tag) == version:
@@ -1305,6 +1320,7 @@ def publish(arguments: argparse.Namespace) -> None:
         names = [
             FACADE_PACKAGES[tier]["name"] for tier in ("small", "tiny", "medium")
         ]
+    pending: dict[str, str] = {}
     for name in names:
         record = records[name]
         specification = f"{name}@{record['version']}"
@@ -1333,8 +1349,46 @@ def publish(arguments: argparse.Namespace) -> None:
             cwd=ROOT,
             check=True,
         )
-        wait_for_integrity(arguments.npm, specification, record["integrity"])
+        pending[specification] = record["integrity"]
+        print(json.dumps({"package": specification, "status": "submitted"}))
+    wait_for_integrities(arguments.npm, pending)
+    for specification in pending:
         print(json.dumps({"package": specification, "status": "published"}))
+
+
+def remove_dist_tag_if_version(
+    npm: str, package: str, tag: str, version: str
+) -> None:
+    current = npm_dist_tag(npm, package, tag)
+    if current is None:
+        print(json.dumps({"package": package, "tag": tag, "status": "absent"}))
+        return
+    if current != version:
+        print(
+            json.dumps(
+                {
+                    "package": package,
+                    "tag": tag,
+                    "status": "preserved",
+                    "version": current,
+                }
+            )
+        )
+        return
+    subprocess.run(
+        [
+            npm,
+            "dist-tag",
+            "rm",
+            package,
+            tag,
+            f"--registry={NPM_REGISTRY}",
+        ],
+        cwd=ROOT,
+        check=True,
+    )
+    wait_for_dist_tag(npm, package, tag, None)
+    print(json.dumps({"package": package, "tag": tag, "status": "removed"}))
 
 
 def promote(arguments: argparse.Namespace) -> None:
@@ -1346,6 +1400,23 @@ def promote(arguments: argparse.Namespace) -> None:
     ):
         raise RuntimeError("release manifest version does not match promotion request")
     records = {record["name"]: record for record in release["packages"]}
+    # npm may create `latest` for the first version of a new package even when
+    # it is published with `--tag next`. Keep preview-only tiers off `latest`
+    # without disturbing an independently promoted older version.
+    preview_names = sorted(
+        [
+            FACADE_PACKAGES[tier]["name"]
+            for tier in ("tiny", "medium")
+        ]
+        + [
+            MODEL_PACKAGES[tier]["name"]
+            for tier in ("tiny", "medium")
+        ]
+    )
+    for name in preview_names:
+        remove_dist_tag_if_version(
+            arguments.npm, name, arguments.tag, records[name]["version"]
+        )
     # Tiny and Medium intentionally stay on `next` until their G2 evidence is
     # accepted. The stable closure is the native runtime, model-free JS runtime,
     # and Small facade; Small continues to exact-pin the existing 0.3.4 model.
