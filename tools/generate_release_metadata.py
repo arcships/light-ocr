@@ -156,7 +156,12 @@ def source_dir(build: Path, name: str) -> Path:
 
 
 def copy_licenses(
-    build: Path, output: Path, include_stb: bool, webgpu_sdk: Path | None
+    build: Path,
+    output: Path,
+    include_stb: bool,
+    webgpu_sdk: Path | None,
+    *,
+    include_model: bool,
 ) -> list[dict[str, str]]:
     license_dir = output / "licenses"
     license_dir.mkdir(parents=True, exist_ok=True)
@@ -219,21 +224,22 @@ def copy_licenses(
         sources.append(
             (source_dir(build, "stb") / "LICENSE", "stb-MIT-or-Unlicense.txt", "stb")
         )
-    bundle = ROOT / "models" / "generated" / "ppocrv6-small-onnx-20260714.2"
-    sources.extend(
-        [
-            (
-                bundle / "LICENSES" / "PaddleOCR-Apache-2.0.txt",
-                "PP-OCRv6-Apache-2.0.txt",
-                "PP-OCRv6-models",
-            ),
-            (
-                bundle / "LICENSES" / "MODEL-NOTICE.md",
-                "PP-OCRv6-MODEL-NOTICE.md",
-                "PP-OCRv6-models",
-            ),
-        ]
-    )
+    if include_model:
+        bundle = ROOT / "models" / "generated" / "ppocrv6-small-onnx-20260714.2"
+        sources.extend(
+            [
+                (
+                    bundle / "LICENSES" / "PaddleOCR-Apache-2.0.txt",
+                    "PP-OCRv6-Apache-2.0.txt",
+                    "PP-OCRv6-models",
+                ),
+                (
+                    bundle / "LICENSES" / "MODEL-NOTICE.md",
+                    "PP-OCRv6-MODEL-NOTICE.md",
+                    "PP-OCRv6-models",
+                ),
+            ]
+        )
     inventory: list[dict[str, str]] = []
     for source, filename, component in sources:
         destination = license_dir / filename
@@ -288,6 +294,14 @@ def main() -> int:
         "--configuration",
         default="",
         help="built configuration for multi-config generators, for example Release",
+    )
+    parser.add_argument(
+        "--model-free",
+        action="store_true",
+        help=(
+            "generate metadata for a model-free native runtime package without "
+            "requiring or describing one model bundle"
+        ),
     )
     arguments = parser.parse_args()
     build = arguments.build_dir.resolve()
@@ -415,23 +429,30 @@ def main() -> int:
         },
         "artifacts": artifacts,
     }
-    archive_record = bundle_lock["bundles"][0]["bundleArchive"]
-    archive_path = ROOT / "models" / "generated" / archive_record["filename"]
-    if (
-        not archive_path.is_file()
-        or archive_path.stat().st_size != archive_record["bytes"]
-        or sha256(archive_path) != archive_record["sha256"]
-    ):
-        raise RuntimeError(
-            "locked model bundle archive is missing or has the wrong identity"
-        )
-    manifest["modelBundleArchive"] = archive_record
+    if not arguments.model_free:
+        archive_record = bundle_lock["bundles"][0]["bundleArchive"]
+        archive_path = ROOT / "models" / "generated" / archive_record["filename"]
+        if (
+            not archive_path.is_file()
+            or archive_path.stat().st_size != archive_record["bytes"]
+            or sha256(archive_path) != archive_record["sha256"]
+        ):
+            raise RuntimeError(
+                "locked model bundle archive is missing or has the wrong identity"
+            )
+        manifest["modelBundleArchive"] = archive_record
     (output / "build-manifest.json").write_text(
         json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n",
         encoding="utf-8",
     )
 
-    inventory = copy_licenses(build, output, include_stb, webgpu_sdk)
+    inventory = copy_licenses(
+        build,
+        output,
+        include_stb,
+        webgpu_sdk,
+        include_model=not arguments.model_free,
+    )
     (output / "license-inventory.json").write_text(
         json.dumps(
             {"schemaVersion": "1.0", "files": inventory},
@@ -520,33 +541,34 @@ def main() -> int:
                 }
             )
 
-    bundle_record = bundle_lock["bundles"][0]
-    model_id = "SPDXRef-Package-PP-OCRv6-small-models"
-    packages.append(
-        {
-            "name": "PP-OCRv6-small-ONNX-models",
-            "SPDXID": model_id,
-            "versionInfo": bundle_record["bundleId"],
-            "downloadLocation": bundle_record["artifacts"][0]["url"],
-            "filesAnalyzed": False,
-            "checksums": [
-                {
-                    "algorithm": "SHA256",
-                    "checksumValue": bundle_record["bundleArchive"]["sha256"],
-                }
-            ],
-            "licenseConcluded": bundle_record["license"]["spdx"],
-            "licenseDeclared": "Apache-2.0",
-            "copyrightText": "NOASSERTION",
-        }
-    )
-    relationships.append(
-        {
-            "spdxElementId": "SPDXRef-Package-light-ocr-core",
-            "relationshipType": "DEPENDS_ON",
-            "relatedSpdxElement": model_id,
-        }
-    )
+    if not arguments.model_free:
+        bundle_record = bundle_lock["bundles"][0]
+        model_id = "SPDXRef-Package-PP-OCRv6-small-models"
+        packages.append(
+            {
+                "name": "PP-OCRv6-small-ONNX-models",
+                "SPDXID": model_id,
+                "versionInfo": bundle_record["bundleId"],
+                "downloadLocation": bundle_record["artifacts"][0]["url"],
+                "filesAnalyzed": False,
+                "checksums": [
+                    {
+                        "algorithm": "SHA256",
+                        "checksumValue": bundle_record["bundleArchive"]["sha256"],
+                    }
+                ],
+                "licenseConcluded": bundle_record["license"]["spdx"],
+                "licenseDeclared": "Apache-2.0",
+                "copyrightText": "NOASSERTION",
+            }
+        )
+        relationships.append(
+            {
+                "spdxElementId": "SPDXRef-Package-light-ocr-core",
+                "relationshipType": "DEPENDS_ON",
+                "relatedSpdxElement": model_id,
+            }
+        )
     revision_time = command(["git", "show", "-s", "--format=%cI", revision])
     if revision_time == "unavailable":
         raise RuntimeError("cannot determine the release commit timestamp")
