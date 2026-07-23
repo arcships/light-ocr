@@ -1356,41 +1356,6 @@ def publish(arguments: argparse.Namespace) -> None:
         print(json.dumps({"package": specification, "status": "published"}))
 
 
-def remove_dist_tag_if_version(
-    npm: str, package: str, tag: str, version: str
-) -> None:
-    current = npm_dist_tag(npm, package, tag)
-    if current is None:
-        print(json.dumps({"package": package, "tag": tag, "status": "absent"}))
-        return
-    if current != version:
-        print(
-            json.dumps(
-                {
-                    "package": package,
-                    "tag": tag,
-                    "status": "preserved",
-                    "version": current,
-                }
-            )
-        )
-        return
-    subprocess.run(
-        [
-            npm,
-            "dist-tag",
-            "rm",
-            package,
-            tag,
-            f"--registry={NPM_REGISTRY}",
-        ],
-        cwd=ROOT,
-        check=True,
-    )
-    wait_for_dist_tag(npm, package, tag, None)
-    print(json.dumps({"package": package, "tag": tag, "status": "removed"}))
-
-
 def promote(arguments: argparse.Namespace) -> None:
     tarballs = arguments.tarball_dir.resolve()
     release = read_json(tarballs / "release-manifest.json")
@@ -1400,26 +1365,12 @@ def promote(arguments: argparse.Namespace) -> None:
     ):
         raise RuntimeError("release manifest version does not match promotion request")
     records = {record["name"]: record for record in release["packages"]}
-    # npm may create `latest` for the first version of a new package even when
-    # it is published with `--tag next`. Keep preview-only tiers off `latest`
-    # without disturbing an independently promoted older version.
-    preview_names = sorted(
-        [
-            FACADE_PACKAGES[tier]["name"]
-            for tier in ("tiny", "medium")
-        ]
-        + [
-            MODEL_PACKAGES[tier]["name"]
-            for tier in ("tiny", "medium")
-        ]
-    )
-    for name in preview_names:
-        remove_dist_tag_if_version(
-            arguments.npm, name, arguments.tag, records[name]["version"]
-        )
     # Tiny and Medium intentionally stay on `next` until their G2 evidence is
-    # accepted. The stable closure is the native runtime, model-free JS runtime,
-    # and Small facade; Small continues to exact-pin the existing 0.3.4 model.
+    # accepted. npm requires every package document to retain a `latest` tag, so
+    # first-published preview-only package names also expose their only version
+    # there. Promotion deliberately leaves those registry-required tags untouched
+    # and only advances the native runtime, model-free JS runtime, and Small
+    # facade. Small continues to exact-pin the existing 0.3.4 model.
     names = (
         sorted(platform["package"] for platform in PLATFORMS.values())
         + [RUNTIME_PACKAGE, FACADE_PACKAGE]

@@ -162,42 +162,6 @@ class NpmReleaseTests(unittest.TestCase):
         )
         sleep.assert_called_once_with(3)
 
-    @mock.patch("tools.npm_release.wait_for_dist_tag")
-    @mock.patch("tools.npm_release.subprocess.run")
-    @mock.patch(
-        "tools.npm_release.npm_dist_tag",
-        return_value=npm_release.RUNTIME_VERSION,
-    )
-    def test_matching_preview_latest_tag_is_removed(
-        self,
-        dist_tag: mock.Mock,
-        run: mock.Mock,
-        wait: mock.Mock,
-    ) -> None:
-        package = "@arcships/light-ocr-tiny"
-
-        npm_release.remove_dist_tag_if_version(
-            "npm", package, "latest", npm_release.RUNTIME_VERSION
-        )
-
-        dist_tag.assert_called_once_with("npm", package, "latest")
-        command = run.call_args.args[0]
-        self.assertEqual(command[:5], ["npm", "dist-tag", "rm", package, "latest"])
-        self.assertIn(f"--registry={npm_release.NPM_REGISTRY}", command)
-        wait.assert_called_once_with("npm", package, "latest", None)
-
-    @mock.patch("tools.npm_release.subprocess.run")
-    @mock.patch("tools.npm_release.npm_dist_tag", return_value="0.0.9")
-    def test_existing_preview_latest_version_is_preserved(
-        self, dist_tag: mock.Mock, run: mock.Mock
-    ) -> None:
-        npm_release.remove_dist_tag_if_version(
-            "npm", "@arcships/light-ocr-tiny", "latest", "0.1.0"
-        )
-
-        dist_tag.assert_called_once()
-        run.assert_not_called()
-
     def test_stages_and_packs_the_independently_versioned_release_set(self) -> None:
         npm = shutil.which("npm")
         if npm is None:
