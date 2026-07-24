@@ -1,9 +1,21 @@
 #!/usr/bin/env node
 'use strict';
 
+const path = require('node:path');
+
 const facade = require('./index.cjs');
-const { createCli } = require('@arcships/light-ocr-runtime/cli');
-const { coreVersion } = require('@arcships/light-ocr-runtime/metadata');
+
+// Try to use workspace dependencies, fallback to local paths
+let createCli, coreVersion;
+try {
+  ({ createCli } = require('@arcships/light-ocr-runtime/cli'));
+  ({ coreVersion } = require('@arcships/light-ocr-runtime/metadata'));
+} catch {
+  // Fallback to local runtime
+  ({ createCli } = require(path.join(__dirname, '..', '..', 'runtime', 'src', 'cli.cjs')));
+  ({ coreVersion } = require(path.join(__dirname, '..', '..', 'runtime', 'src', 'metadata.cjs')));
+}
+
 const packageMetadata = require('../package.json');
 
 const cli = createCli({

@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
-更新时间：2026-07-22<br>
-结论：npm `0.3.4` 仍是当前公开 stable。N2 工程实现已经完成并形成 `0.4.0` release candidate：Core/Small `0.4.0`、runtime `0.1.0`、Tiny/Medium facade+model `0.1.0` preview，以及 private server `0.1.1`。公共发布和远端六平台 run 证据尚未执行；Tiny/Medium 即使发布也只进入 `next`，Small 保持唯一 stable 默认。
+更新时间：2026-07-23<br>
+结论：npm `0.4.0` 已发布，N2 完成。S3 PDF 可行性 Spike 完成，决策选择 `pdfium-native`（N-API binding）作为 PDF 渲染方案（D108）。N3 文档入口能力已合并到 `@arcships/light-ocr` 包，`light-ocr document` 子命令可处理 PDF 和多页图片。
 
 状态含义：
 

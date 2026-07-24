@@ -29,7 +29,11 @@
   },
   "dependencies": {
     "@arcships/light-ocr-model-ppocrv6-small": "0.3.4",
-    "@arcships/light-ocr-runtime": "0.1.0"
+    "@arcships/light-ocr-runtime": "0.1.0",
+    "pdfium-native": "0.6.1"
+  },
+  "optionalDependencies": {
+    "pdfium-native": "0.6.1"
   },
   "scripts": {
     "test": "node --test test/*.test.cjs"
