@@ -12,12 +12,14 @@
 // stdout = machine results only; stderr = logs/warnings/usage (cli-design.md §5).
 // Exit codes are a stable surface (cli-design.md §10, D106).
 
+const crypto = require('node:crypto');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const { parseExifOrientation } = require('./exif.cjs');
 
-const SUBCOMMANDS = new Set(['recognize', 'detect', 'info', 'document']);
+const SUBCOMMANDS = new Set(['recognize', 'detect', 'info', 'document', 'doctor']);
 const EXIT = {
   success: 0,
   usage: 64,
@@ -88,7 +90,7 @@ function parseArgs(argv) {
       const name = arg.slice(2);
       const knownBooleans = new Set([
         'stdin', 'no-exif', 'no-color', 'quiet', 'help',
-        'model-info', 'version', 'crop',
+        'model-info', 'version', 'crop', 'json',
       ]);
       if (knownBooleans.has(name)) {
         flags[name] = true;
@@ -470,6 +472,96 @@ function writeResult(envelope, format, stdout, subcommand) {
   stdout.write(JSON.stringify(envelope, null, 2) + '\n');
 }
 
+// --- doctor subcommand (system diagnostics, no user content) ---
+function safeRequireResolve(spec) {
+  try { return require.resolve(spec); } catch { return undefined; }
+}
+
+async function loadGpuInfo(config) {
+  try {
+    const engine = await config.createEngine();
+    try {
+      return { ...engine.info };
+    } finally {
+      await engine.close();
+    }
+  } catch {
+    return undefined;
+  }
+}
+
+async function runDoctor(rest, flags, stdout, stderr, config) {
+  if (rest.length > 0) {
+    throw { code: EXIT.invalid_argument, message: `doctor does not accept arguments: ${rest[0]}` };
+  }
+  for (const blocked of ['stdin', 'type', 'format', 'region', 'no-exif', 'provider', 'crop',
+    'model-info', 'version']) {
+    if (flags[blocked] !== undefined) {
+      throw { code: EXIT.invalid_argument, message: `doctor does not accept --${blocked}` };
+    }
+  }
+
+  const info = {
+    schemaVersion: 1,
+    tool: {
+      command: config.commandName,
+      version: config.packageVersion,
+      coreVersion: config.coreVersion,
+    },
+    model: { ...config.modelProfile },
+    system: {
+      node: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      release: os.release(),
+      hostHash: crypto.createHash('sha256').update(os.hostname()).digest('hex').slice(0, 16),
+      cpuModel: os.cpus()[0]?.model || 'unknown',
+      cpuCores: os.cpus().length,
+      totalMemoryGB: +(os.totalmem() / (1024 ** 3)).toFixed(1),
+    },
+    native: { status: 'unavailable' },
+    modules: {
+      runtime: safeRequireResolve('@arcships/light-ocr-runtime') !== undefined,
+      model: safeRequireResolve(config.modelProfile.model ? `@arcships/light-ocr-model-${config.modelProfile.model}` : '@arcships/light-ocr-model-ppocrv6-small') !== undefined,
+      pdfium: false,
+    },
+  };
+
+  // Native runtime details
+  if (typeof config.loadNative === 'function') {
+    try {
+      const native = config.loadNative();
+      info.native = {
+        status: 'ok',
+        availableProviders: native.runtimePolicy.availableProviders,
+        runtimeFlavor: native.runtimePolicy.runtimeFlavor,
+        runtimeVersion: native.runtimePolicy.runtimeVersion,
+        platformId: native.runtimePolicy.platformId,
+        qualificationOnly: native.runtimePolicy.qualificationOnly,
+        released: native.runtimePolicy.released,
+        descriptorPath: native.descriptorPath,
+      };
+    } catch (error) {
+      info.native = { status: 'error', message: error.message || String(error) };
+    }
+  }
+
+  // GPU/engine info (requires engine creation — slow, only when available)
+  if (flags.gpu !== true) {
+    // skip GPU probe unless explicitly requested
+  } else {
+    const gpuInfo = await loadGpuInfo(config);
+    if (gpuInfo) info.gpu = gpuInfo;
+  }
+
+  // PDF support
+  if (typeof config.hasPdfSupport === 'function') {
+    info.modules.pdfium = config.hasPdfSupport();
+  }
+
+  stdout.write(JSON.stringify(info, null, 2) + '\n');
+}
+
 // --- document subcommand (PDF and multi-page support) ---
 function parsePageRange(rangeStr) {
   if (!rangeStr) return undefined;
@@ -571,6 +663,7 @@ function printHelp(stdout, verbose, config) {
   stdout.write(`  ${command} detect     <path|--stdin> [flags]   Detect text regions only\n`);
   stdout.write(`  ${command} document   <path|paths...> [flags]  Process PDF or multiple images\n`);
   stdout.write(`  ${command} info       --model-info | --version  Show engine/version info\n`);
+  stdout.write(`  ${command} doctor     [--json]                 System diagnostics\n`);
   stdout.write(`  ${command} <image> [flags]                     Implicit recognize\n\n`);
   stdout.write(`Run \`${command} <subcommand> --help\` for flags of that subcommand.\n`);
 }
@@ -623,6 +716,15 @@ function printSubcommandHelp(stdout, subcommand, config) {
     stdout.write('  --quiet                    Suppress progress output\n');
     return;
   }
+  if (subcommand === 'doctor') {
+    stdout.write(`${command} doctor — system diagnostics for troubleshooting\n\n`);
+    stdout.write(`Usage:\n  ${command} doctor [--json]\n\n`);
+    stdout.write('Collects hardware and runtime information (no user content).\n');
+    stdout.write('Output is always JSON. Use --json for explicit intent.\n\n');
+    stdout.write('Flags:\n');
+    stdout.write('  --json   Explicit JSON output flag (default behavior)\n');
+    return;
+  }
   printHelp(stdout, false, config);
 }
 
@@ -653,6 +755,8 @@ async function main(argv, config) {
   try {
     if (subcommand === 'info') {
       await runInfo(rest, parsed.flags, stdout, stderr, config);
+    } else if (subcommand === 'doctor') {
+      await runDoctor(rest, parsed.flags, stdout, stderr, config);
     } else if (subcommand === 'recognize') {
       await runRecognize(rest, parsed.flags, stdout, stderr, config);
     } else if (subcommand === 'detect') {
@@ -707,6 +811,7 @@ function createCli(config) {
     resolveSchemaVersion,
     inferMediaType,
     parseRegion,
+    runDoctor: (rest, flags, stdout, stderr) => runDoctor(rest, flags, stdout, stderr, frozenConfig),
   });
 }
 

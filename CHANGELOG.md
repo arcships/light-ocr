@@ -4,6 +4,28 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-07-24
+
+### Added
+
+- Added `recognizeDocument()` async generator API to `@arcships/light-ocr` for unified document OCR. Accepts file paths, `Buffer`, or arrays thereof; auto-detects PDF (magic bytes or `.pdf` extension) and delegates to per-page image OCR otherwise. Each yielded page result carries `source.kind`, `appliedTransforms.pdf`, page dimensions, OCR lines, and `timingUs`.
+- Added `light-ocr document` CLI subcommand with flags: `--source <path>`, `--page-range start-end`, `--dpi <n>`, `--format json|text`, `--max-pages <n>`, and `--abort-on-limit`. Processes PDF and multi-page image sources from the command line.
+- Added `hasPdfSupport()` runtime probe to detect `pdfium-native` availability without throwing. Both the CLI and API gracefully degrade when PDF rendering is unavailable.
+- Added `@arcships/light-ocr-document` standalone document engine package (`0.1.0` preview). Exposes `createDocumentEngine()`, `recognizePdf()`, `recognizeImages()`, and `recognizeDocument()` with resource-limited PDF rendering through `pdfium-native`. Requires `@arcships/light-ocr-runtime` and a model package as peer dependencies.
+- Added bounded PDF resource limits: `maxPages` (default 100), `maxPagePixels` (16 MiB), `maxTotalPixels` (100 MiB), and `maxFileBytes` (100 MiB). Violations surface as `resource_limit_exceeded` `OcrError` before rendering begins.
+- Added `AbortSignal` passthrough to `recognizeDocument()`, `processPdf()`, and `processImages()`, checked between each page to allow cooperative cancellation of long-running document jobs.
+
+### Changed
+
+- `@arcships/light-ocr` now lists `pdfium-native` as both a direct and optional dependency. When the native PDFium binary is not installed, `hasPdfSupport()` returns `false` and `recognizeDocument()` handles PDF sources by throwing a clear `unsupported_capability` error instead of a module-not-found crash.
+- The `light-ocr` CLI now includes `document` alongside `recognize`, `detect`, and `info` in its subcommand surface.
+
+### Notes
+
+- This is the N3 document entry release (roadmap §N3). The feature adds PDF and multi-page image document processing as a new entry point for the `light-ocr` Small package. PDF rendering is optional; image-only document workflows require no additional native dependency.
+- The standalone `@arcships/light-ocr-document` package is published as a `0.1.0` preview on `next`. It shares the same PDF/image processing engine but offers a cleaner document-first API for callers that do not need the full `light-ocr` facade.
+- N3 路线图里程碑目标版本为 `0.5.0`；此补丁版本 `0.4.1` 以保守增量方式将 N3 能力合入 Small 稳定包，不改变已有的 native/runtime/model 闭包。
+
 ## [0.4.0] - 2026-07-23
 
 ### Added
