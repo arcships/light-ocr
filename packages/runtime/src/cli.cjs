@@ -17,7 +17,7 @@ const path = require('node:path');
 
 const { parseExifOrientation } = require('./exif.cjs');
 
-const SUBCOMMANDS = new Set(['recognize', 'detect', 'info']);
+const SUBCOMMANDS = new Set(['recognize', 'detect', 'info', 'document']);
 const EXIT = {
   success: 0,
   usage: 64,
@@ -470,6 +470,98 @@ function writeResult(envelope, format, stdout, subcommand) {
   stdout.write(JSON.stringify(envelope, null, 2) + '\n');
 }
 
+// --- document subcommand (PDF and multi-page support) ---
+function parsePageRange(rangeStr) {
+  if (!rangeStr) return undefined;
+  const match = String(rangeStr).match(/^(\d+)(?:-(\d+))?$/);
+  if (!match) {
+    throw { code: EXIT.invalid_argument, message: `--pages expects N or N-M (got ${rangeStr})` };
+  }
+  return {
+    start: parseInt(match[1]),
+    end: match[2] ? parseInt(match[2]) : parseInt(match[1])
+  };
+}
+
+async function runDocument(rest, flags, stdout, stderr, config) {
+  const format = resolveFormat(flags, 'recognize');
+  const provider = resolveProvider(flags);
+  
+  if (rest.length === 0) {
+    throw { code: EXIT.usage, message: 'expected a PDF or image file path' };
+  }
+
+  // Parse document-specific flags
+  const pageRange = parsePageRange(flags.pages);
+  const dpi = flags.dpi ? parseInt(flags.dpi) : 150;
+  const maxPages = flags['max-pages'] ? parseInt(flags['max-pages']) : 100;
+  const quiet = flags.quiet === true;
+
+  // Check if recognizeDocument is available
+  if (typeof config.recognizeDocument !== 'function') {
+    throw { code: EXIT.unsupported_capability, message: 'PDF/document support not available' };
+  }
+
+  const source = rest.length === 1 ? rest[0] : rest;
+  
+  const pages = [];
+  let pageCount = 0;
+
+  try {
+    for await (const page of config.recognizeDocument(source, {
+      pageRange,
+      dpi,
+      maxPages,
+      engine: undefined // Will use default
+    })) {
+      pages.push(page);
+      pageCount++;
+      
+      // Output JSONL as we go
+      if (format === 'jsonl') {
+        stdout.write(JSON.stringify({
+          schemaVersion: SUPPORTED_SCHEMA_VERSION,
+          source: { kind: page.source.kind },
+          pageIndex: page.index,
+          status: 'ok',
+          page
+        }) + '\n');
+      }
+      
+      // Progress output
+      if (!quiet) {
+        stderr.write(`\rProcessed page ${pageCount}...`);
+      }
+    }
+    
+    if (!quiet && pageCount > 0) {
+      stderr.write('\n');
+    }
+
+    // Output final result for non-JSONL formats
+    if (format === 'json') {
+      const result = {
+        schemaVersion: SUPPORTED_SCHEMA_VERSION,
+        source: {
+          kind: Array.isArray(source) ? 'page-images' : 
+                (typeof source === 'string' && source.endsWith('.pdf') ? 'pdf' : 'image'),
+          mediaType: typeof source === 'string' && source.endsWith('.pdf') ? 'application/pdf' : 'image/*',
+          identity: { files: Array.isArray(source) ? source : [source] },
+          pageCount: pages.length
+        },
+        pages
+      };
+      stdout.write(JSON.stringify(result, null, 2) + '\n');
+    } else if (format === 'text') {
+      for (const page of pages) {
+        stdout.write(page.lines.map(l => l.text).join('\n') + '\n');
+      }
+    }
+  } catch (e) {
+    throw e;
+  }
+}
+
 // --- help ---
 function printHelp(stdout, verbose, config) {
   const command = config.commandName;
@@ -477,6 +569,7 @@ function printHelp(stdout, verbose, config) {
   stdout.write('Usage:\n');
   stdout.write(`  ${command} recognize <path|--stdin> [flags]   Recognize text in an image (default)\n`);
   stdout.write(`  ${command} detect     <path|--stdin> [flags]   Detect text regions only\n`);
+  stdout.write(`  ${command} document   <path|paths...> [flags]  Process PDF or multiple images\n`);
   stdout.write(`  ${command} info       --model-info | --version  Show engine/version info\n`);
   stdout.write(`  ${command} <image> [flags]                     Implicit recognize\n\n`);
   stdout.write(`Run \`${command} <subcommand> --help\` for flags of that subcommand.\n`);
@@ -516,6 +609,18 @@ function printSubcommandHelp(stdout, subcommand, config) {
     stdout.write('Flags (mutually exclusive):\n');
     stdout.write('  --model-info   Print EngineInfo JSON\n');
     stdout.write('  --version      Print npm/core/model version triple\n');
+    return;
+  }
+  if (subcommand === 'document') {
+    stdout.write(`${command} document — process PDF or multiple images\n\n`);
+    stdout.write(`Usage:\n  ${command} document <file.pdf> [flags]\n  ${command} document <img1.png> <img2.jpg> [flags]\n\n`);
+    stdout.write('Flags:\n');
+    stdout.write('  --format json|jsonl|text   Output format (default: json)\n');
+    stdout.write('  --pages N-M                Page range for PDF (e.g., 1-5 or 3)\n');
+    stdout.write('  --dpi <n>                  PDF raster DPI (default: 150)\n');
+    stdout.write('  --max-pages <n>            Maximum pages to process (default: 100)\n');
+    stdout.write('  --provider auto|cpu|apple|webgpu  Execution provider (default: auto)\n');
+    stdout.write('  --quiet                    Suppress progress output\n');
     return;
   }
   printHelp(stdout, false, config);
@@ -563,6 +668,8 @@ async function main(argv, config) {
         };
       }
       await runDetect(rest, parsed.flags, stdout, stderr, config);
+    } else if (subcommand === 'document') {
+      await runDocument(rest, parsed.flags, stdout, stderr, config);
     } else {
       die(stderr, config.commandName, `unknown subcommand: ${subcommand}`);
       return EXIT.usage;

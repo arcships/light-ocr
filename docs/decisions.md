@@ -266,6 +266,36 @@ Reason: Three model cups need one adapter, error model and result schema, while 
 
 Consequence: Runtime/model/native packages can evolve independently, while each user-facing facade records an exact compatible composition. Model aliases are facade concerns; explicit `bundlePath` is the runtime escape hatch. Release acceptance requires exact locked bundles, one-model installation, shared contract tests, package integrity, and a representative real OCR smoke. Larger Pareto studies are promotion evidence, not repeated release-CI work; lack of that evidence keeps Tiny/Medium on `next` without blocking the completed N2 engineering cutover or N3.
 
+### D108 — PDF renderer selection: pdfium-native (N-API)
+
+Status: Accepted
+Authority: S3 PDF 可行性 Spike ([roadmap §8](roadmap.md)); PDF 渲染方案调研报告
+
+Decision: 使用 `pdfium-native`（v0.6.1, MIT, N-API binding）作为 PDF 渲染方案。备选 `clawpdf`（PDFium WASM, 4.1MB）在 pdfium-native 暴露平台或 Node 版本问题时可用。
+
+Reason:
+- pdfium-native 是唯一满足 light-ocr 全部非协商原则的 N-API binding：
+  - **原生性能**：N-API binding 比 WASM 快约 1.75-2.5x，内存占用更低
+  - **开箱即用**：内置 PNG/JPG 渲染，无需 sharp 或 canvas
+  - **本地优先**：进程内调用，无子进程、无网络
+  - **跨平台 prebuild**：使用 bblanchon/pdfium-binaries，覆盖 macOS arm64/x64、Windows x64、Linux x64（light-ocr 全部 Tier 1 平台）
+  - **许可友好**：MIT，PDFium 底层 Apache-2.0
+  - **Node >=22**：light-ocr 目标就是 Node 22/24，完全兼容
+- 排除的方案：
+  - **pdfjs-dist**：34MB 包体积 + 需要 canvas 依赖 + 已知 Node.js 渲染 bug
+  - **node-poppler**：GPL-2.0 许可传染性 + 外部二进制依赖 + 子进程模式
+  - **WASM 方案**（clawpdf/@hyzyla/pdfium）：性能不如原生，作为备选保留
+
+Consequence:
+- PDF 渲染层作为独立依赖和安全边界，复用现有 OCR 流程
+- 页面渲染后转 PNG Buffer 传给现有 `recognizeEncoded()`
+- 坐标空间：PDF 渲染后使用 `pageSpace`（pixel），需要提供 `pdfSpace`（point）到 `pageSpace` 的 affine transform
+- 集成方式：Document Layer 调用 pdfium-native → 渲染 PNG → 调用 OCR engine，流式输出 JSONL
+- 风险缓解：
+  - pdfium-native 较新（9K 月下载量，0 GitHub Stars），需锁定版本使用
+  - 单一维护者风险，必要时可 fork 或切换到 clawpdf WASM 备选
+  - Spike 阶段需验证 PDFium 版本是否覆盖目标 PDF 特性（加密、表单、嵌入图片等）
+
 ## 3. Deferred decisions
 
 ### D102 — Public native SDK and ABI policy
