@@ -83,7 +83,7 @@ async function* processPdf(engine, pdfBuffer, options = {}) {
   let totalPixels = 0;
 
   // Open PDF document
-  const doc = await pdfiumNative.open(pdfBuffer);
+  const doc = await pdfiumNative.loadDocument(pdfBuffer);
   
   try {
     const pageCount = doc.pageCount;
@@ -104,10 +104,10 @@ async function* processPdf(engine, pdfBuffer, options = {}) {
         throw new facade.OcrError('internal_error', 'Operation aborted');
       }
 
-      const page = doc.page(i);
+      const page = await doc.getPage(i - 1); // 0-indexed
       
       // Get page dimensions
-      const { width, height } = page.size;
+      const { width, height } = page;
       const pagePixels = width * height;
       
       // Check pixel limits
@@ -124,13 +124,17 @@ async function* processPdf(engine, pdfBuffer, options = {}) {
 
       // Render page to PNG
       const renderStart = Date.now();
-      const pngBuffer = await page.render({ dpi });
+      const scale = dpi / 72; // PDF default is 72 DPI
+      const pngBuffer = await page.render({ scale });
       const renderTime = (Date.now() - renderStart) * 1000;
 
       // OCR the rendered image
       const ocrStart = Date.now();
       const ocrResult = await engine.recognizeEncoded(pngBuffer, ocrOptions);
       const ocrTime = (Date.now() - ocrStart) * 1000;
+
+      // Close page to free native memory
+      await page.close();
 
       // Build page result
       const pageResult = {
