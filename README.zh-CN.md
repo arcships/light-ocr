@@ -12,7 +12,7 @@
 
 **面向 Node.js 与 C++ 的快速离线 OCR。**
 
-直接在本机识别 JPEG、PNG 或像素数据，返回按阅读顺序排列的文字、置信度和四边形坐标。Node.js 用户安装的 npm 包内置 PP-OCRv6 Small 模型，并提供 macOS、Linux 和 Windows 的预编译组件。
+直接在本机识别 JPEG、PNG、PDF 或像素数据，返回按阅读顺序排列的文字、置信度和四边形坐标。Node.js 用户安装的 npm 包内置 PP-OCRv6 Small 模型，并提供 macOS、Linux 和 Windows 的预编译组件。
 
 ## 快速开始
 
@@ -71,9 +71,48 @@ light-ocr recognize image.png --region 100,80,640,320 --format json
 
 # 引擎信息
 light-ocr info --version
+
+# 处理 PDF 或多页图片
+light-ocr document report.pdf --format json
+light-ocr document report.pdf --pages 1-5 --format jsonl
+light-ocr document page1.png page2.png --format text
+
+# 系统诊断（硬件、加速器、PDF 支持）
+light-ocr doctor --json
 ```
 
-三个子命令：`recognize`（默认）、`detect`（只检测框）、`info`（诊断）。输出使用 `schemaVersion: 1` 版本化 envelope，带稳定 line/detection ID。EXIF 方向自动修正。完整参考见 [CLI 设计](docs/cli-design.md) 和 [npm README](bindings/node/README.md#cli)。
+五个子命令：`recognize`（默认）、`detect`（只检测框）、`document`（PDF/多页）、`info`（版本诊断）、`doctor`（系统诊断）。输出使用 `schemaVersion: 1` 版本化 envelope，带稳定 line/detection ID。EXIF 方向自动修正。完整参考见 [CLI 设计](docs/cli-design.md) 和 [npm README](bindings/node/README.md#cli)。
+
+### PDF 和多页文档
+
+`light-ocr document` 一次调用处理 PDF 文件和多张图片。PDF 渲染使用 [pdfium-native](https://www.npmjs.com/package/pdfium-native)（可选依赖，支持平台会自动安装）。如果 PDFium 不可用，仅图片的文档流程仍然可用。
+
+```bash
+# 单个 PDF，默认 150 DPI
+light-ocr document report.pdf
+
+# 指定页码范围，流式 JSONL 输出
+light-ocr document report.pdf --pages 1-10 --format jsonl
+
+# 多张图片作为一个文档
+light-ocr document scan1.png scan2.png scan3.png --format text
+```
+
+编程 API：
+
+```ts
+import { recognizeDocument } from "@arcships/light-ocr";
+
+// 从 PDF 流式获取页面
+for await (const page of recognizeDocument("report.pdf", { dpi: 200 })) {
+  console.log(page.index, page.lines.length, page.source.kind);
+}
+
+// 多张图片
+for await (const page of recognizeDocument([buf1, buf2, buf3])) {
+  console.log(page.index, page.lines);
+}
+```
 
 ## Agent Skill
 
@@ -86,8 +125,9 @@ light-ocr info --version
 
 ## 主要能力
 
-- **本地处理。**图片和 OCR 结果始终留在本机。
+- **本地处理。**图片、PDF 和 OCR 结果始终留在本机。
 - **只需安装一个包。**模型和当前平台的预编译组件会随 npm 包一起安装。
+- **PDF 和多页支持。**处理 PDF 和多张图片，流式输出结果。
 - **直接得到可用结果。**每一行都包含识别文字、置信度和原图位置。
 - **默认使用硬件加速。**Auto 在 macOS 15+ Apple Silicon 上优先使用 Core ML，在下表的 Linux 和 Windows 版本中优先使用 WebGPU。
 - **适合应用内调用。**识别任务在 JavaScript 主线程之外执行，并支持队列、取消和明确释放资源。
@@ -143,6 +183,7 @@ C++ 项目从源码构建静态库，并链接 `light_ocr::core` CMake target。
 - [更新日志](CHANGELOG.md)
 - [npm 0.3.0 发布报告](docs/releases/npm-0.3.0.md)
 - [npm 0.4.0 N2 候选记录](docs/releases/npm-0.4.0.md)
+- [npm 0.5.0 N3 发布记录](docs/releases/npm-0.5.0.md)
 
 ## 社区与协议
 

@@ -4,6 +4,26 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-07-26
+
+### Fixed
+
+- Fixed corrupted UTF-8 characters in tiny/medium package.json descriptions caused by encoding issues during version bump.
+- Fixed `npm_release.py` FACADE_PACKAGES version mismatch for tiny/medium.
+- Fixed hardcoded runtime tarball version in release workflow.
+
+## [0.5.2] - 2026-07-26
+
+### Changed
+
+- Bumped runtime to 0.1.3 and tiny/medium facades to 0.1.2 to resolve npm integrity conflicts from partial publishes during 0.5.0–0.5.1 release attempts.
+
+## [0.5.1] - 2026-07-26
+
+### Changed
+
+- Bumped Core/Small/native version to 0.5.1 to resolve npm integrity conflict on native platform packages.
+
 ## [0.5.0] - 2026-07-24
 
 ### Added

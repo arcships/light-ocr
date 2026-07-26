@@ -14,7 +14,7 @@ English | [简体中文](README.zh-CN.md)
 
 **Fast, offline OCR for Node.js and C++.**
 
-Recognize text in JPEG, PNG, or raw image data directly on your machine. `light-ocr` returns lines in reading order with confidence scores and quadrilateral coordinates. For Node.js, the npm package includes PP-OCRv6 Small and prebuilt components for macOS, Linux, and Windows.
+Recognize text in JPEG, PNG, PDF, or raw image data directly on your machine. `light-ocr` returns lines in reading order with confidence scores and quadrilateral coordinates. For Node.js, the npm package includes PP-OCRv6 Small and prebuilt components for macOS, Linux, and Windows.
 
 ## Quick start
 
@@ -73,9 +73,48 @@ light-ocr recognize image.png --region 100,80,640,320 --format json
 
 # Engine info
 light-ocr info --version
+
+# Process PDF or multiple images
+light-ocr document report.pdf --format json
+light-ocr document report.pdf --pages 1-5 --format jsonl
+light-ocr document page1.png page2.png --format text
+
+# System diagnostics (hardware, providers, PDF support)
+light-ocr doctor --json
 ```
 
-Three subcommands: `recognize` (default), `detect` (boxes only), `info` (diagnostics). Output wraps in a versioned `schemaVersion: 1` envelope with stable line/detection IDs. EXIF orientation is corrected automatically. See the [CLI design](docs/cli-design.md) and [npm README](bindings/node/README.md#cli) for full reference.
+Five subcommands: `recognize` (default), `detect` (boxes only), `document` (PDF/multi-page), `info` (version diagnostics), `doctor` (system diagnostics). Output wraps in a versioned `schemaVersion: 1` envelope with stable line/detection IDs. EXIF orientation is corrected automatically. See the [CLI design](docs/cli-design.md) and [npm README](bindings/node/README.md#cli) for full reference.
+
+### PDF and multi-page documents
+
+`light-ocr document` processes PDF files and multiple images in one call. PDF rendering uses [pdfium-native](https://www.npmjs.com/package/pdfium-native) (an optional dependency that auto-installs on supported platforms). If PDFium is unavailable, image-only document workflows still work.
+
+```bash
+# Single PDF with default 150 DPI
+light-ocr document report.pdf
+
+# Page range with streaming JSONL output
+light-ocr document report.pdf --pages 1-10 --format jsonl
+
+# Multiple images as one document
+light-ocr document scan1.png scan2.png scan3.png --format text
+```
+
+Programmatic API:
+
+```ts
+import { recognizeDocument } from "@arcships/light-ocr";
+
+// Stream pages from a PDF
+for await (const page of recognizeDocument("report.pdf", { dpi: 200 })) {
+  console.log(page.index, page.lines.length, page.source.kind);
+}
+
+// Multiple images
+for await (const page of recognizeDocument([buf1, buf2, buf3])) {
+  console.log(page.index, page.lines);
+}
+```
 
 ## Agent Skill
 
@@ -88,8 +127,9 @@ An [Agent Skill](.agents/skills/local-ocr/SKILL.md) is included for AI agents th
 
 ## What you get
 
-- **Local processing.** Images and OCR results stay on your machine.
+- **Local processing.** Images, PDFs, and OCR results stay on your machine.
 - **One package to install.** The model and matching prebuilt component are included with the npm package.
+- **PDF and multi-page support.** Process PDFs and multiple images with streaming output.
 - **Useful output.** Every line includes recognized text, confidence, and its position in the original image.
 - **Hardware acceleration by default.** Auto tries Core ML first on macOS 15+ Apple Silicon, and WebGPU first on the Linux and Windows builds below.
 - **Application-friendly execution.** Recognition runs off the JavaScript main thread and supports queues, cancellation, and explicit cleanup.
@@ -145,6 +185,7 @@ C++ projects build the static library from source and link the `light_ocr::core`
 - [Changelog](CHANGELOG.md)
 - [npm 0.3.0 release report](docs/releases/npm-0.3.0.md)
 - [npm 0.4.0 N2 candidate record](docs/releases/npm-0.4.0.md)
+- [npm 0.5.0 N3 release record](docs/releases/npm-0.5.0.md)
 
 ## Community and license
 
