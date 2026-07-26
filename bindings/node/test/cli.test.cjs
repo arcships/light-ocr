@@ -108,7 +108,7 @@ test('info: --version is metadata-only and reports the Small tier', async () => 
   assert.equal(code, EXIT.success);
   assert.equal(stderr, '');
   const info = JSON.parse(stdout);
-  assert.equal(info.core, '0.4.0');
+  assert.equal(info.core, '0.5.0');
   assert.equal(info.tier, 'small');
   assert.equal(info.maturity, 'stable');
   assert.equal(info.model, 'ppocrv6-small-native-20260719.1');
@@ -407,4 +407,158 @@ test('schema snapshot: detect envelope has detections with id, score, box', () =
   assert.ok('score' in det, 'missing detection.score');
   assert.ok(det.box, 'missing detection.box');
   assert.equal(det.box.length, 4, 'box must have 4 points');
+});
+
+// --- doctor subcommand tests ---
+const { runDoctor } = require('../../../packages/light-ocr/src/cli.cjs');
+
+test('doctor: outputs valid JSON with required top-level fields', async () => {
+  const { code, stdout, stderr } = await runCli(['doctor']);
+  assert.equal(code, EXIT.success);
+  assert.equal(stderr, '');
+  const result = JSON.parse(stdout);
+  assert.equal(result.schemaVersion, 1);
+  assert.ok(result.tool, 'missing tool');
+  assert.ok(result.model, 'missing model');
+  assert.ok(result.system, 'missing system');
+  assert.ok(result.native, 'missing native');
+  assert.ok(result.modules, 'missing modules');
+});
+
+test('doctor: --json flag accepted and produces valid JSON', async () => {
+  const { code, stdout } = await runCli(['doctor', '--json']);
+  assert.equal(code, EXIT.success);
+  const result = JSON.parse(stdout);
+  assert.equal(result.schemaVersion, 1);
+});
+
+test('doctor: tool section contains version info', async () => {
+  const { stdout } = await runCli(['doctor']);
+  const result = JSON.parse(stdout);
+  assert.equal(result.tool.command, 'light-ocr');
+  assert.ok(result.tool.version, 'missing tool.version');
+  assert.ok(result.tool.coreVersion, 'missing tool.coreVersion');
+});
+
+test('doctor: system section has Node, platform, CPU, memory', async () => {
+  const { stdout } = await runCli(['doctor']);
+  const result = JSON.parse(stdout);
+  assert.ok(result.system.node.startsWith('v'), 'node version should start with v');
+  assert.ok(result.system.platform, 'missing platform');
+  assert.ok(result.system.arch, 'missing arch');
+  assert.ok(result.system.cpuModel, 'missing cpuModel');
+  assert.ok(result.system.cpuCores > 0, 'cpuCores should be positive');
+  assert.ok(result.system.totalMemoryGB > 0, 'totalMemoryGB should be positive');
+});
+
+test('doctor: model section mirrors modelProfile', async () => {
+  const { stdout } = await runCli(['doctor']);
+  const result = JSON.parse(stdout);
+  assert.equal(result.model.tier, 'small');
+  assert.equal(result.model.maturity, 'stable');
+  assert.ok(result.model.model, 'missing model name');
+});
+
+test('doctor: modules section reports runtime and model availability', async () => {
+  const { stdout } = await runCli(['doctor']);
+  const result = JSON.parse(stdout);
+  assert.equal(typeof result.modules.runtime, 'boolean');
+  assert.equal(typeof result.modules.model, 'boolean');
+  assert.equal(typeof result.modules.pdfium, 'boolean');
+});
+
+test('doctor: native section has status field', async () => {
+  const { stdout } = await runCli(['doctor']);
+  const result = JSON.parse(stdout);
+  assert.ok(result.native.status, 'missing native.status');
+  // In test env without native build, status is 'unavailable' or 'error'
+  assert.ok(['ok', 'unavailable', 'error'].includes(result.native.status),
+    `unexpected native.status: ${result.native.status}`);
+});
+
+test('doctor: rejects file path argument exit 65', async () => {
+  const { code, stderr } = await runCli(['doctor', 'image.png']);
+  assert.equal(code, EXIT.invalid_argument);
+  assert.match(stderr, /does not accept arguments/);
+});
+
+test('doctor: rejects --format exit 65', async () => {
+  const { code, stderr } = await runCli(['doctor', '--format', 'json']);
+  assert.equal(code, EXIT.invalid_argument);
+  assert.match(stderr, /does not accept --format/);
+});
+
+test('doctor: rejects --model-info exit 65', async () => {
+  const { code, stderr } = await runCli(['doctor', '--model-info']);
+  assert.equal(code, EXIT.invalid_argument);
+  assert.match(stderr, /does not accept --model-info/);
+});
+
+test('doctor: help prints usage and --json flag', async () => {
+  const { code, stdout } = await runCli(['doctor', '--help']);
+  assert.equal(code, EXIT.success);
+  assert.match(stdout, /doctor/);
+  assert.match(stdout, /--json/);
+});
+
+test('doctor: top-level help includes doctor subcommand', async () => {
+  const { stdout } = await runCli(['--help']);
+  assert.match(stdout, /doctor/);
+});
+
+test('doctor: hostHash is 16-char hex and privacy-safe', async () => {
+  const { stdout } = await runCli(['doctor']);
+  const result = JSON.parse(stdout);
+  assert.match(result.system.hostHash, /^[a-f0-9]{16}$/,
+    'hostHash should be 16-char hex (privacy-safe hash)');
+});
+
+// --- document subcommand tests ---
+
+test('help: document subcommand prints flags', async () => {
+  const { code, stdout } = await runCli(['document', '--help']);
+  assert.equal(code, EXIT.success);
+  assert.match(stdout, /light-ocr document — process PDF or multiple images/);
+  assert.match(stdout, /--format json\|jsonl\|text/);
+  assert.match(stdout, /--pages N-M/);
+  assert.match(stdout, /--dpi <n>/);
+  assert.match(stdout, /--max-pages <n>/);
+  assert.match(stdout, /--quiet/);
+  assert.match(stdout, /--provider/);
+});
+
+test('help: top-level help includes document subcommand', async () => {
+  const { stdout } = await runCli(['--help']);
+  assert.match(stdout, /document.*Process PDF or multiple images/);
+});
+
+test('document: rejects no arguments exit 64', async () => {
+  const { code, stderr } = await runCli(['document']);
+  assert.equal(code, EXIT.usage);
+  assert.match(stderr, /expected a PDF or image file path/);
+});
+
+test('document: rejects invalid --format exit 65', async () => {
+  const { code, stderr } = await runCli(['document', 'x.png', '--format', 'csv']);
+  assert.equal(code, EXIT.invalid_argument);
+  assert.match(stderr, /unsupported --format/);
+});
+
+test('document: rejects invalid --pages exit 65', async () => {
+  const { code, stderr } = await runCli(['document', 'x.png', '--pages', 'abc']);
+  assert.equal(code, EXIT.invalid_argument);
+  assert.match(stderr, /--pages expects N or N-M/);
+});
+
+test('document: rejects unknown subcommand before file-not-found', async () => {
+  // document is a valid subcommand, so it processes its args
+  // invalid --format should be caught before file-not-found
+  const { code } = await runCli(['document', 'x.png', '--format', 'csv']);
+  assert.equal(code, EXIT.invalid_argument);
+});
+
+test('document: pdfium status reported in doctor', async () => {
+  const { stdout } = await runCli(['doctor', '--json']);
+  const result = JSON.parse(stdout);
+  assert.equal(typeof result.modules.pdfium, 'boolean');
 });
