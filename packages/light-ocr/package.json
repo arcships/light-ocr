@@ -1,6 +1,6 @@
 {
   "name": "@arcships/light-ocr",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "private": true,
   "description": "Offline PP-OCRv6 Small OCR for Node.js — the stable default tier",
   "license": "Apache-2.0",
@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@arcships/light-ocr-model-ppocrv6-small": "0.3.4",
-    "@arcships/light-ocr-runtime": "0.1.2"
+    "@arcships/light-ocr-runtime": "0.1.3"
   },
   "optionalDependencies": {
     "pdfium-native": "0.6.1"
