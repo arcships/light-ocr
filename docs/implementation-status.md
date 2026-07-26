@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
-更新时间：2026-07-23<br>
-结论：npm `0.4.0` 已发布，N2 完成。S3 PDF 可行性 Spike 完成，决策选择 `pdfium-native`（N-API binding）作为 PDF 渲染方案（D108）。N3 文档入口能力已合并到 `@arcships/light-ocr` 包，`light-ocr document` 子命令可处理 PDF 和多页图片。
+更新时间：2026-07-24<br>
+结论：npm `0.5.0` 准备发布，N3 文档入口完成。S3 PDF 可行性 Spike 完成，决策选择 `pdfium-native`（N-API binding）作为 PDF 渲染方案（D108）。`light-ocr document` 子命令可处理 PDF 和多页图片，`light-ocr doctor --json` 可收集系统信息。
 
 状态含义：
 

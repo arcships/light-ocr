@@ -6,7 +6,7 @@ const path = require('node:path');
 const facade = require('./index.cjs');
 
 // Try to use workspace dependencies, fallback to local paths
-let createCli, coreVersion;
+let createCli, coreVersion, loadNative;
 try {
   ({ createCli } = require('@arcships/light-ocr-runtime/cli'));
   ({ coreVersion } = require('@arcships/light-ocr-runtime/metadata'));
@@ -14,6 +14,15 @@ try {
   // Fallback to local runtime
   ({ createCli } = require(path.join(__dirname, '..', '..', 'runtime', 'src', 'cli.cjs')));
   ({ coreVersion } = require(path.join(__dirname, '..', '..', 'runtime', 'src', 'metadata.cjs')));
+}
+try {
+  ({ loadNative } = require('@arcships/light-ocr-runtime'));
+} catch {
+  try {
+    ({ loadNative } = require(path.join(__dirname, '..', '..', 'runtime', 'src', 'load-native.cjs')));
+  } catch {
+    // loadNative unavailable — doctor will report native as unavailable
+  }
 }
 
 const packageMetadata = require('../package.json');
@@ -23,6 +32,7 @@ const cli = createCli({
   commandName: 'light-ocr-tiny',
   packageVersion: packageMetadata.version,
   coreVersion,
+  loadNative,
 });
 
 if (require.main === module) {
