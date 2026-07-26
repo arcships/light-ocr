@@ -174,4 +174,4 @@ async function createEngine(options) {
   }
 }
 
-module.exports = { createEngine, OcrError };
+module.exports = { createEngine, OcrError, loadNative };
