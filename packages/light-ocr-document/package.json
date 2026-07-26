@@ -35,7 +35,7 @@
     "pdfium-native": "0.6.1"
   },
   "peerDependencies": {
-    "@arcships/light-ocr-runtime": "^0.1.0",
+    "@arcships/light-ocr-runtime": "^0.1.2",
     "@arcships/light-ocr-model-ppocrv6-small": "^0.3.4"
   },
   "peerDependenciesMeta": {
