@@ -69,15 +69,47 @@ done
 
 Each line is one page record. Check exit codes: a non-zero exit for one image does not stop the loop, but stdout for that image may be empty.
 
+### PDF and multi-page documents
+
+Need to extract text from a PDF file or process multiple images as one document.
+
+```bash
+# Full PDF with JSON output
+light-ocr document report.pdf --format json
+
+# Page range with streaming JSONL
+light-ocr document report.pdf --pages 1-10 --format jsonl
+
+# Multiple images as one document
+light-ocr document scan1.png scan2.png --format text
+
+# Check if PDF support is available
+light-ocr doctor --json
+```
+
+PDF rendering uses `pdfium-native` (optional dependency). If unavailable, use image-only workflows or install `pdfium-native` separately.
+
+### System diagnostics
+
+Need to check hardware, execution providers, or PDF support status.
+
+```bash
+light-ocr doctor --json
+```
+
+Returns system info (Node.js version, OS, CPU, memory), native runtime status, available providers, and module availability. No user content is collected; hostname is SHA-256 hashed.
+
 ## Decision flow
 
 ```
-Need text from an image?
+Need text from an image or document?
 ├── Know which region? → recognize --region x,y,w,h --format json
 ├── Need full text only? → recognize --format text
 ├── Need text + coordinates? → recognize --format json
 ├── Only need where text is? → detect
 ├── Large image, unsure where text is? → detect first, then recognize --region
+├── PDF or multiple images? → document <files> --format json
+├── Need system/hardware info? → doctor --json
 └── Need engine info or version? → info --model-info / info --version
 ```
 
