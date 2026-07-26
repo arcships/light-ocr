@@ -1,0 +1,52 @@
+{
+  "name": "@arcships/light-ocr-document",
+  "version": "0.1.0",
+  "description": "Document entry for light-ocr â€?PDF and multi-page image processing",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arcships/light-ocr.git",
+    "directory": "packages/light-ocr-document"
+  },
+  "type": "commonjs",
+  "main": "./src/index.cjs",
+  "module": "./src/index.mjs",
+  "types": "./src/index.d.ts",
+  "bin": {
+    "light-ocr-document": "./src/cli.cjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.mjs",
+      "require": "./src/index.cjs"
+    }
+  },
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": "^22.0.0 || ^24.0.0"
+  },
+  "dependencies": {
+    "pdfium-native": "0.6.1"
+  },
+  "peerDependencies": {
+    "@arcships/light-ocr-runtime": "^0.1.0",
+    "@arcships/light-ocr-model-ppocrv6-small": "^0.3.4"
+  },
+  "peerDependenciesMeta": {
+    "@arcships/light-ocr-runtime": {
+      "optional": true
+    },
+    "@arcships/light-ocr-model-ppocrv6-small": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.cjs"
+  }
+}
