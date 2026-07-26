@@ -1,6 +1,6 @@
 {
   "name": "@arcships/light-ocr-runtime",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Model-free Node.js runtime for light-ocr",
   "license": "Apache-2.0",
