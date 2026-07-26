@@ -255,7 +255,7 @@ jobs:
           npm install --offline --ignore-scripts --no-audit --no-fund --package-lock=false \
             ../dist/release/arcships-light-ocr-model-ppocrv6-small-0.3.4.tgz \
             ../dist/release/arcships-light-ocr-${{ matrix.native }}-${RELEASE_VERSION}.tgz \
-            ../dist/release/arcships-light-ocr-runtime-0.1.0.tgz \
+            ../dist/release/arcships-light-ocr-runtime-0.1.1.tgz \
             ../dist/release/arcships-light-ocr-${RELEASE_VERSION}.tgz
           cp ../tools/npm/smoke.cjs .
       - name: Run stable Small OCR
