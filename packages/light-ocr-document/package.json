@@ -1,7 +1,7 @@
 {
   "name": "@arcships/light-ocr-document",
   "version": "0.1.0",
-  "description": "Document entry for light-ocr â€?PDF and multi-page image processing",
+  "description": "Document entry for light-ocr â€” PDF and multi-page image processing",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

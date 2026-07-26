@@ -2,7 +2,7 @@
   "name": "@arcships/light-ocr-medium",
   "version": "0.1.0",
   "private": true,
-  "description": "Offline PP-OCRv6 Medium OCR for Node.js â€?preview quality tier",
+  "description": "Offline PP-OCRv6 Medium OCR for Node.js â€” preview quality tier",
   "license": "Apache-2.0",
   "type": "commonjs",
   "main": "./src/index.cjs",
