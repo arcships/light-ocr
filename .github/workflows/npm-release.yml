@@ -264,11 +264,20 @@ jobs:
         env:
           LIGHT_OCR_SMOKE_FIXTURE: ${{ github.workspace }}/corpus/fixtures/generated-hello-123
         run: node smoke.cjs
-      - name: Install and smoke the explicit Document preview
+      - name: Install and smoke the explicit Document preview (Unix)
+        if: runner.os != 'Windows'
         shell: bash
         working-directory: package-smoke
         run: |
           npm install --no-audit --no-fund --package-lock=false \
+            ../dist/release/arcships-light-ocr-document-0.1.0.tgz
+          node ../tools/npm/document-smoke.cjs
+      - name: Install and smoke the explicit Document preview (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: package-smoke
+        run: |
+          npm install --no-audit --no-fund --package-lock=false `
             ../dist/release/arcships-light-ocr-document-0.1.0.tgz
           node ../tools/npm/document-smoke.cjs
       - name: Install and smoke preview tiers
