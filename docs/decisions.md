@@ -360,6 +360,33 @@ Consequence:
 - Omitting npm optional dependencies also omits both OCR and PDF native
   execution; the error directs users to reinstall without `--omit=optional`.
 
+### D115 — Keep external adoption non-blocking for 1.0
+
+Status: Accepted<br>
+Authority: Product release policy and N5 stabilization
+
+Decision: External user counts, third-party integration counts, download
+metrics, and fixed community observation windows are not release gates for
+`1.0` or earlier roadmap nodes. Mandatory qualification must be reproducible
+by maintainers through locked corpora, clean consumer projects, supported
+platform runners, published-package smoke tests, and versioned reports.
+
+Reason: Release readiness is the project's responsibility and must not depend
+on whether unrelated users publish their workflows or wait a prescribed
+number of days. External feedback remains useful, but it is neither
+deterministic nor fully auditable as a blocking check.
+
+Consequence:
+
+- N5 requires three maintained consumer scenarios across at least two public
+  entry points instead of three externally controlled integrations.
+- G1, G3, G4, and HC use predeclared internal evidence with no fixed external
+  observation window.
+- Community reports and adoption signals may reprioritize work or expose a
+  blocker, but their absence cannot delay a release.
+- Internal qualification demonstrates the documented contract; it must not be
+  presented as proof of broad third-party adoption.
+
 ## 3. Deferred decisions
 
 ### D102 — Public native SDK and ABI policy
