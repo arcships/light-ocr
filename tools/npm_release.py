@@ -35,6 +35,10 @@ RUNTIME_VERSION = json.loads(
 )["version"]
 MODEL_PACKAGE = "@arcships/light-ocr-model-ppocrv6-small"
 FACADE_PACKAGE = "@arcships/light-ocr"
+DOCUMENT_PACKAGE = "@arcships/light-ocr-document"
+DOCUMENT_VERSION = json.loads(
+    (ROOT / "packages" / "light-ocr-document" / "package.json").read_text("utf-8")
+)["version"]
 MODEL_PACKAGES = {
     "tiny": {
         "name": "@arcships/light-ocr-model-ppocrv6-tiny",
@@ -57,12 +61,12 @@ FACADE_PACKAGES = {
     },
     "tiny": {
         "name": "@arcships/light-ocr-tiny",
-        "version": "0.1.2",
+        "version": "0.1.3",
         "workspace": "light-ocr-tiny",
     },
     "medium": {
         "name": "@arcships/light-ocr-medium",
-        "version": "0.1.2",
+        "version": "0.1.3",
         "workspace": "light-ocr-medium",
     },
 }
@@ -834,6 +838,8 @@ def stage_workspace_package(workspace: str, output: Path) -> dict[str, Any]:
         destination = output / relative
         if source_path.is_dir():
             copy_tree(source_path, destination)
+        elif relative in {"LICENSE", "NOTICE"} and not source_path.exists():
+            copy_file(ROOT / relative, destination)
         else:
             copy_file(source_path, destination)
     write_json(output / "package.json", package)
@@ -989,6 +995,15 @@ def assemble(arguments: argparse.Namespace) -> None:
         )
         if facade["name"] != contract["name"] or facade["version"] != contract["version"]:
             raise RuntimeError(f"{tier} facade workspace identity is inconsistent")
+    document = stage_workspace_package(
+        "light-ocr-document", output / "light-ocr-document"
+    )
+    if (
+        document["name"] != DOCUMENT_PACKAGE
+        or document["version"] != DOCUMENT_VERSION
+        or document.get("dependencies", {}).get(FACADE_PACKAGE) != CORE_VERSION
+    ):
+        raise RuntimeError("Document preview workspace identity is inconsistent")
     stage_model_package("tiny", tiny_bundle, output / "model-ppocrv6-tiny")
     stage_model_package("medium", medium_bundle, output / "model-ppocrv6-medium")
 
@@ -1077,6 +1092,7 @@ def package_directories(staging: Path) -> list[Path]:
         RUNTIME_PACKAGE,
         *(contract["name"] for contract in MODEL_PACKAGES.values()),
         *(contract["name"] for contract in FACADE_PACKAGES.values()),
+        DOCUMENT_PACKAGE,
     }
     if len(packages) != len(expected_names):
         raise RuntimeError(
@@ -1256,13 +1272,28 @@ def ensure_unpublished(arguments: argparse.Namespace) -> None:
             f"release version {arguments.version} does not match source version "
             f"{CORE_VERSION}"
         )
-    specification = f"{FACADE_PACKAGE}@{arguments.version}"
-    if npm_integrity(arguments.npm, specification) is not None:
-        raise RuntimeError(
-            f"{specification} is already published; promote the original release "
-            "artifact with the npm promote workflow instead of rebuilding it"
-        )
-    print(json.dumps({"package": specification, "status": "unpublished"}))
+    specifications = [
+        f"{FACADE_PACKAGE}@{arguments.version}",
+        f"{RUNTIME_PACKAGE}@{RUNTIME_VERSION}",
+        f"{DOCUMENT_PACKAGE}@{DOCUMENT_VERSION}",
+        *(
+            f"{contract['name']}@{contract['version']}"
+            for tier, contract in FACADE_PACKAGES.items()
+            if tier != "small"
+        ),
+        *(
+            f"{platform['package']}@{arguments.version}"
+            for platform in PLATFORMS.values()
+        ),
+    ]
+    for specification in specifications:
+        if npm_integrity(arguments.npm, specification) is not None:
+            raise RuntimeError(
+                f"{specification} is already published; use the original release "
+                "artifact or assign a new conservative patch version instead of "
+                "rebuilding immutable registry bytes"
+            )
+        print(json.dumps({"package": specification, "status": "unpublished"}))
 
 
 def npm_dist_tag(npm: str, package: str, tag: str) -> str | None:
@@ -1319,7 +1350,7 @@ def publish(arguments: argparse.Namespace) -> None:
     else:
         names = [
             FACADE_PACKAGES[tier]["name"] for tier in ("small", "tiny", "medium")
-        ]
+        ] + [DOCUMENT_PACKAGE]
     pending: dict[str, str] = {}
     for name in names:
         record = records[name]

@@ -108,7 +108,7 @@ test('info: --version is metadata-only and reports the Small tier', async () => 
   assert.equal(code, EXIT.success);
   assert.equal(stderr, '');
   const info = JSON.parse(stdout);
-  assert.equal(info.core, '0.5.0');
+  assert.equal(info.core, '0.5.4');
   assert.equal(info.tier, 'small');
   assert.equal(info.maturity, 'stable');
   assert.equal(info.model, 'ppocrv6-small-native-20260719.1');
@@ -464,7 +464,7 @@ test('doctor: modules section reports runtime and model availability', async () 
   const result = JSON.parse(stdout);
   assert.equal(typeof result.modules.runtime, 'boolean');
   assert.equal(typeof result.modules.model, 'boolean');
-  assert.equal(typeof result.modules.pdfium, 'boolean');
+  assert.equal('pdfium' in result.modules, false);
 });
 
 test('doctor: native section has status field', async () => {
@@ -506,59 +506,14 @@ test('doctor: top-level help includes doctor subcommand', async () => {
   assert.match(stdout, /doctor/);
 });
 
-test('doctor: hostHash is 16-char hex and privacy-safe', async () => {
+test('doctor: omits hostname-derived stable identifiers', async () => {
   const { stdout } = await runCli(['doctor']);
   const result = JSON.parse(stdout);
-  assert.match(result.system.hostHash, /^[a-f0-9]{16}$/,
-    'hostHash should be 16-char hex (privacy-safe hash)');
+  assert.equal(Object.hasOwn(result.system, 'hostHash'), false);
+  assert.equal(Object.hasOwn(result.system, 'hostname'), false);
 });
 
-// --- document subcommand tests ---
-
-test('help: document subcommand prints flags', async () => {
-  const { code, stdout } = await runCli(['document', '--help']);
-  assert.equal(code, EXIT.success);
-  assert.match(stdout, /light-ocr document — process PDF or multiple images/);
-  assert.match(stdout, /--format json\|jsonl\|text/);
-  assert.match(stdout, /--pages N-M/);
-  assert.match(stdout, /--dpi <n>/);
-  assert.match(stdout, /--max-pages <n>/);
-  assert.match(stdout, /--quiet/);
-  assert.match(stdout, /--provider/);
-});
-
-test('help: top-level help includes document subcommand', async () => {
+test('main CLI keeps document work in the independent preview command', async () => {
   const { stdout } = await runCli(['--help']);
-  assert.match(stdout, /document.*Process PDF or multiple images/);
-});
-
-test('document: rejects no arguments exit 64', async () => {
-  const { code, stderr } = await runCli(['document']);
-  assert.equal(code, EXIT.usage);
-  assert.match(stderr, /expected a PDF or image file path/);
-});
-
-test('document: rejects invalid --format exit 65', async () => {
-  const { code, stderr } = await runCli(['document', 'x.png', '--format', 'csv']);
-  assert.equal(code, EXIT.invalid_argument);
-  assert.match(stderr, /unsupported --format/);
-});
-
-test('document: rejects invalid --pages exit 65', async () => {
-  const { code, stderr } = await runCli(['document', 'x.png', '--pages', 'abc']);
-  assert.equal(code, EXIT.invalid_argument);
-  assert.match(stderr, /--pages expects N or N-M/);
-});
-
-test('document: rejects unknown subcommand before file-not-found', async () => {
-  // document is a valid subcommand, so it processes its args
-  // invalid --format should be caught before file-not-found
-  const { code } = await runCli(['document', 'x.png', '--format', 'csv']);
-  assert.equal(code, EXIT.invalid_argument);
-});
-
-test('document: pdfium status reported in doctor', async () => {
-  const { stdout } = await runCli(['doctor', '--json']);
-  const result = JSON.parse(stdout);
-  assert.equal(typeof result.modules.pdfium, 'boolean');
+  assert.doesNotMatch(stdout, /document/);
 });

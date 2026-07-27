@@ -1,11 +1,19 @@
 /// <reference types="node" />
 
-import type { OcrEngine, OcrResult, RecognizeOptions, OcrError } from '@arcships/light-ocr-runtime';
+import type {
+  CreateEngineOptions,
+  OcrEngine,
+  OcrError,
+  RecognizeOptions,
+} from '@arcships/light-ocr';
 
-// Re-export runtime types for convenience
-export type { OcrEngine, OcrResult, RecognizeOptions, OcrError };
+export type { OcrEngine, OcrError, RecognizeOptions };
 
-export interface Point { readonly x: number; readonly y: number }
+export interface Point {
+  readonly x: number;
+  readonly y: number;
+}
+
 export interface Rect {
   readonly x: number;
   readonly y: number;
@@ -13,39 +21,11 @@ export interface Rect {
   readonly height: number;
 }
 
-export interface DocumentPage {
-  readonly index: number;
-  readonly width: number;
-  readonly height: number;
-  readonly coordinateSpace: 'pageSpace';
-  readonly structure: 'ocr-order';
-  readonly lines: ReadonlyArray<DocumentLine>;
-  readonly source: PageSource;
-  readonly timingUs: PageTimingUs;
-}
-
 export interface DocumentLine {
   readonly id: string;
   readonly text: string;
   readonly confidence: number;
   readonly box: readonly [Point, Point, Point, Point];
-}
-
-export interface PageSource {
-  readonly kind: 'image' | 'pdf';
-  readonly mediaType: string;
-  readonly identity: Record<string, unknown>;
-  readonly appliedTransforms: AppliedTransforms;
-}
-
-export interface AppliedTransforms {
-  readonly exif?: ExifTransform;
-  readonly pdf?: PdfTransform;
-}
-
-export interface ExifTransform {
-  readonly orientation: number;
-  readonly applied: boolean;
 }
 
 export interface PdfTransform {
@@ -56,89 +36,89 @@ export interface PdfTransform {
   readonly scale: number;
 }
 
-export interface PageTimingUs {
-  readonly total: number;
-  readonly decode: number;
-  readonly ocr: number;
-}
-
-export interface DocumentResult {
-  readonly schemaVersion: 1;
-  readonly source: DocumentSource;
-  readonly pages: ReadonlyArray<DocumentPage>;
-}
-
-export interface DocumentSource {
-  readonly kind: 'image' | 'pdf' | 'page-images';
+export interface PageSource {
+  readonly kind: 'image' | 'pdf';
   readonly mediaType: string;
-  readonly identity: Record<string, unknown>;
-  readonly pageCount: number;
+  readonly identity: Readonly<Record<string, unknown>>;
+  readonly appliedTransforms: {
+    readonly pdf?: PdfTransform;
+  };
 }
 
-export type OutputFormat = 'json' | 'jsonl' | 'text' | 'markdown';
+export interface DocumentPage {
+  readonly index: number;
+  readonly width: number;
+  readonly height: number;
+  readonly coordinateSpace: 'pageSpace';
+  readonly structure: 'ocr-order';
+  readonly lines: ReadonlyArray<DocumentLine>;
+  readonly source: PageSource;
+  readonly timingUs: {
+    readonly total: number;
+    readonly decode: number;
+    readonly ocr: number;
+  };
+  readonly modelBundleId?: string;
+}
+
+export type DocumentInput = string | Uint8Array;
 
 export interface DocumentOptions {
-  /** Output format. Default: 'json' */
-  readonly format?: OutputFormat;
-  
-  /** Page range to process (1-indexed). Default: all pages */
-  readonly pageRange?: { start: number; end: number };
-  
-  /** PDF raster DPI. Default: 150 */
+  /** Inclusive, one-based PDF page range. */
+  readonly pageRange?: {
+    readonly start: number;
+    readonly end: number;
+  };
+  /** PDF raster resolution. Must be an integer from 36 through 600. Default: 150. */
   readonly dpi?: number;
-  
-  /** Maximum file size in bytes. Default: 100MB */
+  /** Maximum bytes accepted for each input. Default: 100 MiB. */
   readonly maxFileBytes?: number;
-  
-  /** Maximum number of pages to process. Default: 100 */
+  /** Maximum number of pages. Default: 100. */
   readonly maxPages?: number;
-  
-  /** Maximum pixels per page. Default: 4096*4096 */
+  /** Maximum rendered pixels for one page. Default: 4096 × 4096. */
   readonly maxPagePixels?: number;
-  
-  /** Maximum total pixels across all pages. Default: 100MP */
+  /** Maximum rendered pixels across the request. Default: 100 Mi pixels. */
   readonly maxTotalPixels?: number;
-  
-  /** Abort signal for cancellation */
   readonly signal?: AbortSignal;
-  
-  /** OCR options passed to the engine */
   readonly ocrOptions?: RecognizeOptions;
 }
 
 export interface DocumentEngine {
-  /** Process a PDF file or buffer */
-  recognizePdf(source: string | Uint8Array, options?: DocumentOptions): AsyncGenerator<DocumentPage>;
-  
-  /** Process multiple image files or buffers */
-  recognizeImages(sources: ReadonlyArray<string | Uint8Array>, options?: DocumentOptions): AsyncGenerator<DocumentPage>;
-  
-  /** Process any supported document source */
-  recognizeDocument(source: string | Uint8Array | ReadonlyArray<string | Uint8Array>, options?: DocumentOptions): AsyncGenerator<DocumentPage>;
-  
-  /** Close the engine and release resources */
+  recognizePdf(
+    source: DocumentInput,
+    options?: DocumentOptions,
+  ): AsyncGenerator<DocumentPage>;
+  recognizeImages(
+    sources: ReadonlyArray<DocumentInput>,
+    options?: DocumentOptions,
+  ): AsyncGenerator<DocumentPage>;
+  recognizeDocument(
+    source: DocumentInput | ReadonlyArray<DocumentInput>,
+    options?: DocumentOptions,
+  ): AsyncGenerator<DocumentPage>;
   close(): Promise<void>;
 }
 
 export interface CreateDocumentEngineOptions {
-  /** Path to the model bundle. If not provided, uses the default from the peer dependency */
-  readonly bundlePath?: string;
-  
-  /** OCR engine instance to reuse. If not provided, creates a new one */
+  /** Reuse an existing OCR engine. A borrowed engine is not closed automatically. */
   readonly engine?: OcrEngine;
-  
-  /** PDFium options */
-  readonly pdfium?: {
-    /** Maximum memory for PDFium in bytes. Default: 512MB */
-    readonly maxMemory?: number;
-  };
+  /** Options used when this package creates and owns the OCR engine. */
+  readonly engineOptions?: CreateEngineOptions;
 }
 
-/** Create a document processing engine */
-export function createDocumentEngine(options?: CreateDocumentEngineOptions): Promise<DocumentEngine>;
+export interface RecognizeDocumentOptions extends DocumentOptions {
+  readonly engine?: OcrEngine;
+  readonly engineOptions?: CreateEngineOptions;
+}
 
-/** Get the version of this package */
+export function createDocumentEngine(
+  options?: CreateDocumentEngineOptions,
+): Promise<DocumentEngine>;
+
+export function recognizeDocument(
+  source: DocumentInput | ReadonlyArray<DocumentInput>,
+  options?: RecognizeDocumentOptions,
+): AsyncGenerator<DocumentPage>;
+
 export function getVersion(): string;
-
-/** Check if PDF support is available */
 export function hasPdfSupport(): boolean;
