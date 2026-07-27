@@ -14,6 +14,10 @@ checksum-verified prebuilt binary for supported platforms and may require a
 compiler if no prebuild is available. Processing does not upload documents or
 use a network service.
 
+On Windows, install from PowerShell or Command Prompt. The pinned renderer's
+installer invokes `tar` with native Windows paths; Git Bash may resolve its own
+GNU tar first and misinterpret the drive-letter colon.
+
 ```js
 const { recognizeDocument } = require('@arcships/light-ocr-document');
 
