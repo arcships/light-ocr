@@ -12,7 +12,7 @@
 
 **面向 Node.js 与 C++ 的快速离线 OCR。**
 
-直接在本机识别 JPEG、PNG 或像素数据，返回按阅读顺序排列的文字、置信度和四边形坐标。Node.js 用户安装的 npm 包内置 PP-OCRv6 Small 模型，并提供 macOS、Linux 和 Windows 的预编译组件。
+直接在本机识别 PDF、JPEG、PNG 或像素数据，返回按阅读顺序排列的文字、置信度和四边形坐标。Node.js 用户安装的 npm 包内置 PP-OCRv6 Small 模型、PDFium，以及 macOS、Linux 和 Windows 的预编译组件。
 
 ## 快速开始
 
@@ -63,6 +63,9 @@ light-ocr image.png --format json
 # 只要文字
 light-ocr image.png --format text
 
+# PDF；渲染器已经包含在 npm 安装产物中
+light-ocr report.pdf --pages 1-10 --format text
+
 # 只检测文字区域（不识别）
 light-ocr detect image.png
 
@@ -76,29 +79,33 @@ light-ocr info --version
 light-ocr doctor --json
 ```
 
-四个子命令：`recognize`（默认）、`detect`（只检测框）、`info`（版本诊断）、`doctor`（系统诊断）。输出使用 `schemaVersion: 1` 版本化 envelope，带稳定 line/detection ID。EXIF 方向自动修正。完整参考见 [CLI 设计](docs/cli-design.md) 和 [npm README](bindings/node/README.md#cli)。
+图片命令包括 `recognize`（默认）、`detect`（只检测框）、`info`（版本诊断）和
+`doctor`（系统诊断）。传入 `.pdf` 路径会直接进入文档 OCR；显式
+`document` 命令用于多输入任务。输出遵循版本化的 `schemaVersion: 1`
+契约，EXIF 方向自动修正。完整参考见 [CLI 设计](docs/cli-design.md) 和
+[npm README](bindings/node/README.md#cli)。
 
 ### PDF 和多页文档
 
-PDF 和多页 OCR 位于显式安装的 Preview 包中，稳定默认包因此继续保持无安装脚本、可离线安装的依赖闭包。安装 Preview 时会运行 `pdfium-native` 的已校验 prebuild 安装器；实际 PDF 处理仍完全在本机完成。
+PDF 和多页 OCR 已直接内置于 `@arcships/light-ocr`。匹配当前平台的
+PDFium 二进制与 OCR 原生运行时位于同一个平台 npm 包中：没有
+postinstall 脚本、运行时下载、编译器要求，也不需要另装文档包。
 
 ```bash
-npm install @arcships/light-ocr-document@next
-
 # 单个 PDF，默认 150 DPI
-light-ocr-document report.pdf
+light-ocr report.pdf
 
 # 指定页码范围，流式 JSONL 输出
-light-ocr-document report.pdf --pages 1-10 --format jsonl
+light-ocr report.pdf --pages 1-10 --format jsonl
 
 # 多张图片作为一个文档
-light-ocr-document scan1.png scan2.png scan3.png --format text
+light-ocr document scan1.png scan2.png scan3.png --format text
 ```
 
 编程 API：
 
 ```ts
-import { recognizeDocument } from "@arcships/light-ocr-document";
+import { recognizeDocument } from "@arcships/light-ocr";
 
 // 从 PDF 流式获取页面
 for await (const page of recognizeDocument("report.pdf", { dpi: 200 })) {
@@ -122,9 +129,9 @@ for await (const page of recognizeDocument([buf1, buf2, buf3])) {
 
 ## 主要能力
 
-- **本地处理。**图片和 OCR 结果始终留在本机；显式安装的 Document Preview 也只在本机处理 PDF。
-- **只需安装一个包。**模型和当前平台的预编译组件会随 npm 包一起安装。
-- **按需安装文档能力。**独立 Document Preview 支持 PDF、多张图片和流式输出。
+- **本地处理。**图片、PDF 和 OCR 结果始终留在本机。
+- **只需安装一个包。**模型、OCR 运行时和 PDF 渲染器会通过 npm 的当前平台依赖一起安装。
+- **没有二次下载。**安装和运行都不需要 postinstall 拉取、编译器、模型下载或 PDF 引擎下载。
 - **直接得到可用结果。**每一行都包含识别文字、置信度和原图位置。
 - **默认使用硬件加速。**Auto 在 macOS 15+ Apple Silicon 上优先使用 Core ML，在下表的 Linux 和 Windows 版本中优先使用 WebGPU。
 - **适合应用内调用。**识别任务在 JavaScript 主线程之外执行，并支持队列、取消和明确释放资源。

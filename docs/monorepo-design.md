@@ -83,11 +83,14 @@ light-ocr/
 └── 与 light-ocr 共享相同 JS API + 类型
 
 @arcships/light-ocr-document（N3）
-├── dependency: pdfium-native（N-API binding，MIT）
-├── peerDependency: @arcships/light-ocr-runtime
-├── peerDependency: @arcships/light-ocr-model-ppocrv6-small
-├── bin: light-ocr-document
-└── PDF 渲染 + 多页 OCR 流式处理
+├── exact: @arcships/light-ocr
+├── bin: light-ocr-document（兼容）
+└── 转发主包 Document API；不含 renderer 或安装脚本
+
+六个平台 native package
+├── OCR Node-API addon + ONNX Runtime
+├── PDFium Node-API addon + 相邻共享库
+└── npm tarball 自包含；无 postinstall 或运行时下载
 
 @arcships/light-ocr-layout（N4）
 ├── exact: @arcships/light-ocr-runtime

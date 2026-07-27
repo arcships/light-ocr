@@ -31,6 +31,14 @@ def stage_cpu_native_packages(root: Path) -> Path:
         (binaries / platform["runtime"]).write_bytes(platform["runtime"].encode())
 
     metadata = release_metadata(root)
+    pdfium = root / "pdfium-native"
+    pdfium_release = pdfium / "build" / "Release"
+    pdfium_release.mkdir(parents=True)
+    (pdfium_release / "pdfium.node").write_bytes(b"pdfium-addon")
+    for library in set(npm_release.PDFIUM_LIBRARIES.values()):
+        (pdfium_release / library).write_bytes(library.encode())
+    (pdfium / "LICENSE").write_text("MIT\n", "utf-8")
+    (pdfium / "THIRD-PARTY-NOTICES.md").write_text("PDFium notices\n", "utf-8")
     native_root = root / "native"
     for platform_id in npm_release.PLATFORMS:
         npm_release.stage_native(
@@ -38,6 +46,7 @@ def stage_cpu_native_packages(root: Path) -> Path:
                 platform_id=platform_id,
                 build_dir=build_dir,
                 metadata_dir=metadata,
+                pdfium_dir=pdfium,
                 output_dir=native_root / platform_id,
             )
         )

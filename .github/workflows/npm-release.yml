@@ -6,7 +6,7 @@ on:
       version:
         description: Core and stable Small facade version
         required: true
-        default: 0.5.4
+        default: 0.5.5
         type: string
       publish_to_registry:
         description: Publish the tested candidate to npm under next
@@ -79,6 +79,25 @@ jobs:
       - name: Bootstrap pinned native dependencies
         shell: bash
         run: python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies
+      - name: Fetch the pinned PDF renderer for npm bundling (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p .cache/pdfium-package
+          cd .cache/pdfium-package
+          npm init --yes
+          npm install --ignore-scripts --no-audit --no-fund --package-lock=false \
+            pdfium-native@0.6.1
+          node node_modules/pdfium-native/scripts/install.mjs
+      - name: Fetch the pinned PDF renderer for npm bundling (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force .cache/pdfium-package | Out-Null
+          Set-Location .cache/pdfium-package
+          npm init --yes
+          npm install --ignore-scripts --no-audit --no-fund --package-lock=false pdfium-native@0.6.1
+          node node_modules/pdfium-native/scripts/install.mjs
       - name: Assemble the locked WebGPU SDK
         if: matrix.runtime_flavor == 'webgpu'
         shell: bash
@@ -151,6 +170,7 @@ jobs:
           --build-dir build-npm
           --configuration Release
           --metadata-dir "reports/npm/${{ matrix.id }}"
+          --pdfium-dir .cache/pdfium-package/node_modules/pdfium-native
           --output-dir "dist/native-input/${{ matrix.id }}"
           --runtime-flavor "${{ matrix.runtime_flavor }}"
           --webgpu-artifact-manifest
@@ -255,7 +275,7 @@ jobs:
           npm install --offline --ignore-scripts --no-audit --no-fund --package-lock=false \
             ../dist/release/arcships-light-ocr-model-ppocrv6-small-0.3.4.tgz \
             ../dist/release/arcships-light-ocr-${{ matrix.native }}-${RELEASE_VERSION}.tgz \
-            ../dist/release/arcships-light-ocr-runtime-0.1.4.tgz \
+            ../dist/release/arcships-light-ocr-runtime-0.1.5.tgz \
             ../dist/release/arcships-light-ocr-${RELEASE_VERSION}.tgz
           cp ../tools/npm/smoke.cjs .
       - name: Run stable Small OCR
@@ -264,22 +284,10 @@ jobs:
         env:
           LIGHT_OCR_SMOKE_FIXTURE: ${{ github.workspace }}/corpus/fixtures/generated-hello-123
         run: node smoke.cjs
-      - name: Install and smoke the explicit Document preview (Unix)
-        if: runner.os != 'Windows'
+      - name: Run built-in PDF OCR without scripts or network
         shell: bash
         working-directory: package-smoke
-        run: |
-          npm install --no-audit --no-fund --package-lock=false \
-            ../dist/release/arcships-light-ocr-document-0.1.0.tgz
-          node ../tools/npm/document-smoke.cjs
-      - name: Install and smoke the explicit Document preview (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        working-directory: package-smoke
-        run: |
-          npm install --no-audit --no-fund --package-lock=false `
-            ../dist/release/arcships-light-ocr-document-0.1.0.tgz
-          node ../tools/npm/document-smoke.cjs
+        run: node ../tools/npm/document-smoke.cjs
       - name: Install and smoke preview tiers
         if: matrix.preview
         shell: bash
@@ -290,8 +298,8 @@ jobs:
           npm install --offline --ignore-scripts --no-audit --no-fund --package-lock=false \
             ../dist/release/arcships-light-ocr-model-ppocrv6-tiny-0.1.0.tgz \
             ../dist/release/arcships-light-ocr-model-ppocrv6-medium-0.1.0.tgz \
-            ../dist/release/arcships-light-ocr-tiny-0.1.3.tgz \
-            ../dist/release/arcships-light-ocr-medium-0.1.3.tgz
+            ../dist/release/arcships-light-ocr-tiny-0.1.4.tgz \
+            ../dist/release/arcships-light-ocr-medium-0.1.4.tgz
           node ../tools/npm/smoke-tier.cjs @arcships/light-ocr-tiny light-ocr-tiny \
             ppocrv6-tiny-onnx-20260722.1
           node ../tools/npm/smoke-tier.cjs @arcships/light-ocr-medium light-ocr-medium \
@@ -339,14 +347,14 @@ jobs:
           --tarball-dir dist/release
           --phase facade
           --tag next
-      - name: Verify the published Document preview with install scripts
+      - name: Verify the published compatibility document entry
         shell: bash
         run: |
           mkdir registry-document
           cd registry-document
           npm init --yes
-          npm install --no-audit --no-fund --package-lock=false \
-            "@arcships/light-ocr-document@0.1.0"
+          npm install --ignore-scripts --no-audit --no-fund --package-lock=false \
+            "@arcships/light-ocr-document@0.1.1"
           node ../tools/npm/document-smoke.cjs
       - name: Verify the published stable package offline
         shell: bash
@@ -360,3 +368,4 @@ jobs:
           sudo unshare --net -- env \
             LIGHT_OCR_SMOKE_FIXTURE="$GITHUB_WORKSPACE/corpus/fixtures/generated-hello-123" \
             node smoke.cjs
+          sudo unshare --net -- node ../tools/npm/document-smoke.cjs

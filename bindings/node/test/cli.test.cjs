@@ -108,7 +108,7 @@ test('info: --version is metadata-only and reports the Small tier', async () => 
   assert.equal(code, EXIT.success);
   assert.equal(stderr, '');
   const info = JSON.parse(stdout);
-  assert.equal(info.core, '0.5.4');
+  assert.equal(info.core, '0.5.5');
   assert.equal(info.tier, 'small');
   assert.equal(info.maturity, 'stable');
   assert.equal(info.model, 'ppocrv6-small-native-20260719.1');
@@ -513,7 +513,9 @@ test('doctor: omits hostname-derived stable identifiers', async () => {
   assert.equal(Object.hasOwn(result.system, 'hostname'), false);
 });
 
-test('main CLI keeps document work in the independent preview command', async () => {
-  const { stdout } = await runCli(['--help']);
-  assert.doesNotMatch(stdout, /document/);
+test('main CLI routes PDF paths and the document subcommand to built-in document OCR', () => {
+  const { shouldUseDocumentCli } = require('../../../packages/light-ocr/src/cli.cjs');
+  assert.equal(shouldUseDocumentCli(['report.pdf']), true);
+  assert.equal(shouldUseDocumentCli(['document', 'scan.png', 'scan-2.png']), true);
+  assert.equal(shouldUseDocumentCli(['image.png']), false);
 });

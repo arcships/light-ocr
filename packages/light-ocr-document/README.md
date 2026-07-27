@@ -1,22 +1,19 @@
 # @arcships/light-ocr-document
 
-Preview PDF and multi-page image OCR for Node.js 22 and 24.
+Compatibility entry for the PDF and multi-page API now built into
+`@arcships/light-ocr`.
 
 ```bash
-npm install @arcships/light-ocr-document@next
+npm install @arcships/light-ocr
 light-ocr-document report.pdf --pages 1-10 --format jsonl
 light-ocr-document scan-1.png scan-2.jpg --format text
 ```
 
-This package is intentionally separate from stable `@arcships/light-ocr`.
-Installation runs the pinned `pdfium-native` installer, which downloads a
-checksum-verified prebuilt binary for supported platforms and may require a
-compiler if no prebuild is available. Processing does not upload documents or
-use a network service.
-
-On Windows, install from PowerShell or Command Prompt. The pinned renderer's
-installer invokes `tar` with native Windows paths; Git Bash may resolve its own
-GNU tar first and misinterpret the drive-letter colon.
+New applications should import from `@arcships/light-ocr`. This package keeps
+the former import and `light-ocr-document` command working, but has no PDF
+renderer dependency or installer of its own. The renderer is already included
+in the platform package selected by npm, with no postinstall or runtime
+download.
 
 ```js
 const { recognizeDocument } = require('@arcships/light-ocr-document');

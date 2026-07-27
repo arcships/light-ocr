@@ -22,6 +22,13 @@ test('small facade reuses the runtime API and error identity', () => {
   assert.strictEqual(facade.OcrError, runtime.OcrError);
 });
 
+test('stable facade includes the document API and local PDF capability probe', () => {
+  assert.equal(typeof facade.createDocumentEngine, 'function');
+  assert.equal(typeof facade.recognizeDocument, 'function');
+  assert.equal(typeof facade.hasPdfSupport(), 'boolean');
+  assert.equal(facade.getVersion(), packageMetadata.version);
+});
+
 test('small facade rejects an unknown built-in model before native loading', async () => {
   await assert.rejects(
     facade.createEngine({ model: 'ppocrv6-medium' }),

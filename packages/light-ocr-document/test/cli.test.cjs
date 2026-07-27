@@ -65,7 +65,7 @@ describe('light-ocr-document CLI', () => {
     const infoOut = capture();
     assert.equal(await main(['info'], { stdout: infoOut.stream, stderr: stderr.stream }), 0);
     const info = JSON.parse(infoOut.read());
-    assert.equal(info.name, '@arcships/light-ocr-document');
+    assert.equal(info.name, '@arcships/light-ocr');
     assert.equal(typeof info.pdfSupport, 'boolean');
   });
 

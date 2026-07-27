@@ -152,10 +152,10 @@ Roadmap 结束时应形成以下入口，而不是一个不断膨胀的单包 AP
 | --- | --- | --- |
 | `light_ocr` C++ Core | 仓库内适配器；未来原生 SDK 候选 | raw pixels、OCR stage、几何、资源限制、模型 session；N5 前不承诺稳定 ABI/安装面 |
 | `@arcships/light-ocr-runtime` | 内部共享与高级集成 | Node adapter、调度、encoded decode、native 加载、模型 bundle 解析，不默认携带模型 |
-| `@arcships/light-ocr` | 大多数 Node.js 用户 | small 默认模型、Node API；唯一拥有 `light-ocr` bin，保持开箱即用 |
+| `@arcships/light-ocr` | 大多数 Node.js 用户 | small 默认模型、图片/PDF/多页 Node API；唯一拥有 `light-ocr` bin，保持开箱即用 |
 | `@arcships/light-ocr-tiny` | Edge、体积/速度优先用户 | 与主包相同 API，默认 tiny；如提供 bin，只能命名为 `light-ocr-tiny` |
 | `@arcships/light-ocr-medium` | 精度优先和服务端用户 | 与主包相同 API，默认 medium；如提供 bin，只能命名为 `light-ocr-medium` |
-| `@arcships/light-ocr-document` | PDF、批量文档和 RAG 流程 | Document API、分页、格式转换、Layout 编排；Preview 期拥有独立 `light-ocr-document` bin |
+| `@arcships/light-ocr-document` | 旧版兼容调用方 | 转发主包的 Document API 和旧 `light-ocr-document` bin；不再携带 renderer |
 | `@arcships/light-ocr-layout`（逻辑角色） | 显式选择 Layout 的用户 | Layout analyzer、公共 label 映射和 capability resolver；依赖 runtime 与一个精确 Layout model，不拥有 CLI bin |
 | `@arcships/light-ocr-model-<layout-id>`（逻辑角色） | 由 Layout capability 间接安装 | 纯数据 Layout bundle、manifest、license 和模型 identity；不包含编排代码 |
 | Agent Skill / Plugin | Codex 与其他可调用本地命令的 Agent | 选择正确命令、约束输出、处理错误，不实现 OCR |
@@ -173,8 +173,8 @@ Roadmap 结束时应形成以下入口，而不是一个不断膨胀的单包 AP
 
 - 多个杯型可以同时安装，不得争用同一个 bin 名；
 - `light-ocr` 始终代表 small 默认入口，Skill 优先使用该命令；
-- N1 的图片文件、stdin 和 EXIF 由 `light-ocr` image CLI 负责；N3 的 PDF、多页、Document JSON/Markdown 由 `light-ocr-document` 负责；
-- Document Node API 接受调用方注入兼容的 engine factory，因此不强制 small；`light-ocr-document` CLI Preview 可以精确依赖 small 作为开箱即用默认值；
+- N1 图片与 N3 PDF/多页均由 `light-ocr` 负责；`.pdf` 路径自动进入文档流程，`document` 子命令处理多输入；
+- Document Node API 继续允许注入兼容 engine；stable 主包默认使用内置 small，旧 Document 包只作兼容转发；
 - Layout model 不成为 Document 包的默认依赖。`@arcships/light-ocr-layout` 精确锁定兼容 runtime 和 Layout model；Document 只接受注入的 versioned Layout analyzer interface，避免反向依赖和循环依赖；
 - 上述 Layout 包名是待 D109 接受的逻辑角色，不在 Roadmap 中提前冻结最终 registry 名称。
 - `@arcships/light-ocr-server` 依赖 `@arcships/light-ocr`（默认 small），精确锁定兼容版本；server 的 HTTP API 与 CLI 共享相同的 OcrError 语义和 exit code 映射，但不要求 CLI 先达到 stable——server 可以独立 preview 发布。

@@ -227,13 +227,30 @@ class NpmReleaseTests(unittest.TestCase):
                 document["dependencies"][npm_release.FACADE_PACKAGE],
                 npm_release.CORE_VERSION,
             )
-            self.assertEqual(document["dependencies"]["pdfium-native"], "0.6.1")
+            self.assertNotIn("pdfium-native", document["dependencies"])
             self.assertTrue(
                 (staging / "light-ocr-document" / "src" / "cli.cjs").is_file()
             )
             self.assertTrue(
                 (staging / "light-ocr-document" / "LICENSE").is_file()
             )
+            for platform_id in npm_release.PLATFORMS:
+                native = staging / platform_id
+                self.assertTrue((native / "pdfium" / "pdfium.node").is_file())
+                self.assertTrue(
+                    (
+                        native
+                        / "pdfium"
+                        / npm_release.PDFIUM_LIBRARIES[platform_id]
+                    ).is_file()
+                )
+                native_package = json.loads(
+                    (native / "package.json").read_text("utf-8")
+                )
+                self.assertEqual(
+                    native_package["exports"]["./pdfium"],
+                    "./pdfium/index.cjs",
+                )
             runtime = json.loads(
                 (staging / "runtime" / "package.json").read_text("utf-8")
             )

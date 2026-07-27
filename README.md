@@ -14,7 +14,7 @@ English | [简体中文](README.zh-CN.md)
 
 **Fast, offline OCR for Node.js and C++.**
 
-Recognize text in JPEG, PNG, or raw image data directly on your machine. `light-ocr` returns lines in reading order with confidence scores and quadrilateral coordinates. For Node.js, the npm package includes PP-OCRv6 Small and prebuilt components for macOS, Linux, and Windows.
+Recognize text in PDF, JPEG, PNG, or raw image data directly on your machine. `light-ocr` returns lines in reading order with confidence scores and quadrilateral coordinates. For Node.js, the npm package includes PP-OCRv6 Small, PDFium, and prebuilt components for macOS, Linux, and Windows.
 
 ## Quick start
 
@@ -65,6 +65,9 @@ light-ocr image.png --format json
 # Just text
 light-ocr image.png --format text
 
+# PDF pages, using the renderer already included by npm
+light-ocr report.pdf --pages 1-10 --format text
+
 # Detect text regions only (no recognition)
 light-ocr detect image.png
 
@@ -78,29 +81,35 @@ light-ocr info --version
 light-ocr doctor --json
 ```
 
-Four subcommands: `recognize` (default), `detect` (boxes only), `info` (version diagnostics), and `doctor` (system diagnostics). Output wraps in a versioned `schemaVersion: 1` envelope with stable line/detection IDs. EXIF orientation is corrected automatically. See the [CLI design](docs/cli-design.md) and [npm README](bindings/node/README.md#cli) for full reference.
+Image commands are `recognize` (default), `detect` (boxes only), `info`
+(version diagnostics), and `doctor` (system diagnostics). A `.pdf` path routes
+directly to document OCR; `document` handles explicit multi-source jobs. Output
+uses a versioned `schemaVersion: 1` contract. EXIF orientation is corrected
+automatically. See the [CLI design](docs/cli-design.md) and
+[npm README](bindings/node/README.md#cli) for full reference.
 
 ### PDF and multi-page documents
 
-PDF and multi-page OCR live in an explicit preview package so the stable default keeps its script-free, offline-installable dependency closure. Installing the preview runs `pdfium-native`'s verified prebuild installer; PDF processing itself stays local.
+PDF and multi-page OCR are built into `@arcships/light-ocr`. The matching
+PDFium binary is carried by the same platform npm package as the OCR runtime:
+there is no postinstall script, runtime download, compiler, or separate package
+to install.
 
 ```bash
-npm install @arcships/light-ocr-document@next
-
 # Single PDF with default 150 DPI
-light-ocr-document report.pdf
+light-ocr report.pdf
 
 # Page range with streaming JSONL output
-light-ocr-document report.pdf --pages 1-10 --format jsonl
+light-ocr report.pdf --pages 1-10 --format jsonl
 
 # Multiple images as one document
-light-ocr-document scan1.png scan2.png scan3.png --format text
+light-ocr document scan1.png scan2.png scan3.png --format text
 ```
 
 Programmatic API:
 
 ```ts
-import { recognizeDocument } from "@arcships/light-ocr-document";
+import { recognizeDocument } from "@arcships/light-ocr";
 
 // Stream pages from a PDF
 for await (const page of recognizeDocument("report.pdf", { dpi: 200 })) {
@@ -124,9 +133,9 @@ An [Agent Skill](.agents/skills/local-ocr/SKILL.md) is included for AI agents th
 
 ## What you get
 
-- **Local processing.** Images and OCR results stay on your machine; the explicit Document preview also processes PDFs locally.
-- **One package to install.** The model and matching prebuilt component are included with the npm package.
-- **Opt-in document support.** The separate Document preview processes PDFs and multiple images with streaming output.
+- **Local processing.** Images, PDFs, and OCR results stay on your machine.
+- **One package to install.** The model, OCR runtime, and PDF renderer are included through the npm package's platform dependency.
+- **No secondary downloads.** Installation and runtime need no postinstall fetch, compiler, model download, or PDF engine download.
 - **Useful output.** Every line includes recognized text, confidence, and its position in the original image.
 - **Hardware acceleration by default.** Auto tries Core ML first on macOS 15+ Apple Silicon, and WebGPU first on the Linux and Windows builds below.
 - **Application-friendly execution.** Recognition runs off the JavaScript main thread and supports queues, cancellation, and explicit cleanup.

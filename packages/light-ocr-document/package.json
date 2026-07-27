@@ -1,8 +1,8 @@
 {
   "name": "@arcships/light-ocr-document",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
-  "description": "Document entry for light-ocr — PDF and multi-page image processing",
+  "description": "Compatibility entry for the document API built into light-ocr",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -33,8 +33,7 @@
     "node": "^22.0.0 || ^24.0.0"
   },
   "dependencies": {
-    "@arcships/light-ocr": "0.5.4",
-    "pdfium-native": "0.6.1"
+    "@arcships/light-ocr": "0.5.5"
   },
   "scripts": {
     "test": "node --test test/*.test.cjs"

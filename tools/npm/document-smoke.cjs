@@ -8,11 +8,11 @@ const consumerRequire = createRequire(path.join(process.cwd(), 'package.json'));
 const {
   createDocumentEngine,
   hasPdfSupport,
-} = consumerRequire('@arcships/light-ocr-document');
+} = consumerRequire('@arcships/light-ocr');
 const { createTextPdf } = require('./pdf-fixture.cjs');
 
 async function main() {
-  assert.equal(hasPdfSupport(), true, 'pdfium-native did not install correctly');
+  assert.equal(hasPdfSupport(), true, 'bundled PDFium runtime is unavailable');
   const engine = await createDocumentEngine({
     engineOptions: { execution: { provider: 'cpu' } },
   });
@@ -30,7 +30,7 @@ async function main() {
     );
     console.log(JSON.stringify({
       ok: true,
-      package: '@arcships/light-ocr-document',
+      package: '@arcships/light-ocr',
       pages: pages.length,
       text: pages[0].lines.map((line) => line.text).join(' '),
     }));
