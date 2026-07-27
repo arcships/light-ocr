@@ -5,6 +5,10 @@
 /reports/
 /dist/
 /node_modules/
+**/node_modules/
+.tmp-*.png
+ci-output.txt
+game_screenshot.png
 .DS_Store
 __pycache__/
 *.pyc
