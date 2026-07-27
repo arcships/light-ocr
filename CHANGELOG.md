@@ -4,6 +4,19 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-07-27
+
+### Changed
+
+- Built PDF and multi-page OCR directly into `@arcships/light-ocr`; the main
+  API now exports `recognizeDocument()` and `createDocumentEngine()`, and
+  `light-ocr report.pdf` works without a second package.
+- Bundled the pinned PDFium addon and shared library into each of the six
+  platform npm packages. The stable closure remains installable with scripts
+  disabled and performs no install-time or runtime download.
+- Converted `@arcships/light-ocr-document@0.1.1` into a compatibility entry
+  that forwards to the main package without depending on `pdfium-native`.
+
 ## [0.5.4] - 2026-07-27
 
 ### Fixed

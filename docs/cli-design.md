@@ -57,7 +57,8 @@ light-ocr --help [subcommand]                 # 分层 help
 - `light-ocr image.png` 隐式等价 `light-ocr recognize image.png`，保持首次使用直觉与向后兼容；
 - 每个 flag 只挂在自己相关的子命令下（见 §2.2），互斥约束在子命令内收敛；
 - `info` 子命令不接受 path/`--stdin`，不接受 `--format`；`--model-info` 与 `--version` 作为 `info` 的 flags；
-- N3 文档入口另起 `light-ocr-document` bin（[roadmap §3.1](roadmap.md)），与 N1 子命令并列，不并入 `light-ocr`。
+- N3 文档入口由 `light-ocr <document.pdf>` 和 `light-ocr document
+  <source...>` 提供；旧 `light-ocr-document` bin 只作兼容转发（D110）。
 
 > **与 [roadmap §5.2](roadmap.md) 的偏离说明**：roadmap 原文写「`--model-info` 和 `--version`」为顶导 flag，本设计改为 `info` 子命令以保持与 `recognize`/`detect` 的结构统一；语义等价。该偏离在 D106 决策中记录。
 

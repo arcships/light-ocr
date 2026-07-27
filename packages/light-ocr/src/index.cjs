@@ -1,8 +1,9 @@
 'use strict';
 
 const { createModelFacade } = require('@arcships/light-ocr-runtime/facade');
+const { createDocumentApi } = require('./document.cjs');
 
-module.exports = createModelFacade({
+const facade = createModelFacade({
   model: 'ppocrv6-small',
   modelPackage: '@arcships/light-ocr-model-ppocrv6-small',
   compatibleBundleIds: [
@@ -24,4 +25,9 @@ module.exports = createModelFacade({
     dictionaryEntries: 18709,
     maturity: 'stable',
   },
+});
+
+module.exports = Object.freeze({
+  ...facade,
+  ...createDocumentApi(facade.createEngine),
 });

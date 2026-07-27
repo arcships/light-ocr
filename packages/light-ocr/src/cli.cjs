@@ -35,10 +35,40 @@ const cli = createCli({
   loadNative,
 });
 
+function shouldUseDocumentCli(argv) {
+  if (argv[0] === 'document') return true;
+  const source = argv[0] === 'recognize' ? argv[1] : argv[0];
+  return typeof source === 'string' && /\.pdf$/i.test(source);
+}
+
+async function main(argv) {
+  if (shouldUseDocumentCli(argv)) {
+    const selectedArgs = argv[0] === 'document' ? argv.slice(1) : argv;
+    return require('./document-cli.cjs').main(selectedArgs);
+  }
+  const code = await cli.main(argv);
+  if (
+    code === cli.EXIT.success
+    && argv.includes('--help')
+    && !argv.some((argument) => ['recognize', 'detect', 'info', 'doctor'].includes(argument))
+  ) {
+    process.stdout.write(
+      '\nPDF: light-ocr <document.pdf> [--pages N-M] or '
+      + 'light-ocr document <source...> [options]\n',
+    );
+  }
+  return code;
+}
+
 if (require.main === module) {
-  cli.main(process.argv.slice(2)).then((code) => {
+  const argv = process.argv.slice(2);
+  main(argv).then((code) => {
     if (code !== cli.EXIT.success) process.exitCode = code;
   });
 }
 
-module.exports = cli;
+module.exports = { ...cli, main };
+Object.defineProperty(module.exports, 'shouldUseDocumentCli', {
+  value: shouldUseDocumentCli,
+  enumerable: false,
+});

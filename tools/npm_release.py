@@ -119,6 +119,15 @@ PLATFORMS: dict[str, dict[str, Any]] = {
         "runtime": "onnxruntime.dll",
     },
 }
+PDFIUM_VERSION = "0.6.1"
+PDFIUM_LIBRARIES = {
+    "macos-arm64": "libpdfium.dylib",
+    "macos-x64": "libpdfium.dylib",
+    "linux-x64": "libpdfium.so",
+    "linux-arm64": "libpdfium.so",
+    "windows-x64": "pdfium.dll",
+    "windows-arm64": "pdfium.dll",
+}
 
 
 def sha256(path: Path) -> str:
@@ -541,6 +550,8 @@ def stage_native(arguments: argparse.Namespace) -> None:
     runtime_flavor = getattr(arguments, "runtime_flavor", "cpu")
     qualification_build = bool(getattr(arguments, "qualification_build", False))
     configuration = getattr(arguments, "configuration", "Release")
+    pdfium_argument = getattr(arguments, "pdfium_dir", None)
+    pdfium_source = pdfium_argument.resolve() if pdfium_argument else None
     if runtime_flavor not in {"cpu", "webgpu"}:
         raise RuntimeError("runtime flavor must be cpu or webgpu")
     if runtime_flavor == "webgpu" and arguments.platform_id not in {
@@ -646,6 +657,61 @@ def stage_native(arguments: argparse.Namespace) -> None:
         copy_file(metadata / "license-inventory.json", stage / "license-inventory.json")
         copy_file(metadata / "sbom.spdx.json", stage / "sbom.spdx.json")
         shutil.copytree(metadata / "licenses", stage / "licenses")
+
+        if pdfium_source is not None:
+            pdfium = stage / "pdfium"
+            pdfium.mkdir()
+            pdfium_release = pdfium_source / "build" / "Release"
+            copy_file(pdfium_release / "pdfium.node", pdfium / "pdfium.node")
+            copy_file(
+                pdfium_release / PDFIUM_LIBRARIES[arguments.platform_id],
+                pdfium / PDFIUM_LIBRARIES[arguments.platform_id],
+            )
+            copy_file(ROOT / "tools" / "npm" / "pdfium-loader.cjs", pdfium / "index.cjs")
+            pdfium_license = stage / "licenses" / "pdfium-native-MIT.txt"
+            pdfium_notices = stage / "licenses" / "pdfium-native-THIRD-PARTY-NOTICES.md"
+            copy_file(pdfium_source / "LICENSE", pdfium_license)
+            copy_file(pdfium_source / "THIRD-PARTY-NOTICES.md", pdfium_notices)
+            inventory = read_json(stage / "license-inventory.json")
+            inventory.setdefault("files", []).extend(
+                [
+                    {
+                        "component": f"pdfium-native-{PDFIUM_VERSION}",
+                        "file": f"licenses/{pdfium_license.name}",
+                        "sha256": sha256(pdfium_license),
+                    },
+                    {
+                        "component": f"pdfium-native-{PDFIUM_VERSION}",
+                        "file": f"licenses/{pdfium_notices.name}",
+                        "sha256": sha256(pdfium_notices),
+                    },
+                ]
+            )
+            write_json(stage / "license-inventory.json", inventory)
+            sbom = read_json(stage / "sbom.spdx.json")
+            sbom.setdefault("packages", []).append(
+                {
+                    "name": "pdfium-native",
+                    "SPDXID": "SPDXRef-Package-pdfium-native",
+                    "versionInfo": PDFIUM_VERSION,
+                    "downloadLocation": (
+                        "https://github.com/xonaman/nodejs-pdfium-native"
+                        f"/releases/tag/v{PDFIUM_VERSION}"
+                    ),
+                    "filesAnalyzed": False,
+                    "licenseConcluded": "MIT",
+                    "licenseDeclared": "MIT",
+                    "copyrightText": "Copyright (c) 2026 xonaman",
+                }
+            )
+            sbom.setdefault("relationships", []).append(
+                {
+                    "spdxElementId": "SPDXRef-Package-light-ocr-core",
+                    "relationshipType": "DEPENDS_ON",
+                    "relatedSpdxElement": "SPDXRef-Package-pdfium-native",
+                }
+            )
+            write_json(stage / "sbom.spdx.json", sbom)
 
         descriptor = {
             "schemaVersion": "2.0",
@@ -1026,6 +1092,7 @@ def assemble(arguments: argparse.Namespace) -> None:
         package = output / platform_id
         package.mkdir()
         copy_tree(source / "native", package / "native")
+        copy_tree(source / "pdfium", package / "pdfium")
         copy_tree(source / "licenses", package / "licenses")
         copy_file(source / "license-inventory.json", package / "license-inventory.json")
         copy_file(source / "sbom.spdx.json", package / "sbom.spdx.json")
@@ -1037,11 +1104,15 @@ def assemble(arguments: argparse.Namespace) -> None:
         package_json.update(
             {
                 "main": "./native/light_ocr_node.node",
-                "exports": {".": "./native/light_ocr_node.node"},
+                "exports": {
+                    ".": "./native/light_ocr_node.node",
+                    "./pdfium": "./pdfium/index.cjs",
+                },
                 "os": platform["os"],
                 "cpu": platform["cpu"],
                 "files": [
                     "native/",
+                    "pdfium/",
                     "licenses/",
                     "license-inventory.json",
                     "sbom.spdx.json",
@@ -1277,11 +1348,6 @@ def ensure_unpublished(arguments: argparse.Namespace) -> None:
         f"{RUNTIME_PACKAGE}@{RUNTIME_VERSION}",
         f"{DOCUMENT_PACKAGE}@{DOCUMENT_VERSION}",
         *(
-            f"{contract['name']}@{contract['version']}"
-            for tier, contract in FACADE_PACKAGES.items()
-            if tier != "small"
-        ),
-        *(
             f"{platform['package']}@{arguments.version}"
             for platform in PLATFORMS.values()
         ),
@@ -1430,6 +1496,7 @@ def main() -> int:
     native.add_argument("--build-dir", type=Path, required=True)
     native.add_argument("--configuration", default="Release")
     native.add_argument("--metadata-dir", type=Path, required=True)
+    native.add_argument("--pdfium-dir", type=Path)
     native.add_argument("--output-dir", type=Path, required=True)
     native.add_argument("--runtime-flavor", choices=["cpu", "webgpu"], default="cpu")
     native.add_argument("--webgpu-artifact-manifest", type=Path)

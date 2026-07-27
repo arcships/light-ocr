@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
 更新时间：2026-07-27<br>
-结论：npm `0.5.3` 仅形成 `next` 候选，没有完成 stable promotion。`0.5.4` 已完成修复与发布：stable `@arcships/light-ocr` 保持图片 OCR 与 `doctor`；PDF/多页能力按 roadmap 拆到显式 `@arcships/light-ocr-document` Preview。六个平台均通过 stable 禁网安装/OCR 与 Document 真实 PDF render + OCR，随后完成 npm publication、stable promotion 和 GitHub Latest Release。S3 renderer 继续采用 `pdfium-native`（D108），包拓扑由 D109 锁定。
+结论：npm `0.5.4` 完成了上一轮发布修复。`0.5.5` 正在把 PDF/多页能力直接并入 stable `@arcships/light-ocr`：六个平台 npm 原生包内置 PDFium addon 与共享库，主包保持无安装脚本，安装和运行均不再从客户机二次下载。`@arcships/light-ocr-document@0.1.1` 仅保留兼容入口。S3 renderer 继续采用 `pdfium-native`（D108），新包拓扑由 D110 锁定。
 
 状态含义：
 

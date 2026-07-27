@@ -298,7 +298,7 @@ Consequence:
 
 ### D109 — Keep Document preview outside the stable image facade
 
-Status: Accepted<br>
+Status: Superseded by D110<br>
 Authority: N3 package topology, D010 offline installation contract, D108 renderer selection
 
 Decision: PDF and multi-page processing ships as the explicit
@@ -327,6 +327,38 @@ Consequence:
   scripts enabled, renders a real PDF, and runs OCR.
 - PDF processing is local at runtime. Installation-time prebuild retrieval is
   disclosed rather than described as offline.
+
+### D110 — Bundle PDFium in the stable platform packages
+
+Status: Accepted<br>
+Authority: Product installation contract, D010 offline installation contract,
+D108 renderer selection
+
+Decision: `@arcships/light-ocr` owns the PDF and multi-page API and CLI.
+Each of the six existing platform npm packages carries the pinned
+`pdfium-native@0.6.1` addon and its adjacent PDFium shared library. The stable
+facade has no install script and does not depend on the upstream
+`pdfium-native` npm package. `@arcships/light-ocr-document` remains only as a
+compatibility forwarder.
+
+Reason: A separate Document install exposed an implementation detail and the
+upstream renderer package performed a second network download during
+postinstall. Users require PDF support to arrive in the npm installation
+itself, with no customer-machine fetch during installation or use. Reusing the
+already platform-specific native packages avoids shipping all six PDFium
+binaries to every user.
+
+Consequence:
+
+- `npm install @arcships/light-ocr` installs the model, OCR runtime, and exactly
+  one matching PDF renderer through ordinary npm package bytes.
+- The supported install path passes with `--ignore-scripts`; runtime PDF smoke
+  runs in a disabled network namespace.
+- Release CI, not the customer machine, obtains the checksum-pinned upstream
+  prebuild, records its licenses/SBOM identity, and embeds the verified files
+  in the immutable platform tarball.
+- Omitting npm optional dependencies also omits both OCR and PDF native
+  execution; the error directs users to reinstall without `--omit=optional`.
 
 ## 3. Deferred decisions
 

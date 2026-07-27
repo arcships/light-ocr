@@ -75,19 +75,21 @@ Need to extract text from a PDF file or process multiple images as one document.
 
 ```bash
 # Full PDF with JSON output
-light-ocr-document report.pdf --format json
+light-ocr report.pdf --format json
 
 # Page range with streaming JSONL
-light-ocr-document report.pdf --pages 1-10 --format jsonl
+light-ocr report.pdf --pages 1-10 --format jsonl
 
 # Multiple images as one document
-light-ocr-document scan1.png scan2.png --format text
+light-ocr document scan1.png scan2.png --format text
 
 # Check if PDF support is available
-light-ocr-document info
+light-ocr document info
 ```
 
-The document command requires the explicit `@arcships/light-ocr-document@next` preview package. Its pinned `pdfium-native` dependency installs a verified platform prebuild; it is not part of the stable image package.
+PDF support is part of `@arcships/light-ocr`. The matching PDFium binary is
+inside the npm platform package; do not install another package and do not
+download a renderer at runtime.
 
 ### System diagnostics
 
@@ -108,7 +110,8 @@ Need text from an image or document?
 ├── Need text + coordinates? → recognize --format json
 ├── Only need where text is? → detect
 ├── Large image, unsure where text is? → detect first, then recognize --region
-├── PDF or multiple images? → light-ocr-document <files> --format json
+├── PDF? → light-ocr <file.pdf> --format json
+├── Multiple images? → light-ocr document <files> --format json
 ├── Need system/hardware info? → doctor --json
 └── Need engine info or version? → info --model-info / info --version
 ```
