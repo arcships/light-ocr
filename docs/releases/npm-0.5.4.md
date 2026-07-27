@@ -1,7 +1,12 @@
 # npm 0.5.4 发布记录
 
-状态：候选修复中<br>
+状态：已发布并完成 stable promotion<br>
 日期：2026-07-27
+
+- Release source/tag：`7206ba18fbc42921d4a728c7ff123131d3f9f8b0` / `v0.5.4`
+- 六平台 dry-run：[30236452750](https://github.com/arcships/light-ocr/actions/runs/30236452750)
+- npm publication：[30237035832](https://github.com/arcships/light-ocr/actions/runs/30237035832)
+- stable promotion：[30237918764](https://github.com/arcships/light-ocr/actions/runs/30237918764)
 
 ## 发布边界
 
@@ -13,14 +18,16 @@
 
 ## 必须通过的门禁
 
-- [ ] Workspace Node tests 与 TypeScript declarations
-- [ ] Python release/package contract tests
-- [ ] 六个平台 stable closure 离线、禁脚本安装与真实 OCR
-- [ ] 六个平台 Document Preview 启用安装脚本、真实 PDF render + OCR
-- [ ] npm tarball README、bin、依赖版本与 release manifest 审计
-- [ ] `next` 发布后按 integrity 验证
-- [ ] stable closure promotion 后逐包验证 `latest`
-- [ ] GitHub `v0.5.4` Release 仅在 promotion 完成后标记 Latest
+- [x] Workspace Node tests 与 TypeScript declarations
+- [x] Python release/package contract tests
+- [x] 六个平台 stable closure 离线、禁脚本安装与真实 OCR
+- [x] 六个平台 Document Preview 启用安装脚本、真实 PDF render + OCR
+- [x] npm tarball README、bin、依赖版本与 release manifest 审计
+- [x] `next` 发布后按 integrity 验证
+- [x] stable closure promotion 后逐包验证 `latest`
+- [x] GitHub `v0.5.4` Release 仅在 promotion 完成后标记 Latest
 
-远端 workflow run、tarball integrity 和 promotion 证据在实际完成后填写；在此
-之前不得将本记录标记为“已发布”。
+promotion 只推进六个 native `0.5.4`、runtime `0.1.4` 和 Small facade
+`0.5.4`。Tiny/Medium/Document 没有进入 promotion。npm 为首次发布的
+Document 包名自动保留 `latest=0.1.0`，但它仍是显式安装的 Preview，文档只
+推荐 `@next`。
