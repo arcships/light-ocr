@@ -46,8 +46,9 @@ flowchart LR
     S3 -.提供前置结论.-> N3
     N3 --> G3{"G3 文档入口验证"}
     G3 --> N4["N4 Layout Preview"]
+    G3 -.Layout 非阻塞.-> N5["N5 1.0 稳定化"]
     N4 --> G4{"G4 结构化价值验证"}
-    G4 --> N5["N5 1.0 稳定化"]
+    G4 --> N5
 
     N0 -.最高优先级.-> PERF0["Perf-0 宿主硬件覆盖审计"]
     PERF0 --> HC{"HC 覆盖率 Gate"}
@@ -85,7 +86,7 @@ flowchart LR
 | S3 PDF 可行性 Spike | N3 前置 | 1–2 周 | renderer、许可、制品、隔离和资源策略结论 | G1 | 形成接受/缩减/拒绝 PDF 路径的决策记录 |
 | N3 文档入口 | `0.5.0` | Spike 后 4–6 周 | 按 S3 结论交付 PDF Document，或缩减为调用方提供 page images 的多页 composer | 主路径经过 G2；技术上依赖 N1 与 S3 | 对应分支的 corpus、资源上限与隔离验证通过 |
 | N4 Layout Preview | `0.6.0` | 4–6 周 | 版面区域、OCR line 关联与阅读顺序 | N3 | 独立 Layout/reading-order 验证通过 |
-| N5 稳定化 | `1.0.0` | 由验证结果决定 | 稳定 API/schema、平台矩阵和支持政策 | PU、N1、small/runtime 稳定；按 G3 决定是否要求 N3；N4 可保持 Preview | 至少 3 个真实外部集成且无阻塞级契约缺口 |
+| N5 稳定化 | `1.0.0` | 约 3–5 周 | 稳定 API/schema、平台矩阵和支持政策 | PU、N1、small/runtime 稳定；按 G3 决定是否要求 N3；N4 可保持 Preview | 维护者控制的集成矩阵全绿且无阻塞级契约缺口 |
 
 ### 2.3 性能优先线
 
@@ -94,7 +95,7 @@ flowchart LR
 | 节点 | 建议时机 | 预计工作量 | 核心结果 | 退出条件 |
 | --- | --- | ---: | --- | --- |
 | Perf-0 宿主硬件覆盖审计 | N0 立即启动 | 1–2 周；随后持续更新 | 官方支持矩阵、无内容诊断命令、目标用户设备样本和 provider 覆盖/专用路线排序 | HC 记录通用主线的技术覆盖、用户加权覆盖、置信度和缺口，并判断专用后端启动条件 |
-| HC 覆盖率 Gate | Perf-0 后；每季度复核 | 无固定版本 | 锁定通用主线设备资格范围，并用真实用户结构决定是否启动专用 backend | 锁定目标设备、可寻址覆盖假设和专用 Spike 顺序 |
+| HC 覆盖率 Gate | Perf-0 后；重大 runtime/OS 变化时复核 | 无固定版本 | 锁定通用主线设备资格范围，并用可重放的平台证据决定是否启动专用 backend | 锁定目标设备、可寻址覆盖假设和专用 Spike 顺序 |
 | Perf-1 性能契约、CPU 基线与调优 | N0–N1 并行 | 2–3 周 | provider-neutral contract、分阶段 profiler、可重放 CPU baseline 与低成本调优 | PU 对默认 small 得出通过或未通过结论；质量/内存 gates 不回归 |
 | PU 性能可用性 Gate | Perf-1 后 | 无固定版本 | 判断当前产品性能是否足以继续扩展模型和文档能力 | 通过后进入 N2；未通过则优先继续 Perf-1/Perf-2 |
 | Perf-2 宿主加速器 Spike | HC 后立即启动；不等待 N2 | 每个 provider 2–4 周 | 复核 Apple，并资格验证 Windows/Linux WebGPU 通用主线；满足启动 Gate 后再验证专用后端 | 每个 provider 得出接受、缩减或拒绝结论；N2/N4 新 workload 加入后复核 |
@@ -120,15 +121,19 @@ flowchart LR
 
 | Gate | 最低证据 | 观察窗口 | 通过标准 | Falsifier / 转向条件 |
 | --- | --- | --- | --- | --- |
-| HC 覆盖率 Gate | 官方 provider/OS/架构/芯片矩阵；`light-ocr doctor --json` 自愿诊断；外部集成的 workload 与设备；离线分发可行性 | 首次资格排序前收集，之后按季度与重大 runtime/OS 版本复核 | 对通用主线和每个专用候选报告技术可寻址覆盖、用户加权覆盖、样本量/置信度和平台缺口；D111 在看 Spike 结果前锁定评分与目标设备 | 只有上游“支持”列表、npm 总下载量或维护者自己的机器；无法说明目标用户设备结构时，不得宣称专用 provider 值得启动 |
+| HC 覆盖率 Gate | 官方 provider/OS/架构/芯片矩阵；维护者控制的跨平台 runner 与 `light-ocr doctor --json` 诊断样本；离线分发可行性 | 首次资格排序前完成；之后按重大 runtime/OS 版本复核 | 对通用主线和每个专用候选报告技术可寻址覆盖、已验证设备、置信度和平台缺口；D111 在看 Spike 结果前锁定评分与目标设备 | 只有上游“支持”列表或单一开发机结果；无法复现目标平台时，不得宣称对应 provider 已获支持 |
 | PU 性能可用性 Gate | 默认 small 的 cold/warm 端到端报告；simple、dense、large/tiled 与 batch 核心 workload；目标设备预算 | Perf-1 完成后；每个默认模型/runtime 重大变更复核 | D111 预注册的交互延迟或吞吐预算通过，且质量、峰值内存和安装成本不回归 | 只能证明 inference-only 变快，或多数目标场景仍因启动、decode、copy、pre/postprocess 不可用 |
-| G1 入口验证 | Tier 1 contract 全绿；20 个 committed Agent tasks；公开反馈或集成记录 | `0.3.0` 发布后至少 30 天 | contract 100% 通过；Agent tasks 至少 18/20 且无伪造 OCR 原文；至少 3 名独立用户给出可复现场景，或 2 个外部集成使用 CLI/ROI | 用户仍需编写适配代码、坐标含义反复误解，或 CLI/ROI 没有独立使用证据 |
+| G1 入口验证 | Tier 1 contract 全绿；20 个 committed Agent tasks；CLI 与 Node API 的干净消费者工程 | 无固定等待窗口 | contract 100% 通过；Agent tasks 至少 18/20 且无伪造 OCR 原文；CLI、Node API、ROI 和坐标映射均由独立于实现源码的消费者测试覆盖 | 消费者测试仍需未公开适配代码、坐标含义存在歧义，或 CLI/ROI 无法从发布包独立工作 |
 | G2 模型 Pareto 验证 | D107 锁定的 tier profile、package size 与代表性同机 canary；需要 GA 时再补目标场景对照 | `next` 候选获得实际使用反馈后按需复核，不设机械 prerelease 次数 | 每个提升到 stable 的杯型拥有不能被 small 同时满足的清晰受众 | 证据不足时继续保持 `next`，不重复阻塞 release CI，也不阻塞 N3 |
-| G3 文档入口验证 | S3 接受/缩减；至少 30 份、100 页、5 类文档的 corpus；公开反馈或集成记录 | preview 发布后 30–60 天 | 安全/资源 gates 全绿；接受分支有至少 3 名独立用户或 2 个外部集成使用 PDF，缩减分支达到同等数量的多页 page-image/Markdown 使用证据 | 接受分支的 renderer 成本不可接受，或任一分支的用户普遍更愿意自行完成文档编排 |
-| G4 结构化价值验证 | D109 预注册 Layout/reading-order profile；至少 100 页独立标注；preview 集成反馈 | preview 发布后至少 60 天 | 质量 gates 全绿；至少 2 个外部集成证明 Layout 改善 Markdown、chunking 或字段定位 | Layout 结果没有优于 OCR-order，或模型/标注/安装成本超过使用价值 |
+| G3 文档入口验证 | S3 接受/缩减；至少 30 份、100 页、5 类文档的 corpus；CLI 与 Node API 消费者工程 | 无固定等待窗口 | 安全/资源 gates 全绿；接受分支从正式 npm 包完成 PDF render、流式分页、取消和 OCR，缩减分支完成同等级的 page-image/Markdown 验证 | renderer 的安全、资源或分发成本不可接受，或文档层不能稳定减少调用方编排工作 |
+| G4 结构化价值验证 | D109 预注册 Layout/reading-order profile；至少 100 页独立标注；维护者控制的 Markdown/chunking/字段定位评测 | 无固定等待窗口 | 质量 gates 全绿；预注册端到端评测证明 Layout 相对 OCR-order 有明确改善 | Layout 结果没有优于 OCR-order，或模型/标注/安装成本超过使用价值 |
 | PG Provider Gate | 同机 CPU/EP 对照；simple、dense、tiled、medium 和 Layout 候选 workload；provider payload/driver inventory | 至少 3 次独立冷启动与 30 次 warm run；每个公开性能数字对应至少一台真实目标设备 | contract 100% 通过；在至少两个目标 workload 上 `CPU P50 latency / EP P50 latency ≥ 1.5`，或吞吐 ≥2× CPU；质量通过预注册容差；无未披露 Auto 跳过或跨 backend fallback；cold-start、安装大小和设备内存不超过预注册 ceiling | 只有 inference microbenchmark 加速、端到端无收益，或初始化/copy/package/质量成本抵消收益 |
 
 阈值不得在看到最终候选结果后调整。模型质量、Layout 指标的具体数值由对应 decision 在运行正式评测前锁定；Roadmap 只规定证据类别和决策纪律。
+
+外部用户、社区反馈、下载量和第三方集成继续作为优先级信号，但不作为
+`1.0` 或任一 Gate 的发布阻塞条件。所有强制门禁必须能由仓库内锁定的
+corpus、消费者工程、平台 runner 和可重放报告完成。
 
 ### 2.6 版本与稳定性
 
@@ -768,8 +773,8 @@ Spike 必须输出 D108 的接受、缩减或拒绝结论，并保留最小 Tier
 
 | S3 结论 | N3 范围 | G3 证据 | 对后续路径的影响 |
 | --- | --- | --- | --- |
-| 接受 | 内置受控 PDF renderer、page images、Document JSON/Markdown | PDF corpus、renderer 安全/资源 gates、PDF 外部使用证据 | 按主路径进入 G3 |
-| 缩减 | 不携带 renderer；调用方提供有序 page images，Document 负责多页 envelope、流式与 Markdown | page-image corpus、流式/资源 gates、多页 composer 外部使用证据 | G3 验证多页价值，不对外宣称 PDF 支持 |
+| 接受 | 内置受控 PDF renderer、page images、Document JSON/Markdown | PDF corpus、renderer 安全/资源 gates、正式包消费者测试 | 按主路径进入 G3 |
+| 缩减 | 不携带 renderer；调用方提供有序 page images，Document 负责多页 envelope、流式与 Markdown | page-image corpus、流式/资源 gates、多页 composer 消费者测试 | G3 验证多页价值，不对外宣称 PDF 支持 |
 | 拒绝 | N3/G3 延后或移出 `1.0`；只保留 N1 image surface | D108 记录拒绝原因和重启条件 | 产品定位收窄；N4 若处理单页图片 Layout，必须通过独立 D109 和需求证据重新接入 |
 
 ### 8.4 输入与 API
@@ -822,7 +827,7 @@ Layout 可用后再提供 `structure: "layout"` 的 Markdown。两种输出必�
 - JSONL 可在中途取消，并保留已完成页面；
 - Markdown 与 page JSON 可追溯到同一 line/region ID；
 - 接受分支的 Tier 1 package 不依赖消费者预装 PDF 工具；若做不到，必须转为缩减分支，不把外部工具作为隐藏依赖；
-- 满足 G3 的分支化外部证据：接受分支验证 PDF，缩减分支验证 page-image/Markdown 多页输出；都必须记录相对调用方自行处理所解决的问题；
+- 满足 G3 的分支化可重放证据：接受分支验证 PDF，缩减分支验证 page-image/Markdown 多页输出；都必须通过正式包消费者工程，并记录相对调用方自行处理所解决的问题；
 - Document corpus 至少包含 30 份、100 页和 5 类文档；训练/调参样本与 release eval 样本分离，授权和 ground truth 可追溯；
 
 ### 8.8 G3 决策
@@ -921,7 +926,7 @@ Layout 模型只给区域不等于完成文档解析。必须单独定义和验�
 
 ### 10.2 1.0 门槛
 
-- “外部真实集成”指非主要维护者控制、在实际工作流中持续使用至少 30 天，并能提供版本、入口、平台和失败反馈的应用或自动化；至少需要三个，覆盖两种以上使用入口；
+- 至少维护三套彼此独立的消费者集成场景，覆盖两种以上入口，并从正式 npm 包执行；场景、版本、平台、预期结果和失败诊断必须锁定且可在 CI 或受控 runner 重放；
 - 所有被纳入 `1.0 stable surface` 的 Node.js API、CLI flags、exit code 和 JSON schema 经历至少两个 minor release 验证；被 S3/G3 拒绝或延后的 Document/PDF，以及保持 Preview 的 Layout 不阻塞 `1.0`；
 - small 默认包保持一条命令安装和离线运行；
 - tiny/small/medium 的 GA 状态、语言、性能和质量差异清晰；
