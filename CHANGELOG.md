@@ -16,6 +16,8 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
   disabled and performs no install-time or runtime download.
 - Converted `@arcships/light-ocr-document@0.1.1` into a compatibility entry
   that forwards to the main package without depending on `pdfium-native`.
+- Advanced Tiny and Medium facades to `0.1.4` so the independently versioned
+  preview entries exact-pin the same runtime `0.1.5` in combined installs.
 
 ## [0.5.4] - 2026-07-27
 

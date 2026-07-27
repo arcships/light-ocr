@@ -298,8 +298,8 @@ jobs:
           npm install --offline --ignore-scripts --no-audit --no-fund --package-lock=false \
             ../dist/release/arcships-light-ocr-model-ppocrv6-tiny-0.1.0.tgz \
             ../dist/release/arcships-light-ocr-model-ppocrv6-medium-0.1.0.tgz \
-            ../dist/release/arcships-light-ocr-tiny-0.1.3.tgz \
-            ../dist/release/arcships-light-ocr-medium-0.1.3.tgz
+            ../dist/release/arcships-light-ocr-tiny-0.1.4.tgz \
+            ../dist/release/arcships-light-ocr-medium-0.1.4.tgz
           node ../tools/npm/smoke-tier.cjs @arcships/light-ocr-tiny light-ocr-tiny \
             ppocrv6-tiny-onnx-20260722.1
           node ../tools/npm/smoke-tier.cjs @arcships/light-ocr-medium light-ocr-medium \

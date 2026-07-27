@@ -10,6 +10,8 @@ stable promotion。
 - 每个平台 native 包内置 `pdfium-native@0.6.1` 的 addon 与 PDFium
   共享库；客户机不运行安装脚本、不访问 GitHub、不本地编译。
 - `@arcships/light-ocr-document@0.1.1` 仅作旧 import/命令兼容层。
+- Tiny/Medium facade `0.1.4` 同步精确依赖 runtime `0.1.5`，避免组合安装
+  解析旧 runtime。
 
 ## 必须通过的发布门
 

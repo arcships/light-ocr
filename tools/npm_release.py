@@ -61,12 +61,12 @@ FACADE_PACKAGES = {
     },
     "tiny": {
         "name": "@arcships/light-ocr-tiny",
-        "version": "0.1.3",
+        "version": "0.1.4",
         "workspace": "light-ocr-tiny",
     },
     "medium": {
         "name": "@arcships/light-ocr-medium",
-        "version": "0.1.3",
+        "version": "0.1.4",
         "workspace": "light-ocr-medium",
     },
 }
@@ -1347,6 +1347,11 @@ def ensure_unpublished(arguments: argparse.Namespace) -> None:
         f"{FACADE_PACKAGE}@{arguments.version}",
         f"{RUNTIME_PACKAGE}@{RUNTIME_VERSION}",
         f"{DOCUMENT_PACKAGE}@{DOCUMENT_VERSION}",
+        *(
+            f"{contract['name']}@{contract['version']}"
+            for tier, contract in FACADE_PACKAGES.items()
+            if tier != "small"
+        ),
         *(
             f"{platform['package']}@{arguments.version}"
             for platform in PLATFORMS.values()

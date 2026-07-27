@@ -97,7 +97,7 @@ class NpmReleaseTests(unittest.TestCase):
             f"{npm_release.DOCUMENT_PACKAGE}@{npm_release.DOCUMENT_VERSION}",
             checked,
         )
-        self.assertEqual(len(checked), len(npm_release.PLATFORMS) + 3)
+        self.assertEqual(len(checked), len(npm_release.PLATFORMS) + 5)
 
     @mock.patch(
         "tools.npm_release.npm_integrity", return_value="sha512-published-integrity"
