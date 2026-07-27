@@ -220,7 +220,8 @@ jobs:
             --build-dir build-webgpu \
             --configuration Release \
             --platform-id "${{ matrix.id }}" \
-            --output-dir "reports/webgpu/${{ matrix.id }}"
+            --output-dir "reports/webgpu/${{ matrix.id }}" \
+            --model-free
           qualification_args=()
           if [[ "$WEBGPU_QUALIFICATION_BUILD" == "ON" ]]; then
             qualification_args+=(--qualification-build)
