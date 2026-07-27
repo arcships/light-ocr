@@ -86,6 +86,7 @@ jobs:
         run: |
           python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies
           python tools/bootstrap_models.py --cache-dir .cache/models
+          python tools/package_model_bundle.py
       - name: Configure without dependency network access (Unix)
         if: runner.os != 'Windows'
         shell: bash
