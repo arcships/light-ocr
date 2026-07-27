@@ -318,8 +318,10 @@ Consequence:
 - Document depends exactly on the current stable Small facade for its
   out-of-box CLI, while its Node API can reuse a caller-provided compatible
   engine.
-- The Document package is published only to `next` until G3 evidence is met; it
-  is not promoted with the native/runtime/Small stable closure.
+- The Document package is published under `next` until G3 evidence is met; it
+  is not promoted with the native/runtime/Small stable closure. npm may retain
+  a registry-required `latest` alias for a first-published package name, which
+  does not change its Preview maturity or the documented `@next` install.
 - Release gates keep the stable closure offline with scripts disabled, and add
   a separate supported-platform smoke that installs the Document package with
   scripts enabled, renders a real PDF, and runs OCR.
