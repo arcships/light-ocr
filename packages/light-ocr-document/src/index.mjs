@@ -1,1 +1,7 @@
-export { createDocumentEngine, getVersion, hasPdfSupport, OcrError } from './index.cjs';
+export {
+  createDocumentEngine,
+  getVersion,
+  hasPdfSupport,
+  recognizeDocument,
+  OcrError,
+} from './index.cjs';

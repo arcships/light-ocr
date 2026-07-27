@@ -296,6 +296,36 @@ Consequence:
   - 单一维护者风险，必要时可 fork 或切换到 clawpdf WASM 备选
   - Spike 阶段需验证 PDFium 版本是否覆盖目标 PDF 特性（加密、表单、嵌入图片等）
 
+### D109 — Keep Document preview outside the stable image facade
+
+Status: Accepted<br>
+Authority: N3 package topology, D010 offline installation contract, D108 renderer selection
+
+Decision: PDF and multi-page processing ships as the explicit
+`@arcships/light-ocr-document` preview package with its own
+`light-ocr-document` command. The stable `@arcships/light-ocr` facade remains
+image-only and keeps its no-install-script, offline-installable release closure.
+
+Reason: `pdfium-native@0.6.1` uses an install script to download a
+checksum-verified platform prebuild and falls back to a local compilation when
+needed. Making it an optional dependency of the stable facade would still run
+that script during a normal install and would contradict the stable package's
+published installation contract. A separate package also matches the topology
+already locked in the roadmap and CLI design.
+
+Consequence:
+
+- Document depends exactly on the current stable Small facade for its
+  out-of-box CLI, while its Node API can reuse a caller-provided compatible
+  engine.
+- The Document package is published only to `next` until G3 evidence is met; it
+  is not promoted with the native/runtime/Small stable closure.
+- Release gates keep the stable closure offline with scripts disabled, and add
+  a separate supported-platform smoke that installs the Document package with
+  scripts enabled, renders a real PDF, and runs OCR.
+- PDF processing is local at runtime. Installation-time prebuild retrieval is
+  disclosed rather than described as offline.
+
 ## 3. Deferred decisions
 
 ### D102 — Public native SDK and ABI policy

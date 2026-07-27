@@ -4,7 +4,28 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-07-27
+
+### Fixed
+
+- Restored the stable facade to image OCR plus `doctor`; the unfinished
+  Document surface no longer changes the default package's offline,
+  no-install-script contract.
+- Moved PDF and multi-page OCR to the explicit
+  `@arcships/light-ocr-document@next` preview and its
+  `light-ocr-document` command.
+- Added real PDF rendering, DPI-aware pixel limits, cancellation, deterministic
+  cleanup, standalone CLI parsing, TypeScript declarations, and release smoke
+  coverage for the Document preview.
+- Removed the stable hostname hash from voluntary diagnostics; `doctor` reports
+  no hostname or stable device identifier.
+- Corrected README and release records that had described the next-only 0.5.3
+  candidate as a complete stable release.
+
 ## [0.5.3] - 2026-07-26
+
+> Superseded next-channel candidate. It was not promoted as a complete stable
+> release; see the 0.5.4 repair record.
 
 ### Fixed
 

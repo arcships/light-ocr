@@ -1,192 +1,220 @@
 #!/usr/bin/env node
 'use strict';
 
-const { createDocumentEngine, getVersion, hasPdfSupport, OcrError } = require('./index.cjs');
+const {
+  createDocumentEngine,
+  getVersion,
+  hasPdfSupport,
+  OcrError,
+} = require('./index.cjs');
 
-const USAGE = `
-light-ocr-document - PDF and multi-page image OCR
+const USAGE = `light-ocr-document - local PDF and multi-page image OCR (preview)
 
 Usage:
-  light-ocr-document <command> [options]
-
-Commands:
-  recognize <source>    Process a PDF or image file(s)
-  info                  Show engine and PDF support info
-  help                  Show this help
+  light-ocr-document [recognize] <source...> [options]
+  light-ocr-document info
+  light-ocr-document help
 
 Options:
-  --format <type>       Output format: json, jsonl, text, markdown (default: json)
-  --pages <range>       Page range, e.g., 1-5 or 3 (PDF only)
-  --dpi <n>             PDF raster DPI (default: 150)
-  --max-pages <n>       Maximum pages to process (default: 100)
-  --max-file-bytes <n>  Maximum file size in bytes (default: 104857600)
-  --quiet               Suppress progress output
-  --version             Show version
+  --format <json|jsonl|text>  Output format (default: json)
+  --pages <N|N-M>             Inclusive PDF page range
+  --dpi <36-600>              PDF raster DPI (default: 150)
+  --max-pages <n>             Maximum pages (default: 100)
+  --max-page-pixels <n>       Maximum rendered pixels per page
+  --max-total-pixels <n>      Maximum rendered pixels for the request
+  --max-file-bytes <n>        Maximum bytes per input
+  --provider <auto|cpu|apple|webgpu>
+  --quiet                     Suppress progress output
+  -h, --help                  Show help
+  -v, --version               Show version`;
 
-Examples:
-  light-ocr-document recognize document.pdf
-  light-ocr-document recognize document.pdf --format jsonl --pages 1-10
-  light-ocr-document recognize image1.png image2.jpg --format text
-  light-ocr-document info
-`.trim();
+const EXIT_CODES = Object.freeze({
+  invalid_argument: 65,
+  invalid_image: 66,
+  unsupported_capability: 67,
+  invalid_model_bundle: 68,
+  resource_limit_exceeded: 69,
+  package_load_failed: 70,
+  inference_failed: 71,
+  internal_error: 72,
+});
 
-async function main() {
-  const args = process.argv.slice(2);
-  
-  if (args.length === 0 || args.includes('--help') || args.includes('-h') || args.includes('help')) {
-    console.log(USAGE);
-    process.exit(0);
+function argumentError(message) {
+  return new OcrError('invalid_argument', message);
+}
+
+function takeValue(args, index, flag) {
+  const value = args[index + 1];
+  if (value === undefined || value.startsWith('-')) {
+    throw argumentError(`${flag} requires a value`);
   }
-  
-  if (args.includes('--version') || args.includes('-v')) {
-    console.log(getVersion());
-    process.exit(0);
+  return value;
+}
+
+function parseInteger(value, flag) {
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw argumentError(`${flag} must be a positive integer`);
   }
-  
-  const command = args[0];
-  
-  if (command === 'info') {
-    console.log(`light-ocr-document v${getVersion()}`);
-    console.log(`PDF support: ${hasPdfSupport() ? 'yes' : 'no (install pdfium-native)'}`);
-    process.exit(0);
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) {
+    throw argumentError(`${flag} is too large`);
   }
-  
-  if (command !== 'recognize') {
-    console.error(`Unknown command: ${command}`);
-    console.error('Run "light-ocr-document help" for usage');
-    process.exit(64);
-  }
-  
-  // Parse options
-  const options = {};
+  return parsed;
+}
+
+function parseArgs(argv) {
+  const args = [...argv];
+  if (args[0] === 'recognize') args.shift();
   const sources = [];
-  
-  for (let i = 1; i < args.length; i++) {
-    const arg = args[i];
-    
-    if (arg === '--format' && i + 1 < args.length) {
-      options.format = args[++i];
-    } else if (arg === '--pages' && i + 1 < args.length) {
-      const range = args[++i];
-      const match = range.match(/^(\d+)(?:-(\d+))?$/);
-      if (match) {
-        options.pageRange = {
-          start: parseInt(match[1]),
-          end: match[2] ? parseInt(match[2]) : parseInt(match[1])
-        };
-      } else {
-        console.error(`Invalid page range: ${range}`);
-        process.exit(65);
+  const documentOptions = {};
+  let format = 'json';
+  let provider = 'auto';
+  let quiet = false;
+
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index];
+    if (arg === '--quiet') {
+      quiet = true;
+    } else if (arg === '--format') {
+      format = takeValue(args, index, arg);
+      index++;
+      if (!['json', 'jsonl', 'text'].includes(format)) {
+        throw argumentError('--format must be json, jsonl, or text');
       }
-    } else if (arg === '--dpi' && i + 1 < args.length) {
-      options.dpi = parseInt(args[++i]);
-    } else if (arg === '--max-pages' && i + 1 < args.length) {
-      options.maxPages = parseInt(args[++i]);
-    } else if (arg === '--max-file-bytes' && i + 1 < args.length) {
-      options.maxFileBytes = parseInt(args[++i]);
-    } else if (arg === '--quiet') {
-      options.quiet = true;
-    } else if (!arg.startsWith('-')) {
+    } else if (arg === '--pages') {
+      const value = takeValue(args, index, arg);
+      index++;
+      const match = /^([1-9]\d*)(?:-([1-9]\d*))?$/.exec(value);
+      if (!match) throw argumentError('--pages must be N or N-M');
+      const start = parseInteger(match[1], '--pages');
+      const end = parseInteger(match[2] ?? match[1], '--pages');
+      if (end < start) throw argumentError('--pages end must not precede its start');
+      documentOptions.pageRange = { start, end };
+    } else if (
+      [
+        '--dpi',
+        '--max-pages',
+        '--max-page-pixels',
+        '--max-total-pixels',
+        '--max-file-bytes',
+      ].includes(arg)
+    ) {
+      const value = parseInteger(takeValue(args, index, arg), arg);
+      index++;
+      const keys = {
+        '--dpi': 'dpi',
+        '--max-pages': 'maxPages',
+        '--max-page-pixels': 'maxPagePixels',
+        '--max-total-pixels': 'maxTotalPixels',
+        '--max-file-bytes': 'maxFileBytes',
+      };
+      documentOptions[keys[arg]] = value;
+    } else if (arg === '--provider') {
+      provider = takeValue(args, index, arg);
+      index++;
+      if (!['auto', 'cpu', 'apple', 'webgpu'].includes(provider)) {
+        throw argumentError('--provider must be auto, cpu, apple, or webgpu');
+      }
+    } else if (arg.startsWith('-')) {
+      throw argumentError(`unknown option: ${arg}`);
+    } else {
       sources.push(arg);
     }
   }
-  
-  if (sources.length === 0) {
-    console.error('No source files specified');
-    process.exit(65);
+  if (sources.length === 0) throw argumentError('at least one source is required');
+  return { documentOptions, format, provider, quiet, sources };
+}
+
+function writeLine(stream, value = '') {
+  stream.write(`${value}\n`);
+}
+
+async function main(
+  argv = process.argv.slice(2),
+  io = { stdout: process.stdout, stderr: process.stderr },
+) {
+  if (
+    argv.length === 0
+    || argv[0] === 'help'
+    || argv.includes('--help')
+    || argv.includes('-h')
+  ) {
+    writeLine(io.stdout, USAGE);
+    return 0;
   }
-  
-  // Create engine
+  if (argv.includes('--version') || argv.includes('-v')) {
+    writeLine(io.stdout, getVersion());
+    return 0;
+  }
+  if (argv[0] === 'info') {
+    writeLine(io.stdout, JSON.stringify({
+      name: '@arcships/light-ocr-document',
+      version: getVersion(),
+      pdfSupport: hasPdfSupport(),
+    }));
+    return 0;
+  }
+
+  let parsed;
   let engine;
   try {
-    engine = await createDocumentEngine();
-  } catch (err) {
-    console.error(`Failed to create engine: ${err.message}`);
-    process.exit(70);
-  }
-  
-  try {
-    const format = options.format || 'json';
-    const pages = [];
-    
-    // Process documents
-    const source = sources.length === 1 ? sources[0] : sources;
-    
-    for await (const page of engine.recognizeDocument(source, options)) {
-      pages.push(page);
-      
-      // Output JSONL as we go
-      if (format === 'jsonl') {
-        console.log(JSON.stringify(page));
+    parsed = parseArgs(argv);
+    engine = await createDocumentEngine({
+      engineOptions: { execution: { provider: parsed.provider } },
+    });
+    const source = parsed.sources.length === 1 ? parsed.sources[0] : parsed.sources;
+    const pages = parsed.format === 'json' ? [] : undefined;
+    let count = 0;
+    for await (const page of engine.recognizeDocument(source, parsed.documentOptions)) {
+      count++;
+      if (pages) pages.push(page);
+      if (parsed.format === 'jsonl') writeLine(io.stdout, JSON.stringify(page));
+      if (parsed.format === 'text') {
+        if (count > 1) writeLine(io.stdout);
+        for (const line of page.lines) writeLine(io.stdout, line.text);
       }
-      
-      // Progress output
-      if (!options.quiet) {
-        process.stderr.write(`\rProcessed page ${pages.length}...`);
-      }
+      if (!parsed.quiet) io.stderr.write(`\rProcessed page ${count}`);
     }
-    
-    if (!options.quiet) {
-      process.stderr.write('\n');
-    }
-    
-    // Output final result for non-JSONL formats
-    if (format === 'json') {
-      const result = {
+    if (!parsed.quiet) writeLine(io.stderr);
+    if (pages) {
+      writeLine(io.stdout, JSON.stringify({
         schemaVersion: 1,
         source: {
-          kind: sources.some(s => s.endsWith('.pdf')) ? 'pdf' : 'page-images',
-          mediaType: sources.some(s => s.endsWith('.pdf')) ? 'application/pdf' : 'image/*',
-          identity: { files: sources },
-          pageCount: pages.length
+          kind: pages[0]?.source.kind === 'pdf' ? 'pdf' : 'page-images',
+          mediaType: pages[0]?.source.mediaType ?? 'application/octet-stream',
+          identity: {},
+          pageCount: pages.length,
         },
-        pages
-      };
-      console.log(JSON.stringify(result, null, 2));
-    } else if (format === 'text') {
-      for (const page of pages) {
-        console.log(page.lines.map(l => l.text).join('\n'));
-      }
-    } else if (format === 'markdown') {
-      console.log('# Document OCR Result\n');
-      for (const page of pages) {
-        console.log(`## Page ${page.index + 1}\n`);
-        console.log(page.lines.map(l => l.text).join('\n\n'));
-        console.log('');
-      }
+        pages,
+      }, null, 2));
     }
-    
-    process.exit(0);
-  } catch (err) {
-    if (err instanceof OcrError) {
-      console.error(`OCR Error: ${err.code} - ${err.message}`);
-      if (err.detail) {
-        console.error(`Detail: ${err.detail}`);
-      }
-      
-      // Map error codes to exit codes
-      const exitCodeMap = {
-        'invalid_argument': 65,
-        'invalid_image': 66,
-        'unsupported_capability': 67,
-        'invalid_model_bundle': 68,
-        'resource_limit_exceeded': 69,
-        'package_load_failed': 70,
-        'inference_failed': 71,
-        'internal_error': 72
-      };
-      
-      process.exit(exitCodeMap[err.code] || 72);
+    return 0;
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      writeLine(io.stderr, 'The operation was aborted');
+      return 72;
     }
-    
-    console.error(`Error: ${err.message}`);
-    process.exit(72);
+    if (error instanceof OcrError) {
+      writeLine(io.stderr, `${error.code}: ${error.message}`);
+      return EXIT_CODES[error.code] ?? 72;
+    }
+    writeLine(io.stderr, `internal_error: ${error?.message ?? String(error)}`);
+    return 72;
   } finally {
-    await engine.close();
+    await engine?.close();
   }
 }
 
-main().catch(err => {
-  console.error(err);
-  process.exit(72);
-});
+if (require.main === module) {
+  main().then(
+    (code) => {
+      process.exitCode = code;
+    },
+    (error) => {
+      console.error(error);
+      process.exitCode = 72;
+    },
+  );
+}
+
+module.exports = { main, parseArgs, USAGE };

@@ -26,6 +26,9 @@ light-ocr image.png --format text
 # Engine info
 light-ocr info --version
 light-ocr info --model-info
+
+# Voluntary system/provider diagnostics
+light-ocr doctor --json
 ```
 
 ### Subcommands
@@ -35,6 +38,7 @@ light-ocr info --model-info
 | `recognize <path> [flags]` | Full OCR: detection + recognition (default) |
 | `detect <path> [flags]` | Detection only: text region boxes, no recognition |
 | `info --model-info \| --version` | Engine/version diagnostics, no image read |
+| `doctor [--json]` | System/provider diagnostics; never reports a hostname or stable device ID |
 
 `light-ocr image.png` without a subcommand is implicit `recognize`.
 

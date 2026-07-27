@@ -75,29 +75,29 @@ Need to extract text from a PDF file or process multiple images as one document.
 
 ```bash
 # Full PDF with JSON output
-light-ocr document report.pdf --format json
+light-ocr-document report.pdf --format json
 
 # Page range with streaming JSONL
-light-ocr document report.pdf --pages 1-10 --format jsonl
+light-ocr-document report.pdf --pages 1-10 --format jsonl
 
 # Multiple images as one document
-light-ocr document scan1.png scan2.png --format text
+light-ocr-document scan1.png scan2.png --format text
 
 # Check if PDF support is available
-light-ocr doctor --json
+light-ocr-document info
 ```
 
-PDF rendering uses `pdfium-native` (optional dependency). If unavailable, use image-only workflows or install `pdfium-native` separately.
+The document command requires the explicit `@arcships/light-ocr-document@next` preview package. Its pinned `pdfium-native` dependency installs a verified platform prebuild; it is not part of the stable image package.
 
 ### System diagnostics
 
-Need to check hardware, execution providers, or PDF support status.
+Need to check hardware or execution provider status.
 
 ```bash
 light-ocr doctor --json
 ```
 
-Returns system info (Node.js version, OS, CPU, memory), native runtime status, available providers, and module availability. No user content is collected; hostname is SHA-256 hashed.
+Returns system info (Node.js version, OS, CPU, memory), native runtime status, and available providers. No user content, hostname, username, path, or stable device identifier is collected.
 
 ## Decision flow
 
@@ -108,7 +108,7 @@ Need text from an image or document?
 ├── Need text + coordinates? → recognize --format json
 ├── Only need where text is? → detect
 ├── Large image, unsure where text is? → detect first, then recognize --region
-├── PDF or multiple images? → document <files> --format json
+├── PDF or multiple images? → light-ocr-document <files> --format json
 ├── Need system/hardware info? → doctor --json
 └── Need engine info or version? → info --model-info / info --version
 ```

@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
-更新时间：2026-07-26<br>
-结论：npm `0.5.3` 已发布。N3 文档入口完成并发布，包含 PDF 渲染（pdfium-native）、`light-ocr document` CLI 子命令、`light-ocr doctor` 系统诊断命令、CPU 性能 baseline 脚本。S3 PDF 可行性 Spike 决策选择 `pdfium-native`（D108）。
+更新时间：2026-07-27<br>
+结论：npm `0.5.3` 仅形成 `next` 候选，没有完成 stable promotion，且其 N3 实现与发布证据不完整。`0.5.4` 正在修复发布边界：stable `@arcships/light-ocr` 保持图片 OCR 与 `doctor`；PDF/多页能力按 roadmap 拆到显式 `@arcships/light-ocr-document` Preview，并增加真实 PDF render + OCR release gate。S3 renderer 继续采用 `pdfium-native`（D108），包拓扑由 D109 锁定。
 
 状态含义：
 

@@ -88,9 +88,16 @@ class NpmReleaseTests(unittest.TestCase):
             argparse.Namespace(version=npm_release.SOURCE_VERSION, npm="npm")
         )
 
-        integrity.assert_called_once_with(
-            "npm", f"{npm_release.FACADE_PACKAGE}@{npm_release.SOURCE_VERSION}"
+        checked = {call.args[1] for call in integrity.call_args_list}
+        self.assertIn(
+            f"{npm_release.FACADE_PACKAGE}@{npm_release.SOURCE_VERSION}",
+            checked,
         )
+        self.assertIn(
+            f"{npm_release.DOCUMENT_PACKAGE}@{npm_release.DOCUMENT_VERSION}",
+            checked,
+        )
+        self.assertEqual(len(checked), len(npm_release.PLATFORMS) + 5)
 
     @mock.patch(
         "tools.npm_release.npm_integrity", return_value="sha512-published-integrity"
@@ -99,7 +106,7 @@ class NpmReleaseTests(unittest.TestCase):
         self, integrity: mock.Mock
     ) -> None:
         with self.assertRaisesRegex(
-            RuntimeError, "already published.*npm promote workflow"
+            RuntimeError, "already published.*original release artifact"
         ):
             npm_release.ensure_unpublished(
                 argparse.Namespace(version=npm_release.SOURCE_VERSION, npm="npm")
@@ -212,6 +219,21 @@ class NpmReleaseTests(unittest.TestCase):
                 facade["dependencies"][npm_release.RUNTIME_PACKAGE],
                 npm_release.RUNTIME_VERSION,
             )
+            document = json.loads(
+                (staging / "light-ocr-document" / "package.json").read_text("utf-8")
+            )
+            self.assertEqual(document["name"], npm_release.DOCUMENT_PACKAGE)
+            self.assertEqual(
+                document["dependencies"][npm_release.FACADE_PACKAGE],
+                npm_release.CORE_VERSION,
+            )
+            self.assertEqual(document["dependencies"]["pdfium-native"], "0.6.1")
+            self.assertTrue(
+                (staging / "light-ocr-document" / "src" / "cli.cjs").is_file()
+            )
+            self.assertTrue(
+                (staging / "light-ocr-document" / "LICENSE").is_file()
+            )
             runtime = json.loads(
                 (staging / "runtime" / "package.json").read_text("utf-8")
             )
@@ -237,7 +259,7 @@ class NpmReleaseTests(unittest.TestCase):
                 (tarballs / "release-manifest.json").read_text("utf-8")
             )
             self.assertEqual(release["version"], source_version)
-            expected_packages = len(npm_release.PLATFORMS) + 6
+            expected_packages = len(npm_release.PLATFORMS) + 7
             self.assertEqual(len(release["packages"]), expected_packages)
             self.assertEqual(
                 len(list(tarballs.glob("*.tgz"))), expected_packages
@@ -295,7 +317,10 @@ class NpmReleaseTests(unittest.TestCase):
                 encoding="utf-8",
             )
             version_info = json.loads(completed.stdout)
-            self.assertEqual(version_info["npm"], "0.1.0")
+            self.assertEqual(
+                version_info["npm"],
+                npm_release.FACADE_PACKAGES["tiny"]["version"],
+            )
             self.assertEqual(version_info["tier"], "tiny")
 
     def test_runtime_descriptor_rejects_mutated_payload_and_qualification_release(

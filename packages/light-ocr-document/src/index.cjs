@@ -1,361 +1,415 @@
 'use strict';
 
-// Lazy load dependencies
-let createEngine = null;
-let pdfium = null;
-let pdfiumLoaded = false;
-let fs = null;
-let path = null;
+const fs = require('node:fs/promises');
+const path = require('node:path');
 
-function loadDependencies() {
-  if (!createEngine) {
-    try {
-      ({ createEngine } = require('@arcships/light-ocr-runtime'));
-    } catch {
-      // Runtime not available - will be provided via engine option
-    }
-  }
-  
+const {
+  createEngine,
+  OcrError,
+} = require('@arcships/light-ocr');
+
+const DEFAULTS = Object.freeze({
+  dpi: 150,
+  maxPages: 100,
+  maxPagePixels: 4096 * 4096,
+  maxTotalPixels: 100 * 1024 * 1024,
+  maxFileBytes: 100 * 1024 * 1024,
+});
+
+let pdfium;
+let pdfiumLoaded = false;
+
+function loadPdfium() {
   if (!pdfiumLoaded) {
     pdfiumLoaded = true;
     try {
       pdfium = require('pdfium-native');
     } catch {
-      // pdfium-native not available
-      pdfium = null;
+      pdfium = undefined;
     }
   }
-  
-  if (!fs) {
-    fs = require('node:fs/promises');
-  }
-  
-  if (!path) {
-    path = require('node:path');
-  }
-}
-
-function getVersion() {
-  try {
-    const pkg = require('../package.json');
-    return pkg.version;
-  } catch {
-    return '0.0.0';
-  }
+  return pdfium;
 }
 
 function hasPdfSupport() {
-  loadDependencies();
-  return pdfium !== null;
+  return loadPdfium() !== undefined;
 }
 
-async function* processPdf(engine, pdfBuffer, options = {}) {
-  loadDependencies();
-  if (!pdfium) {
-    throw new OcrError('unsupported_capability', 'PDF support not available. Install pdfium-native.');
+function getVersion() {
+  return require('../package.json').version;
+}
+
+function invalidArgument(message) {
+  return new OcrError('invalid_argument', message);
+}
+
+function positiveInteger(value, name, fallback, maximum = Number.MAX_SAFE_INTEGER) {
+  if (value === undefined) return fallback;
+  if (!Number.isSafeInteger(value) || value < 1 || value > maximum) {
+    throw invalidArgument(`${name} must be an integer between 1 and ${maximum}`);
   }
+  return value;
+}
 
-  const {
-    format = 'json',
-    pageRange,
-    dpi = 150,
-    maxPages = 100,
-    maxPagePixels = 4096 * 4096,
-    maxTotalPixels = 100 * 1024 * 1024,
-    signal,
-    ocrOptions = {}
-  } = options;
+function normalizeOptions(options) {
+  if (options === undefined) options = {};
+  if (options === null || typeof options !== 'object' || Array.isArray(options)) {
+    throw invalidArgument('document options must be an object');
+  }
+  const normalized = {
+    ...options,
+    dpi: positiveInteger(options.dpi, 'dpi', DEFAULTS.dpi, 600),
+    maxPages: positiveInteger(options.maxPages, 'maxPages', DEFAULTS.maxPages, 10000),
+    maxPagePixels: positiveInteger(
+      options.maxPagePixels,
+      'maxPagePixels',
+      DEFAULTS.maxPagePixels,
+    ),
+    maxTotalPixels: positiveInteger(
+      options.maxTotalPixels,
+      'maxTotalPixels',
+      DEFAULTS.maxTotalPixels,
+    ),
+    maxFileBytes: positiveInteger(
+      options.maxFileBytes,
+      'maxFileBytes',
+      DEFAULTS.maxFileBytes,
+    ),
+  };
+  if (normalized.dpi < 36) {
+    throw invalidArgument('dpi must be an integer between 36 and 600');
+  }
+  if (options.pageRange !== undefined) {
+    const range = options.pageRange;
+    if (
+      range === null
+      || typeof range !== 'object'
+      || Array.isArray(range)
+      || !Number.isSafeInteger(range.start)
+      || !Number.isSafeInteger(range.end)
+      || range.start < 1
+      || range.end < range.start
+    ) {
+      throw invalidArgument('pageRange must contain 1-based integers with start <= end');
+    }
+  }
+  return normalized;
+}
 
+function throwIfAborted(signal) {
+  if (signal?.aborted) {
+    throw signal.reason === undefined
+      ? new DOMException('The operation was aborted', 'AbortError')
+      : signal.reason;
+  }
+}
+
+function isBytes(value) {
+  return value instanceof Uint8Array;
+}
+
+function isPdf(value) {
+  return value?.length >= 4
+    && value[0] === 0x25
+    && value[1] === 0x50
+    && value[2] === 0x44
+    && value[3] === 0x46;
+}
+
+function mediaType(value) {
+  if (
+    value?.length >= 4
+    && value[0] === 0x89
+    && value[1] === 0x50
+    && value[2] === 0x4e
+    && value[3] === 0x47
+  ) {
+    return 'image/png';
+  }
+  if (value?.length >= 3 && value[0] === 0xff && value[1] === 0xd8 && value[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  return 'application/octet-stream';
+}
+
+async function readInput(source, maxFileBytes) {
+  if (typeof source === 'string') {
+    const stats = await fs.stat(source);
+    if (stats.size > maxFileBytes) {
+      throw new OcrError(
+        'resource_limit_exceeded',
+        `File size ${stats.size} exceeds maxFileBytes ${maxFileBytes}`,
+      );
+    }
+    return fs.readFile(source);
+  }
+  if (!isBytes(source)) {
+    throw invalidArgument('document inputs must be file paths or Uint8Array values');
+  }
+  if (source.byteLength > maxFileBytes) {
+    throw new OcrError(
+      'resource_limit_exceeded',
+      `Input size ${source.byteLength} exceeds maxFileBytes ${maxFileBytes}`,
+    );
+  }
+  return source;
+}
+
+function linesFrom(result) {
+  return result.lines.map((line, index) => ({
+    id: `L${index}`,
+    text: line.text,
+    confidence: line.confidence,
+    box: line.box,
+  }));
+}
+
+function pageRect(page, box) {
+  if (
+    box
+    && [box.left, box.bottom, box.right, box.top].every(Number.isFinite)
+  ) {
+    return {
+      x: box.left,
+      y: box.bottom,
+      width: box.right - box.left,
+      height: box.top - box.bottom,
+    };
+  }
+  return { x: 0, y: 0, width: page.width, height: page.height };
+}
+
+async function* processPdf(engine, input, options) {
+  const renderer = loadPdfium();
+  if (!renderer) {
+    throw new OcrError(
+      'unsupported_capability',
+      'PDF support is unavailable; reinstall @arcships/light-ocr-document with scripts enabled',
+    );
+  }
+  const pdf = await readInput(input, options.maxFileBytes);
+  const document = await renderer.loadDocument(
+    Buffer.from(pdf.buffer, pdf.byteOffset, pdf.byteLength),
+  );
   let totalPixels = 0;
-  let processedPages = 0;
-
-  // Open PDF document
-  const doc = await pdfium.loadDocument(pdfBuffer);
-  
   try {
-    const pageCount = doc.pageCount;
-    
-    // Apply page range
-    const start = pageRange?.start ? Math.max(1, pageRange.start) : 1;
-    const end = pageRange?.end ? Math.min(pageCount, pageRange.end) : pageCount;
-    
-    // Check page limits
-    if (end - start + 1 > maxPages) {
-      throw new OcrError('resource_limit_exceeded', `Page count ${end - start + 1} exceeds maxPages ${maxPages}`);
+    const start = options.pageRange?.start ?? 1;
+    const end = Math.min(options.pageRange?.end ?? document.pageCount, document.pageCount);
+    const requestedPages = Math.max(0, end - start + 1);
+    if (start > document.pageCount) {
+      throw invalidArgument(`pageRange starts after the document's ${document.pageCount} pages`);
+    }
+    if (requestedPages > options.maxPages) {
+      throw new OcrError(
+        'resource_limit_exceeded',
+        `Page count ${requestedPages} exceeds maxPages ${options.maxPages}`,
+      );
     }
 
-    for (let i = start; i <= end; i++) {
-      // Check abort signal
-      if (signal?.aborted) {
-        throw new OcrError('internal_error', 'Operation aborted');
-      }
-
-      const page = await doc.getPage(i - 1); // 0-indexed
-      
-      // Get page dimensions
-      const { width, height } = page;
-      const pagePixels = width * height;
-      
-      // Check pixel limits
-      if (pagePixels > maxPagePixels) {
-        throw new OcrError('resource_limit_exceeded', `Page ${i} pixels ${pagePixels} exceeds maxPagePixels ${maxPagePixels}`);
-      }
-      
-      totalPixels += pagePixels;
-      if (totalPixels > maxTotalPixels) {
-        throw new OcrError('resource_limit_exceeded', `Total pixels ${totalPixels} exceeds maxTotalPixels ${maxTotalPixels}`);
-      }
-
-      // Render page to PNG
-      const renderStart = Date.now();
-      const scale = dpi / 72; // PDF default is 72 DPI
-      const pngBuffer = await page.render({ scale });
-      const renderTime = (Date.now() - renderStart) * 1000;
-
-      // OCR the rendered image
-      const ocrStart = Date.now();
-      const ocrResult = await engine.recognizeEncoded(pngBuffer, ocrOptions);
-      const ocrTime = (Date.now() - ocrStart) * 1000;
-
-      // Close page to free native memory
-      await page.close();
-
-      processedPages++;
-
-      // Build page result
-      const pageResult = {
-        index: i - 1, // 0-indexed
-        width: ocrResult.imageWidth,
-        height: ocrResult.imageHeight,
-        coordinateSpace: 'pageSpace',
-        structure: 'ocr-order',
-        lines: ocrResult.lines.map((line, idx) => ({
-          id: `L${idx}`,
-          text: line.text,
-          confidence: line.confidence,
-          box: line.box
-        })),
-        source: {
-          kind: 'pdf',
-          mediaType: 'application/pdf',
-          identity: { pageIndex: i - 1 },
-          appliedTransforms: {
-            pdf: {
-              rotation: 0, // TODO: Get from PDF metadata
-              mediaBox: { x: 0, y: 0, width, height },
-              cropBox: { x: 0, y: 0, width, height },
-              dpi,
-              scale: dpi / 72 // PDF default is 72 DPI
-            }
-          }
-        },
-        timingUs: {
-          total: renderTime + ocrTime,
-          decode: renderTime,
-          ocr: ocrTime
+    for (let pageNumber = start; pageNumber <= end; pageNumber++) {
+      throwIfAborted(options.signal);
+      const page = await document.getPage(pageNumber - 1);
+      let result;
+      try {
+        const scale = options.dpi / 72;
+        const renderedWidth = Math.ceil(page.width * scale);
+        const renderedHeight = Math.ceil(page.height * scale);
+        const renderedPixels = renderedWidth * renderedHeight;
+        if (
+          !Number.isSafeInteger(renderedPixels)
+          || renderedPixels > options.maxPagePixels
+        ) {
+          throw new OcrError(
+            'resource_limit_exceeded',
+            `Page ${pageNumber} rendered pixels ${renderedPixels} `
+              + `exceeds maxPagePixels ${options.maxPagePixels}`,
+          );
         }
-      };
+        totalPixels += renderedPixels;
+        if (!Number.isSafeInteger(totalPixels) || totalPixels > options.maxTotalPixels) {
+          throw new OcrError(
+            'resource_limit_exceeded',
+            `Total rendered pixels ${totalPixels} exceeds maxTotalPixels `
+              + `${options.maxTotalPixels}`,
+          );
+        }
 
-      yield pageResult;
+        const renderStart = performance.now();
+        const png = await page.render({ scale });
+        const renderUs = Math.round((performance.now() - renderStart) * 1000);
+        throwIfAborted(options.signal);
+        const ocrStart = performance.now();
+        const ocr = await engine.recognizeEncoded(png, {
+          ...options.ocrOptions,
+          signal: options.signal,
+        });
+        const ocrUs = Math.round((performance.now() - ocrStart) * 1000);
+        result = {
+          index: pageNumber - 1,
+          width: ocr.imageWidth,
+          height: ocr.imageHeight,
+          coordinateSpace: 'pageSpace',
+          structure: 'ocr-order',
+          lines: linesFrom(ocr),
+          source: {
+            kind: 'pdf',
+            mediaType: 'application/pdf',
+            identity: { pageIndex: pageNumber - 1 },
+            appliedTransforms: {
+              pdf: {
+                rotation: Number(page.rotation ?? 0) * 90,
+                mediaBox: { x: 0, y: 0, width: page.width, height: page.height },
+                cropBox: pageRect(page, page.cropBox),
+                dpi: options.dpi,
+                scale,
+              },
+            },
+          },
+          timingUs: { total: renderUs + ocrUs, decode: renderUs, ocr: ocrUs },
+          modelBundleId: ocr.modelBundleId,
+        };
+      } finally {
+        await page.close();
+      }
+      yield result;
     }
   } finally {
-    doc.destroy();
+    await document.destroy();
   }
 }
 
-async function* processImages(engine, imageBuffers, options = {}) {
-  const {
-    format = 'json',
-    maxPagePixels = 4096 * 4096,
-    signal,
-    ocrOptions = {}
-  } = options;
-
-  for (let i = 0; i < imageBuffers.length; i++) {
-    // Check abort signal
-    if (signal?.aborted) {
-      throw new OcrError('internal_error', 'Operation aborted');
-    }
-
-    const buffer = imageBuffers[i];
-    
-    // OCR the image
-    const ocrStart = Date.now();
-    const ocrResult = await engine.recognizeEncoded(buffer, {
-      ...ocrOptions,
-      applyExif: true
+async function* processImages(engine, inputs, options) {
+  if (inputs.length > options.maxPages) {
+    throw new OcrError(
+      'resource_limit_exceeded',
+      `Page count ${inputs.length} exceeds maxPages ${options.maxPages}`,
+    );
+  }
+  let totalPixels = 0;
+  for (let index = 0; index < inputs.length; index++) {
+    throwIfAborted(options.signal);
+    const image = await readInput(inputs[index], options.maxFileBytes);
+    const started = performance.now();
+    const ocr = await engine.recognizeEncoded(image, {
+      ...options.ocrOptions,
+      applyExif: true,
+      signal: options.signal,
     });
-    const ocrTime = (Date.now() - ocrStart) * 1000; // Convert to microseconds
-
-    // Build page result
-    const pageResult = {
-      index: i,
-      width: ocrResult.imageWidth,
-      height: ocrResult.imageHeight,
+    const ocrUs = Math.round((performance.now() - started) * 1000);
+    const pixels = ocr.imageWidth * ocr.imageHeight;
+    if (!Number.isSafeInteger(pixels) || pixels > options.maxPagePixels) {
+      throw new OcrError(
+        'resource_limit_exceeded',
+        `Image ${index + 1} pixels ${pixels} exceeds maxPagePixels ${options.maxPagePixels}`,
+      );
+    }
+    totalPixels += pixels;
+    if (!Number.isSafeInteger(totalPixels) || totalPixels > options.maxTotalPixels) {
+      throw new OcrError(
+        'resource_limit_exceeded',
+        `Total image pixels ${totalPixels} exceeds maxTotalPixels ${options.maxTotalPixels}`,
+      );
+    }
+    yield {
+      index,
+      width: ocr.imageWidth,
+      height: ocr.imageHeight,
       coordinateSpace: 'pageSpace',
       structure: 'ocr-order',
-      lines: ocrResult.lines.map((line, idx) => ({
-        id: `L${idx}`,
-        text: line.text,
-        confidence: line.confidence,
-        box: line.box
-      })),
+      lines: linesFrom(ocr),
       source: {
         kind: 'image',
-        mediaType: 'image/png', // TODO: Detect actual media type
-        identity: { index: i },
-        appliedTransforms: {
-          exif: {
-            orientation: 1, // TODO: Get from EXIF
-            applied: false
-          }
-        }
+        mediaType: mediaType(image),
+        identity: { index },
+        appliedTransforms: {},
       },
-      timingUs: {
-        total: ocrTime,
-        decode: 0,
-        ocr: ocrTime
-      }
+      timingUs: { total: ocrUs, decode: 0, ocr: ocrUs },
+      modelBundleId: ocr.modelBundleId,
     };
-
-    yield pageResult;
   }
 }
 
-class OcrError extends Error {
-  constructor(code, message, detail) {
-    super(message);
-    this.name = 'OcrError';
-    this.code = code;
-    this.detail = detail;
-  }
-}
+class DocumentEngine {
+  #engine;
+  #ownsEngine;
+  #closed = false;
 
-class DocumentEngineImpl {
-  constructor(engine, pdfiumOptions = {}) {
-    this._engine = engine;
-    this._pdfiumOptions = pdfiumOptions;
-    this._closed = false;
+  constructor(engine, ownsEngine) {
+    this.#engine = engine;
+    this.#ownsEngine = ownsEngine;
   }
 
-  async *_recognizePdf(source, options = {}) {
-    if (this._closed) {
-      throw new OcrError('invalid_engine', 'Engine is closed');
-    }
-
-    let pdfBuffer;
-    if (typeof source === 'string') {
-      pdfBuffer = await fs.readFile(source);
-    } else {
-      pdfBuffer = source;
-    }
-
-    // Check file size
-    const maxFileBytes = options.maxFileBytes || 100 * 1024 * 1024; // 100MB
-    if (pdfBuffer.byteLength > maxFileBytes) {
-      throw new OcrError('resource_limit_exceeded', `File size ${pdfBuffer.byteLength} exceeds maxFileBytes ${maxFileBytes}`);
-    }
-
-    yield* processPdf(this._engine, pdfBuffer, options);
-  }
-
-  async *_recognizeImages(sources, options = {}) {
-    if (this._closed) {
-      throw new OcrError('invalid_engine', 'Engine is closed');
-    }
-
-    const buffers = [];
-    for (const source of sources) {
-      if (typeof source === 'string') {
-        buffers.push(await fs.readFile(source));
-      } else {
-        buffers.push(source);
-      }
-    }
-
-    yield* processImages(this._engine, buffers, options);
-  }
-
-  async *_recognizeDocument(source, options = {}) {
-    if (this._closed) {
-      throw new OcrError('invalid_engine', 'Engine is closed');
-    }
-
-    // Determine source type
+  async *recognizeDocument(source, options) {
+    if (this.#closed) throw new OcrError('invalid_engine', 'Document engine is closed');
+    const normalized = normalizeOptions(options);
     if (Array.isArray(source)) {
-      yield* this._recognizeImages(source, options);
-    } else if (typeof source === 'string') {
-      // Detect file type by extension
-      const ext = path.extname(source).toLowerCase();
-      if (ext === '.pdf') {
-        yield* this._recognizePdf(source, options);
-      } else {
-        // Treat as single image
-        yield* this._recognizeImages([source], options);
-      }
-    } else {
-      // Buffer - try to detect PDF magic bytes
-      const isPdf = source[0] === 0x25 && source[1] === 0x50 && source[2] === 0x44 && source[3] === 0x46;
-      if (isPdf) {
-        yield* this._recognizePdf(source, options);
-      } else {
-        yield* this._recognizeImages([source], options);
-      }
+      if (source.length === 0) throw invalidArgument('document source array must not be empty');
+      yield* processImages(this.#engine, source, normalized);
+      return;
     }
+    if (typeof source !== 'string' && !isBytes(source)) {
+      throw invalidArgument(
+        'document source must be a file path, Uint8Array, or a non-empty array of them',
+      );
+    }
+    if (
+      (typeof source === 'string' && path.extname(source).toLowerCase() === '.pdf')
+      || (isBytes(source) && isPdf(source))
+    ) {
+      yield* processPdf(this.#engine, source, normalized);
+      return;
+    }
+    yield* processImages(this.#engine, [source], normalized);
   }
 
   recognizePdf(source, options) {
-    return this._recognizePdf(source, options);
+    if (this.#closed) throw new OcrError('invalid_engine', 'Document engine is closed');
+    return processPdf(this.#engine, source, normalizeOptions(options));
   }
 
   recognizeImages(sources, options) {
-    return this._recognizeImages(sources, options);
-  }
-
-  recognizeDocument(source, options) {
-    return this._recognizeDocument(source, options);
+    if (this.#closed) throw new OcrError('invalid_engine', 'Document engine is closed');
+    if (!Array.isArray(sources) || sources.length === 0) {
+      throw invalidArgument('image sources must be a non-empty array');
+    }
+    return processImages(this.#engine, sources, normalizeOptions(options));
   }
 
   async close() {
-    if (this._closed) return;
-    this._closed = true;
-    // Note: We don't close the engine here since it might be shared
-    // The caller is responsible for closing the engine they provided
+    if (this.#closed) return;
+    this.#closed = true;
+    if (this.#ownsEngine) await this.#engine.close();
   }
 }
 
 async function createDocumentEngine(options = {}) {
-  loadDependencies();
-  
-  let engine = options.engine;
-  
-  if (!engine) {
-    if (!createEngine) {
-      throw new OcrError('package_load_failed', 
-        'Could not create OCR engine. Provide engine option or install @arcships/light-ocr-runtime.'
-      );
-    }
-    
-    // Try to load from peer dependency
-    try {
-      const path = require('node:path');
-      const bundlePath = options.bundlePath || 
-        require.resolve('@arcships/light-ocr-model-ppocrv6-small');
-      engine = await createEngine({ bundlePath });
-    } catch (err) {
-      throw new OcrError('package_load_failed', 
-        'Could not create OCR engine. Provide engine option or install @arcships/light-ocr.',
-        err.message
-      );
-    }
+  if (options === null || typeof options !== 'object' || Array.isArray(options)) {
+    throw invalidArgument('createDocumentEngine options must be an object');
   }
+  const ownsEngine = options.engine === undefined;
+  const engine = options.engine ?? await createEngine(options.engineOptions);
+  return new DocumentEngine(engine, ownsEngine);
+}
 
-  return new DocumentEngineImpl(engine, options.pdfium || {});
+async function* recognizeDocument(source, options = {}) {
+  if (options === null || typeof options !== 'object' || Array.isArray(options)) {
+    throw invalidArgument('recognizeDocument options must be an object');
+  }
+  const documentEngine = await createDocumentEngine({
+    engine: options.engine,
+    engineOptions: options.engineOptions,
+  });
+  try {
+    yield* documentEngine.recognizeDocument(source, options);
+  } finally {
+    await documentEngine.close();
+  }
 }
 
 module.exports = {
   createDocumentEngine,
   getVersion,
   hasPdfSupport,
-  OcrError
+  recognizeDocument,
+  OcrError,
 };
