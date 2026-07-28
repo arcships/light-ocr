@@ -1,6 +1,6 @@
 {
   "name": "@arcships/light-ocr-document",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Compatibility entry for the document API built into light-ocr",
   "license": "Apache-2.0",
@@ -33,7 +33,7 @@
     "node": "^22.0.0 || ^24.0.0"
   },
   "dependencies": {
-    "@arcships/light-ocr": "0.5.5"
+    "@arcships/light-ocr": "0.5.6"
   },
   "scripts": {
     "test": "node --test test/*.test.cjs"

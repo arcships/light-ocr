@@ -108,7 +108,7 @@ test('info: --version is metadata-only and reports the Small tier', async () => 
   assert.equal(code, EXIT.success);
   assert.equal(stderr, '');
   const info = JSON.parse(stdout);
-  assert.equal(info.core, '0.5.5');
+  assert.equal(info.core, '0.5.6');
   assert.equal(info.tier, 'small');
   assert.equal(info.maturity, 'stable');
   assert.equal(info.model, 'ppocrv6-small-native-20260719.1');

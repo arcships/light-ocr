@@ -20,6 +20,45 @@ from tools import npm_release
 
 
 class NpmReleaseTests(unittest.TestCase):
+    def test_pdfium_font_resources_reject_corrupt_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            fonts = root / "fonts"
+            fonts.mkdir()
+            font = fonts / "NotoSansCJKsc-Regular.otf"
+            font.write_bytes(b"corrupt")
+            license_file = fonts / "OFL.txt"
+            license_file.write_text("OFL-1.1\n", "utf-8")
+            lock = root / "fonts.lock.json"
+            lock.write_text(
+                json.dumps(
+                    {
+                        "schemaVersion": "1.0",
+                        "revision": "test",
+                        "resources": [
+                            {
+                                "name": font.name,
+                                "bytes": font.stat().st_size,
+                                "sha256": "0" * 64,
+                                "url": "https://example.invalid/font",
+                            },
+                            {
+                                "name": license_file.name,
+                                "bytes": license_file.stat().st_size,
+                                "sha256": npm_release.sha256(license_file),
+                                "url": "https://example.invalid/license",
+                            },
+                        ],
+                    }
+                ),
+                "utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                RuntimeError, "PDF fallback font resource is invalid"
+            ):
+                npm_release.validated_pdfium_font_resources(root, lock)
+
     def test_multi_config_build_file_is_configuration_isolated(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             build = Path(temporary)
@@ -243,6 +282,17 @@ class NpmReleaseTests(unittest.TestCase):
                         / "pdfium"
                         / npm_release.PDFIUM_LIBRARIES[platform_id]
                     ).is_file()
+                )
+                self.assertTrue(
+                    (
+                        native
+                        / "pdfium"
+                        / "fonts"
+                        / "NotoSansCJKsc-Regular.otf"
+                    ).is_file()
+                )
+                self.assertTrue(
+                    (native / "pdfium" / "fonts" / "OFL.txt").is_file()
                 )
                 native_package = json.loads(
                     (native / "package.json").read_text("utf-8")

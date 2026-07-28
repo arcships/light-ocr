@@ -61,12 +61,12 @@ FACADE_PACKAGES = {
     },
     "tiny": {
         "name": "@arcships/light-ocr-tiny",
-        "version": "0.1.4",
+        "version": "0.1.5",
         "workspace": "light-ocr-tiny",
     },
     "medium": {
         "name": "@arcships/light-ocr-medium",
-        "version": "0.1.4",
+        "version": "0.1.5",
         "workspace": "light-ocr-medium",
     },
 }
@@ -120,6 +120,7 @@ PLATFORMS: dict[str, dict[str, Any]] = {
     },
 }
 PDFIUM_VERSION = "0.6.1"
+PDFIUM_FONT_LOCK = ROOT / "tools" / "pdfium" / "fonts.lock.json"
 PDFIUM_LIBRARIES = {
     "macos-arm64": "libpdfium.dylib",
     "macos-x64": "libpdfium.dylib",
@@ -161,6 +162,40 @@ def copy_file(source: Path, destination: Path) -> None:
         raise RuntimeError(f"required file is missing: {source}")
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, destination)
+
+
+def validated_pdfium_font_resources(
+    pdfium_source: Path, font_lock_path: Path
+) -> tuple[dict[str, Any], dict[str, Path]]:
+    font_lock = read_json(font_lock_path)
+    if font_lock.get("schemaVersion") != "1.0":
+        raise RuntimeError("unsupported PDF fallback font lock schema")
+    records = font_lock.get("resources")
+    if not isinstance(records, list):
+        raise RuntimeError("PDF fallback font lock resources must be an array")
+    expected_names = {"NotoSansCJKsc-Regular.otf", "OFL.txt"}
+    by_name: dict[str, dict[str, Any]] = {}
+    for record in records:
+        if not isinstance(record, dict) or not isinstance(record.get("name"), str):
+            raise RuntimeError("invalid PDF fallback font lock record")
+        name = record["name"]
+        if Path(name).name != name or name in by_name:
+            raise RuntimeError(f"unsafe or duplicate PDF fallback font resource: {name}")
+        by_name[name] = record
+    if set(by_name) != expected_names:
+        raise RuntimeError("PDF fallback font lock inventory is incomplete")
+
+    resolved: dict[str, Path] = {}
+    for name, record in by_name.items():
+        source = pdfium_source / "fonts" / name
+        if (
+            not source.is_file()
+            or source.stat().st_size != record.get("bytes")
+            or sha256(source) != record.get("sha256")
+        ):
+            raise RuntimeError(f"PDF fallback font resource is invalid: {source}")
+        resolved[name] = source
+    return font_lock, resolved
 
 
 def reject_symlinks(root: Path) -> None:
@@ -668,10 +703,20 @@ def stage_native(arguments: argparse.Namespace) -> None:
                 pdfium / PDFIUM_LIBRARIES[arguments.platform_id],
             )
             copy_file(ROOT / "tools" / "npm" / "pdfium-loader.cjs", pdfium / "index.cjs")
+            font_lock, font_resources = validated_pdfium_font_resources(
+                pdfium_source,
+                getattr(arguments, "pdfium_font_lock", PDFIUM_FONT_LOCK),
+            )
+            font_output = pdfium / "fonts"
+            font_output.mkdir()
+            for name, source in font_resources.items():
+                copy_file(source, font_output / name)
             pdfium_license = stage / "licenses" / "pdfium-native-MIT.txt"
             pdfium_notices = stage / "licenses" / "pdfium-native-THIRD-PARTY-NOTICES.md"
+            noto_license = stage / "licenses" / "noto-cjk-OFL-1.1.txt"
             copy_file(pdfium_source / "LICENSE", pdfium_license)
             copy_file(pdfium_source / "THIRD-PARTY-NOTICES.md", pdfium_notices)
+            copy_file(font_resources["OFL.txt"], noto_license)
             inventory = read_json(stage / "license-inventory.json")
             inventory.setdefault("files", []).extend(
                 [
@@ -684,6 +729,11 @@ def stage_native(arguments: argparse.Namespace) -> None:
                         "component": f"pdfium-native-{PDFIUM_VERSION}",
                         "file": f"licenses/{pdfium_notices.name}",
                         "sha256": sha256(pdfium_notices),
+                    },
+                    {
+                        "component": "noto-sans-cjk-sc",
+                        "file": f"licenses/{noto_license.name}",
+                        "sha256": sha256(noto_license),
                     },
                 ]
             )
@@ -704,11 +754,34 @@ def stage_native(arguments: argparse.Namespace) -> None:
                     "copyrightText": "Copyright (c) 2026 xonaman",
                 }
             )
+            sbom["packages"].append(
+                {
+                    "name": "Noto Sans CJK SC",
+                    "SPDXID": "SPDXRef-Package-noto-sans-cjk-sc",
+                    "versionInfo": font_lock["revision"],
+                    "downloadLocation": next(
+                        record["url"]
+                        for record in font_lock["resources"]
+                        if record["name"] == "NotoSansCJKsc-Regular.otf"
+                    ),
+                    "filesAnalyzed": False,
+                    "licenseConcluded": "OFL-1.1",
+                    "licenseDeclared": "OFL-1.1",
+                    "copyrightText": "Copyright 2014-2021 Adobe",
+                }
+            )
             sbom.setdefault("relationships", []).append(
                 {
                     "spdxElementId": "SPDXRef-Package-light-ocr-core",
                     "relationshipType": "DEPENDS_ON",
                     "relatedSpdxElement": "SPDXRef-Package-pdfium-native",
+                }
+            )
+            sbom["relationships"].append(
+                {
+                    "spdxElementId": "SPDXRef-Package-pdfium-native",
+                    "relationshipType": "DEPENDS_ON",
+                    "relatedSpdxElement": "SPDXRef-Package-noto-sans-cjk-sc",
                 }
             )
             write_json(stage / "sbom.spdx.json", sbom)

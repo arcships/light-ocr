@@ -39,6 +39,39 @@ def stage_cpu_native_packages(root: Path) -> Path:
         (pdfium_release / library).write_bytes(library.encode())
     (pdfium / "LICENSE").write_text("MIT\n", "utf-8")
     (pdfium / "THIRD-PARTY-NOTICES.md").write_text("PDFium notices\n", "utf-8")
+    fonts = pdfium / "fonts"
+    fonts.mkdir()
+    fallback_font = fonts / "NotoSansCJKsc-Regular.otf"
+    fallback_font.write_bytes(b"test-noto-cjk-font")
+    noto_license = fonts / "OFL.txt"
+    noto_license.write_text("OFL-1.1\n", "utf-8")
+    font_lock = root / "fonts.lock.json"
+    font_lock.write_text(
+        json.dumps(
+            {
+                "schemaVersion": "1.0",
+                "revision": "test-noto-cjk",
+                "resources": [
+                    {
+                        "name": fallback_font.name,
+                        "url": "https://example.invalid/NotoSansCJKsc-Regular.otf",
+                        "bytes": fallback_font.stat().st_size,
+                        "sha256": npm_release.sha256(fallback_font),
+                        "license": "OFL-1.1",
+                    },
+                    {
+                        "name": noto_license.name,
+                        "url": "https://example.invalid/OFL.txt",
+                        "bytes": noto_license.stat().st_size,
+                        "sha256": npm_release.sha256(noto_license),
+                        "license": "OFL-1.1",
+                    },
+                ],
+            }
+        )
+        + "\n",
+        "utf-8",
+    )
     native_root = root / "native"
     for platform_id in npm_release.PLATFORMS:
         npm_release.stage_native(
@@ -47,6 +80,7 @@ def stage_cpu_native_packages(root: Path) -> Path:
                 build_dir=build_dir,
                 metadata_dir=metadata,
                 pdfium_dir=pdfium,
+                pdfium_font_lock=font_lock,
                 output_dir=native_root / platform_id,
             )
         )
