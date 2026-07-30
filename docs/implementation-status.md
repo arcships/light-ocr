@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
 更新时间：2026-07-30<br>
-结论：npm `0.5.5` 已发布，但其平台包只内置 PDFium addon 与共享库，未内置 fallback 字体，因此对非嵌入中文字体的 PDF 不能视为可靠。`0.5.6` 补丁候选已把校验锁定的官方 Noto Sans SC 区域子集及 OFL 许可证装入六个平台包，并在 patched PDFium 初始化时只使用包内字体目录；用户安装与运行仍无二次下载。合并后的 Core、sanitizer/fuzzer、oracle 和 WebGPU CI 已全绿，[npm 发布演练 30535822947](https://github.com/arcships/light-ocr/actions/runs/30535822947) 也已完成六平台构建、离线安装、图片 OCR 与非嵌入中文字体 PDF 端到端 smoke；该次演练明确跳过 registry 发布。D116 记录修复契约，候选闭包与后续发布步骤见 [npm 0.5.6 发布准备记录](releases/npm-0.5.6.md)。
+结论：npm `0.5.5` 已发布，但其平台包只内置 PDFium addon 与共享库，未内置 fallback 字体，因此对非嵌入中文字体的 PDF 不能视为可靠。`0.5.6` 补丁候选已把校验锁定的官方 Noto Sans SC 区域子集及 OFL 许可证装入六个平台包，并在 patched PDFium 初始化时只使用包内字体目录；用户安装与运行仍无二次下载。合并后的 Core、sanitizer/fuzzer、oracle 和 WebGPU CI 已全绿，[npm 发布演练 30535822947](https://github.com/arcships/light-ocr/actions/runs/30535822947) 也已完成六平台构建、离线安装、图片 OCR 与非嵌入中文字体 PDF 端到端 smoke；该次演练明确跳过 registry 发布。D116 记录修复契约，候选闭包与后续发布步骤见 [npm 0.5.6 发布准备记录](releases/npm-0.5.6.md)（[English](releases/npm-0.5.6.en.md)）。
 
 状态含义：
 

@@ -16,6 +16,9 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
   page bytes, and end-to-end Chinese OCR without install-time or runtime
   downloads.
 
+Release preparation: [English](docs/releases/npm-0.5.6.en.md) /
+[中文](docs/releases/npm-0.5.6.md).
+
 ## [0.5.5] - 2026-07-27
 
 ### Changed

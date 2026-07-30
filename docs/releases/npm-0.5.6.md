@@ -1,5 +1,7 @@
 # npm 0.5.6 发布准备记录
 
+[English version](npm-0.5.6.en.md)
+
 状态：发布前验证完成，尚未发布。npm registry 与 dist-tag 均保持
 `0.5.5` 发布后的状态。
 
