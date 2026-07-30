@@ -173,7 +173,7 @@ def validated_pdfium_font_resources(
     records = font_lock.get("resources")
     if not isinstance(records, list):
         raise RuntimeError("PDF fallback font lock resources must be an array")
-    expected_names = {"NotoSansCJKsc-Regular.otf", "OFL.txt"}
+    expected_names = {"NotoSansSC-Regular.otf", "OFL.txt"}
     by_name: dict[str, dict[str, Any]] = {}
     for record in records:
         if not isinstance(record, dict) or not isinstance(record.get("name"), str):
@@ -713,7 +713,7 @@ def stage_native(arguments: argparse.Namespace) -> None:
                 copy_file(source, font_output / name)
             pdfium_license = stage / "licenses" / "pdfium-native-MIT.txt"
             pdfium_notices = stage / "licenses" / "pdfium-native-THIRD-PARTY-NOTICES.md"
-            noto_license = stage / "licenses" / "noto-cjk-OFL-1.1.txt"
+            noto_license = stage / "licenses" / "noto-sans-sc-OFL-1.1.txt"
             copy_file(pdfium_source / "LICENSE", pdfium_license)
             copy_file(pdfium_source / "THIRD-PARTY-NOTICES.md", pdfium_notices)
             copy_file(font_resources["OFL.txt"], noto_license)
@@ -731,7 +731,7 @@ def stage_native(arguments: argparse.Namespace) -> None:
                         "sha256": sha256(pdfium_notices),
                     },
                     {
-                        "component": "noto-sans-cjk-sc",
+                        "component": "noto-sans-sc",
                         "file": f"licenses/{noto_license.name}",
                         "sha256": sha256(noto_license),
                     },
@@ -756,13 +756,13 @@ def stage_native(arguments: argparse.Namespace) -> None:
             )
             sbom["packages"].append(
                 {
-                    "name": "Noto Sans CJK SC",
-                    "SPDXID": "SPDXRef-Package-noto-sans-cjk-sc",
+                    "name": "Noto Sans SC",
+                    "SPDXID": "SPDXRef-Package-noto-sans-sc",
                     "versionInfo": font_lock["revision"],
                     "downloadLocation": next(
                         record["url"]
                         for record in font_lock["resources"]
-                        if record["name"] == "NotoSansCJKsc-Regular.otf"
+                        if record["name"] == "NotoSansSC-Regular.otf"
                     ),
                     "filesAnalyzed": False,
                     "licenseConcluded": "OFL-1.1",
@@ -781,7 +781,7 @@ def stage_native(arguments: argparse.Namespace) -> None:
                 {
                     "spdxElementId": "SPDXRef-Package-pdfium-native",
                     "relationshipType": "DEPENDS_ON",
-                    "relatedSpdxElement": "SPDXRef-Package-noto-sans-cjk-sc",
+                    "relatedSpdxElement": "SPDXRef-Package-noto-sans-sc",
                 }
             )
             write_json(stage / "sbom.spdx.json", sbom)

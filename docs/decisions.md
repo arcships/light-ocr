@@ -394,12 +394,13 @@ Authority: D010 offline installation contract, D108 renderer selection, D110
 stable package topology
 
 Decision: Every platform-native npm package includes the checksum-pinned
-`NotoSansCJKsc-Regular.otf` and its OFL license beside PDFium. Release CI
+official `NotoSansSC-Regular.otf` regional subset and its OFL license beside
+PDFium. Release CI
 patches the exact reviewed `pdfium-native@0.6.1` source so PDFium is initialized
 with that immutable package-local font directory. The customer install and
 runtime never fetch fonts. The release smoke uses a deterministic PDF that
 declares non-embedded `STSong-Light`, requires PDFium to resolve it to
-`Noto Sans CJK SC`, checks that rendering is non-empty, and then requires the
+`Noto Sans SC`, checks that rendering is non-empty, and then requires the
 Chinese text to survive OCR.
 
 Reason: Bundling only the PDFium addon and shared library does not close the
@@ -413,7 +414,7 @@ Consequence:
 - `0.5.5` remains an immutable published release but is not considered reliable
   for PDFs whose Chinese fonts are not embedded; the correction is a
   conservative `0.5.6` patch candidate.
-- Each platform tarball grows by the compressed Noto CJK font payload and
+- Each platform tarball grows by the compressed Noto Sans SC regional subset and
   records the font lock, license inventory, artifact hash, and SPDX dependency.
 - The release build rejects changed upstream addon bytes, missing or corrupt
   font bytes, and an incomplete font lock before packaging.

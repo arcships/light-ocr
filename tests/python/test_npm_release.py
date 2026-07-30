@@ -25,7 +25,7 @@ class NpmReleaseTests(unittest.TestCase):
             root = Path(temporary)
             fonts = root / "fonts"
             fonts.mkdir()
-            font = fonts / "NotoSansCJKsc-Regular.otf"
+            font = fonts / "NotoSansSC-Regular.otf"
             font.write_bytes(b"corrupt")
             license_file = fonts / "OFL.txt"
             license_file.write_text("OFL-1.1\n", "utf-8")
@@ -288,7 +288,7 @@ class NpmReleaseTests(unittest.TestCase):
                         native
                         / "pdfium"
                         / "fonts"
-                        / "NotoSansCJKsc-Regular.otf"
+                        / "NotoSansSC-Regular.otf"
                     ).is_file()
                 )
                 self.assertTrue(

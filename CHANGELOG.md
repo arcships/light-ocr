@@ -6,7 +6,7 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 
 ### Fixed
 
-- Bundled a checksum-pinned Noto Sans CJK SC fallback font into every native
+- Bundled the checksum-pinned Noto Sans SC regional subset into every native
   platform package and initialize PDFium against that package-local directory,
   so common PDFs with non-embedded Chinese fonts render correctly before OCR.
 - Added a deterministic non-embedded CJK PDF fixture to the six-platform

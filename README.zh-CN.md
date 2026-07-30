@@ -88,7 +88,7 @@ light-ocr doctor --json
 ### PDF 和多页文档
 
 PDF 和多页 OCR 已直接内置于 `@arcships/light-ocr`。匹配当前平台的
-PDFium 二进制、校验锁定的 Noto Sans CJK SC fallback 字体与 OCR
+PDFium 二进制、校验锁定的 Noto Sans SC fallback 字体与 OCR
 原生运行时位于同一个平台 npm 包中。引用常见非嵌入中文字体的 PDF
 可在 OCR 前正确渲染；没有 postinstall 脚本、运行时下载、系统字体
 要求、编译器要求，也不需要另装文档包。

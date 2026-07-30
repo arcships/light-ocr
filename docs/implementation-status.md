@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
 更新时间：2026-07-28<br>
-结论：npm `0.5.5` 已发布，但其平台包只内置 PDFium addon 与共享库，未内置 fallback 字体，因此对非嵌入中文字体的 PDF 不能视为可靠。`0.5.6` 补丁候选现已把校验锁定的 Noto Sans CJK SC 及 OFL 许可证装入六个平台包，并在 patched PDFium 初始化时只使用包内字体目录；用户安装与运行仍无二次下载。当前本机 macOS arm64 已验证 `STSong-Light` 非嵌入字体映射、PNG 渲染与 `中文测试` 端到端 OCR，六平台 release smoke 尚待 CI 实跑。D116 记录修复契约，已发布 `0.5.5` 的原始证据仍见 [npm 0.5.5 发布记录](releases/npm-0.5.5.md)。
+结论：npm `0.5.5` 已发布，但其平台包只内置 PDFium addon 与共享库，未内置 fallback 字体，因此对非嵌入中文字体的 PDF 不能视为可靠。`0.5.6` 补丁候选现已把校验锁定的官方 Noto Sans SC 区域子集及 OFL 许可证装入六个平台包，并在 patched PDFium 初始化时只使用包内字体目录；用户安装与运行仍无二次下载。当前本机 macOS arm64 已验证 `STSong-Light` 非嵌入字体映射、PNG 渲染与 `中文测试` 端到端 OCR，六平台 release smoke 尚待 CI 实跑。D116 记录修复契约，已发布 `0.5.5` 的原始证据仍见 [npm 0.5.5 发布记录](releases/npm-0.5.5.md)。
 
 状态含义：
 
@@ -29,7 +29,7 @@
 
 状态：本机工程验证完成 / 六平台 release CI 待运行
 
-- Noto Sans CJK SC 字体和 OFL 文本以固定 revision、bytes 与 SHA-256
+- Noto Sans SC 官方区域子集和 OFL 文本以固定 revision、bytes 与 SHA-256
   锁定；release staging 对缺失、篡改、重复或不完整 inventory
   fail closed。
 - release CI 从固定的 `pdfium-native@0.6.1` 源码重建 addon；补丁只在
@@ -37,7 +37,7 @@
 - 平台包 loader 在同步加载 addon 时提供包内字体目录，随后恢复宿主
   环境变量；没有 postinstall、运行时下载或系统字体前置要求。
 - 确定性 fixture 使用未嵌入字形的 `STSong-Light`。本机验证得到
-  `fontFamily = Noto Sans CJK SC`、`isEmbedded = false`、有效 PNG，并由
+  `fontFamily = Noto Sans SC`、`isEmbedded = false`、有效 PNG，并由
   默认 OCR 模型识别出 `中文测试`。
 - 六个平台的离线 tarball smoke 同时检查字体选择、渲染结果和 OCR
   文本；在该矩阵全部通过前，不能把本机结论写成跨平台发布完成。

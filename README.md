@@ -91,7 +91,7 @@ automatically. See the [CLI design](docs/cli-design.md) and
 ### PDF and multi-page documents
 
 PDF and multi-page OCR are built into `@arcships/light-ocr`. The matching
-PDFium binary and checksum-pinned Noto Sans CJK SC fallback font are carried by
+PDFium binary and checksum-pinned Noto Sans SC fallback font are carried by
 the same platform npm package as the OCR runtime. This keeps PDFs that reference
 common non-embedded Chinese fonts renderable before OCR, with no postinstall
 script, runtime download, compiler, system-font requirement, or separate

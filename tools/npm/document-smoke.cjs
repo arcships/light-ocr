@@ -39,7 +39,7 @@ async function main() {
     assert.equal(textObject.isEmbedded, false);
     assert.equal(
       textObject.fontFamily,
-      'Noto Sans CJK SC',
+      'Noto Sans SC',
       'PDFium did not use the bundled fallback font',
     );
     const png = await renderedPage.render({ scale: 2 });

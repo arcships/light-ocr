@@ -38,7 +38,7 @@ def verified_resources(cache_dir: Path, *, download: bool) -> list[Path]:
     if not isinstance(records, list):
         raise RuntimeError("PDF fallback font lock resources must be an array")
     names = [record.get("name") for record in records if isinstance(record, dict)]
-    if set(names) != {"NotoSansCJKsc-Regular.otf", "OFL.txt"} or len(names) != 2:
+    if set(names) != {"NotoSansSC-Regular.otf", "OFL.txt"} or len(names) != 2:
         raise RuntimeError("PDF fallback font lock inventory is incomplete")
     cache_dir.mkdir(parents=True, exist_ok=True)
     resolved: list[Path] = []

@@ -41,7 +41,7 @@ def stage_cpu_native_packages(root: Path) -> Path:
     (pdfium / "THIRD-PARTY-NOTICES.md").write_text("PDFium notices\n", "utf-8")
     fonts = pdfium / "fonts"
     fonts.mkdir()
-    fallback_font = fonts / "NotoSansCJKsc-Regular.otf"
+    fallback_font = fonts / "NotoSansSC-Regular.otf"
     fallback_font.write_bytes(b"test-noto-cjk-font")
     noto_license = fonts / "OFL.txt"
     noto_license.write_text("OFL-1.1\n", "utf-8")
@@ -54,7 +54,7 @@ def stage_cpu_native_packages(root: Path) -> Path:
                 "resources": [
                     {
                         "name": fallback_font.name,
-                        "url": "https://example.invalid/NotoSansCJKsc-Regular.otf",
+                        "url": "https://example.invalid/NotoSansSC-Regular.otf",
                         "bytes": fallback_font.stat().st_size,
                         "sha256": npm_release.sha256(fallback_font),
                         "license": "OFL-1.1",

@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const addonDirectory = __dirname;
 const fontDirectory = path.join(addonDirectory, 'fonts');
-const fallbackFont = path.join(fontDirectory, 'NotoSansCJKsc-Regular.otf');
+const fallbackFont = path.join(fontDirectory, 'NotoSansSC-Regular.otf');
 if (!fs.existsSync(fallbackFont)) {
   throw new Error(`Bundled PDF fallback font is missing: ${fallbackFont}`);
 }
