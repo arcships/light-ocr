@@ -6,6 +6,12 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 
 ## [0.5.6] - 2026-07-30
 
+### Changed
+
+- Reorganized the project README and replaced the minimal npm package README
+  with a complete install, image/PDF API, CLI, offline distribution, platform,
+  model-tier, resource-limit, and troubleshooting guide.
+
 ### Fixed
 
 - Bundled the checksum-pinned Noto Sans SC regional subset into every native

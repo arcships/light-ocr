@@ -12,7 +12,17 @@
 
 **面向 Node.js 与 C++ 的快速离线 OCR。**
 
-直接在本机识别 PDF、JPEG、PNG 或像素数据，返回按阅读顺序排列的文字、置信度和四边形坐标。Node.js 用户安装的 npm 包内置 PP-OCRv6 Small 模型、PDFium，以及 macOS、Linux 和 Windows 的预编译组件。
+直接在本机识别 PDF、JPEG、PNG 或像素数据，返回按阅读顺序排列的
+文字、置信度和四边形坐标。Node.js 用户安装的 npm 包内置 PP-OCRv6
+Small 模型、PDFium、中文 fallback 字体，以及 macOS、Linux 和 Windows
+的预编译组件；安装后或首次运行时无需二次下载。
+
+| | |
+| --- | --- |
+| **适合场景** | Node.js 应用、CLI、桌面软件与原生 C++ 集成中的本地 OCR |
+| **输入** | JPEG、PNG、PDF、编码后的字节或解码后的像素 |
+| **输出** | 文字、置信度、四边形坐标、页面元数据与耗时 |
+| **分发方式** | 一次 npm 安装；同时提供 CommonJS、ESM、TypeScript 与六个平台预编译包 |
 
 ## 快速开始
 
@@ -27,30 +37,35 @@ import { createEngine } from "@arcships/light-ocr";
 import { readFile } from "node:fs/promises";
 
 const engine = await createEngine();
-const result = await engine.recognizeEncoded(
-  await readFile("image.jpg"),
-);
 
-for (const line of result.lines) {
-  console.log(line.text, line.confidence, line.box);
+try {
+  const result = await engine.recognizeEncoded(
+    await readFile("image.jpg"),
+  );
+
+  for (const line of result.lines) {
+    console.log(line.text, line.confidence, line.box);
+  }
+} finally {
+  await engine.close();
 }
-
-await engine.close();
 ```
 
-`createEngine()` 会根据当前平台自动选择合适的执行方式。如果应用已经完成图片解码，[`recognize()`](bindings/node/README.md#使用) 也可以直接接收 `GRAY8`、`RGB8`、`BGR8` 和 `RGBA8` 像素数据。
+`createEngine()` 会根据当前平台自动选择合适的执行方式。如果应用已经
+完成图片解码，[`recognize()`](packages/light-ocr/README.md#recognize-decoded-pixels)
+也可以直接接收 `GRAY8`、`RGB8`、`BGR8` 和 `RGBA8` 像素数据。
 
-### 模型杯型
+PDF 页面使用同一个包：
 
-Small 继续作为稳定默认。N2 在 `next` tag 下增加两个可选 preview 包；三档使用完全相同的 API、类型、结果 schema 和错误模型，每次安装只携带所选的一份模型。
+```ts
+import { recognizeDocument } from "@arcships/light-ocr";
 
-| 杯型 | Package / 命令 | 模型 payload | 状态 |
-| --- | --- | ---: | --- |
-| Small | `@arcships/light-ocr` / `light-ocr` | 约 30 MB | 稳定默认 |
-| Tiny | `@arcships/light-ocr-tiny@next` / `light-ocr-tiny` | 约 6.3 MB | Preview；49 种语言，不含日语 |
-| Medium | `@arcships/light-ocr-medium@next` / `light-ocr-medium` | 约 139 MB | Preview；精度优先 |
+for await (const page of recognizeDocument("report.pdf", { dpi: 200 })) {
+  console.log(page.index, page.lines.map((line) => line.text));
+}
+```
 
-Tiny/Medium 只有在真实使用证明存在明确受众后才会提升 stable；它们不会改变 `npm install @arcships/light-ocr` 的安装内容。
+CommonJS 可以通过 `require("@arcships/light-ocr")` 使用同一组导出。
 
 ## CLI
 
@@ -83,9 +98,9 @@ light-ocr doctor --json
 `doctor`（系统诊断）。传入 `.pdf` 路径会直接进入文档 OCR；显式
 `document` 命令用于多输入任务。输出遵循版本化的 `schemaVersion: 1`
 契约，EXIF 方向自动修正。完整参考见 [CLI 设计](docs/cli-design.md) 和
-[npm README](bindings/node/README.md#cli)。
+[npm package README](packages/light-ocr/README.md)。
 
-### PDF 和多页文档
+## PDF 和多页文档
 
 PDF 和多页 OCR 已直接内置于 `@arcships/light-ocr`。匹配当前平台的
 PDFium 二进制、校验锁定的 Noto Sans SC fallback 字体与 OCR
@@ -120,15 +135,6 @@ for await (const page of recognizeDocument([buf1, buf2, buf3])) {
 }
 ```
 
-## Agent Skill
-
-内置 [Agent Skill](.agents/skills/local-ocr/SKILL.md)，供可调用本地命令的 AI Agent 使用。提供场景驱动的工作流、命令选择决策流和退出码参考：
-
-- 何时使用 OCR 而非多模态模型
-- 大图先 detect 再 recognize 的两步模式
-- 票据/表单的 ROI 字段提取
-- 用确定性 OCR 验证多模态模型输出
-
 ## 主要能力
 
 - **本地处理。**图片、PDF 和 OCR 结果始终留在本机。
@@ -154,7 +160,24 @@ npm 包提供以下六个平台版本。默认的 `createEngine()` 使用 Auto �
 | Windows x64 | 通过 D3D12 使用 WebGPU，然后使用 CPU |
 | Windows arm64 | CPU |
 
-需要明确控制时，可以通过 [`execution` 选项](bindings/node/README.md#使用)选择 `auto`、`cpu`、`apple` 或 `webgpu`。
+需要明确控制时，可以通过
+[`execution` 选项](packages/light-ocr/README.md#platform-acceleration)
+选择 `auto`、`cpu`、`apple` 或 `webgpu`。
+
+## 模型档位
+
+Small 继续作为稳定默认。Tiny 和 Medium 是 `next` tag 下的可选 preview
+包。三档使用完全相同的 API、类型、结果 schema 和错误模型，每次安装
+只携带所选的一份模型。
+
+| 档位 | Package / 命令 | 模型 payload | 状态 |
+| --- | --- | ---: | --- |
+| Small | `@arcships/light-ocr` / `light-ocr` | 约 30 MB | 稳定默认 |
+| Tiny | `@arcships/light-ocr-tiny@next` / `light-ocr-tiny` | 约 6.3 MB | Preview；49 种语言，不含日语 |
+| Medium | `@arcships/light-ocr-medium@next` / `light-ocr-medium` | 约 139 MB | Preview；精度优先 |
+
+Tiny/Medium 保持在 `next`；它们不会改变
+`npm install @arcships/light-ocr` 的安装内容。
 
 ## 实测性能
 
@@ -174,10 +197,21 @@ npm 包提供以下六个平台版本。默认的 `createEngine()` 使用 Auto �
 
 C++ 项目从源码构建静态库，并链接 `light_ocr::core` CMake target。API 可以直接识别解码后的 `GRAY8`、`RGB8`、`BGR8` 或 `RGBA8` 像素；接入方式见 [C++ API](docs/native-api.md)，各平台准备方式见 [构建说明](docs/build-and-release.md)。
 
+## Agent Skill
+
+内置 [Agent Skill](.agents/skills/local-ocr/SKILL.md)，供可调用本地命令的
+AI Agent 使用。它提供场景驱动的工作流、命令选择建议和退出码参考：
+
+- 何时使用 OCR 而非多模态模型
+- 大图先 detect 再 recognize 的工作流
+- 票据/表单的 ROI 字段提取
+- 用确定性 OCR 验证多模态模型输出
+
 ## 文档
 
+- [npm package README](packages/light-ocr/README.md)
 - [CLI 参考](docs/cli-design.md)
-- [Node.js API 与示例](bindings/node/README.md)
+- [Node.js 图片引擎与 CLI 细节](bindings/node/README.md)
 - [Agent Skill](.agents/skills/local-ocr/SKILL.md)
 - [C++ API](docs/native-api.md)
 - [Apple Silicon 加速](docs/apple-device-acceleration.md)
@@ -187,9 +221,9 @@ C++ 项目从源码构建静态库，并链接 `light_ocr::core` CMake target。
 - [构建与发布](docs/build-and-release.md)
 - [路线图](docs/roadmap.md)
 - [更新日志](CHANGELOG.md)
+- [npm 0.5.6 release preparation — English](docs/releases/npm-0.5.6.en.md)
+- [npm 0.5.6 发布准备记录 — 中文](docs/releases/npm-0.5.6.md)
 - [npm 0.3.0 发布报告](docs/releases/npm-0.3.0.md)
-- [npm 0.4.0 N2 候选记录](docs/releases/npm-0.4.0.md)
-- [npm 0.5.0 N3 发布记录](docs/releases/npm-0.5.0.md)
 
 ## 社区与协议
 

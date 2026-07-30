@@ -2,6 +2,11 @@
 
 Local OCR for Node.js and Agents. Offline, no Python, no network calls. Returns text with coordinates and confidence.
 
+> Installing from npm? Start with the
+> [`@arcships/light-ocr` package guide](../../packages/light-ocr/README.md).
+> This document keeps the lower-level image engine, CLI contract, and
+> source-build details.
+
 ## Install
 
 ```bash
@@ -22,6 +27,9 @@ light-ocr image.png --format json
 
 # Just text, no coordinates
 light-ocr image.png --format text
+
+# PDF pages through the renderer bundled by the main package
+light-ocr report.pdf --pages 1-10 --format jsonl
 
 # Engine info
 light-ocr info --version
@@ -170,7 +178,8 @@ TypeScript types are included in the shared runtime [`index.d.ts`](../../package
 
 ## Capabilities
 
-- **Formats**: JPEG, PNG (memory input via `Uint8Array`)
+- **Formats**: JPEG and PNG through the image engine; PDF and multi-page image
+  jobs through the main package's document API
 - **EXIF orientation**: JPEG orientation tags 1–8 automatically corrected
 - **ROI**: pageSpace axis-aligned rectangle, coordinates offset back to full page
 - **Providers**: CPU (all platforms), Apple Core ML (macOS arm64), WebGPU (Linux x64, Windows x64)
@@ -181,7 +190,7 @@ TypeScript types are included in the shared runtime [`index.d.ts`](../../package
 
 ### Not supported
 
-- WebP, GIF, PDF, TIFF
+- WebP, GIF, TIFF
 - Character-level coordinates (recognition is line-level)
 - Multi-engine fan-out as default architecture
 - Bun (Node-API lifecycle not fully verified)
