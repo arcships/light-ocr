@@ -10,6 +10,46 @@ from tools.pdfium import prepare_renderer
 
 
 class PdfiumRendererTests(unittest.TestCase):
+    def test_prepare_resolves_the_npx_platform_shim(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            pdfium = root / "pdfium"
+            pdfium.mkdir()
+            cache = root / "cache"
+            resources = [root / "font.otf", root / "OFL.txt"]
+            for resource in resources:
+                resource.write_bytes(b"fixture")
+
+            arguments = mock.Mock(
+                pdfium_dir=pdfium,
+                font_cache=cache,
+                download=True,
+                build=True,
+            )
+            windows_npx = r"C:\hostedtoolcache\windows\node\npx.CMD"
+
+            with (
+                mock.patch.object(
+                    prepare_renderer,
+                    "verified_resources",
+                    return_value=resources,
+                ),
+                mock.patch.object(prepare_renderer, "patch_source"),
+                mock.patch.object(
+                    prepare_renderer,
+                    "required_tool",
+                    return_value=windows_npx,
+                ) as resolve_tool,
+                mock.patch.object(
+                    prepare_renderer.subprocess,
+                    "run",
+                ) as run,
+            ):
+                prepare_renderer.prepare(arguments)
+
+            resolve_tool.assert_called_once_with("npx")
+            self.assertEqual(run.call_args_list[1].args[0][0], windows_npx)
+
     def test_patch_source_is_pinned_and_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             pdfium = Path(temporary)
