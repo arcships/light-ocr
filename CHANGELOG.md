@@ -4,6 +4,8 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 
 ## [Unreleased]
 
+## [0.5.6] - 2026-07-30
+
 ### Fixed
 
 - Bundled the checksum-pinned Noto Sans SC regional subset into every native

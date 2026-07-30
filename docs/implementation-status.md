@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
-更新时间：2026-07-28<br>
-结论：npm `0.5.5` 已发布，但其平台包只内置 PDFium addon 与共享库，未内置 fallback 字体，因此对非嵌入中文字体的 PDF 不能视为可靠。`0.5.6` 补丁候选现已把校验锁定的官方 Noto Sans SC 区域子集及 OFL 许可证装入六个平台包，并在 patched PDFium 初始化时只使用包内字体目录；用户安装与运行仍无二次下载。当前本机 macOS arm64 已验证 `STSong-Light` 非嵌入字体映射、PNG 渲染与 `中文测试` 端到端 OCR，六平台 release smoke 尚待 CI 实跑。D116 记录修复契约，已发布 `0.5.5` 的原始证据仍见 [npm 0.5.5 发布记录](releases/npm-0.5.5.md)。
+更新时间：2026-07-30<br>
+结论：npm `0.5.5` 已发布，但其平台包只内置 PDFium addon 与共享库，未内置 fallback 字体，因此对非嵌入中文字体的 PDF 不能视为可靠。`0.5.6` 补丁候选已把校验锁定的官方 Noto Sans SC 区域子集及 OFL 许可证装入六个平台包，并在 patched PDFium 初始化时只使用包内字体目录；用户安装与运行仍无二次下载。合并后的 Core、sanitizer/fuzzer、oracle 和 WebGPU CI 已全绿，[npm 发布演练 30535822947](https://github.com/arcships/light-ocr/actions/runs/30535822947) 也已完成六平台构建、离线安装、图片 OCR 与非嵌入中文字体 PDF 端到端 smoke；该次演练明确跳过 registry 发布。D116 记录修复契约，候选闭包与后续发布步骤见 [npm 0.5.6 发布准备记录](releases/npm-0.5.6.md)。
 
 状态含义：
 
@@ -27,7 +27,7 @@
 
 ## PDF fallback 字体修复（0.5.6 候选）
 
-状态：本机工程验证完成 / 六平台 release CI 待运行
+状态：工程验证与六平台 release CI 完成 / npm registry 发布待执行
 
 - Noto Sans SC 官方区域子集和 OFL 文本以固定 revision、bytes 与 SHA-256
   锁定；release staging 对缺失、篡改、重复或不完整 inventory
@@ -40,7 +40,10 @@
   `fontFamily = Noto Sans SC`、`isEmbedded = false`、有效 PNG，并由
   默认 OCR 模型识别出 `中文测试`。
 - 六个平台的离线 tarball smoke 同时检查字体选择、渲染结果和 OCR
-  文本；在该矩阵全部通过前，不能把本机结论写成跨平台发布完成。
+  文本；[run 30535822947](https://github.com/arcships/light-ocr/actions/runs/30535822947)
+  已全部通过，且 `publish` job 因演练参数保持 skipped。
+- 相对 `0.5.5`，每个用户实际安装的平台 native tarball 增加
+  `7,226,822–7,232,623` bytes，解包增加约 `8.34 MB`；模型包不变。
 
 ## 需求验收矩阵
 
