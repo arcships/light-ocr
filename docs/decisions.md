@@ -355,8 +355,8 @@ Consequence:
 - The supported install path passes with `--ignore-scripts`; runtime PDF smoke
   runs in a disabled network namespace.
 - Release CI, not the customer machine, obtains the checksum-pinned upstream
-  prebuild, records its licenses/SBOM identity, and embeds the verified files
-  in the immutable platform tarball.
+  source and binary dependencies, records their licenses/SBOM identity, and
+  embeds the verified files in the immutable platform tarball.
 - Omitting npm optional dependencies also omits both OCR and PDF native
   execution; the error directs users to reinstall without `--omit=optional`.
 
@@ -386,6 +386,41 @@ Consequence:
   blocker, but their absence cannot delay a release.
 - Internal qualification demonstrates the documented contract; it must not be
   presented as proof of broad third-party adoption.
+
+### D116 — Bundle and enforce a PDFium CJK fallback font
+
+Status: Accepted and implemented locally<br>
+Authority: D010 offline installation contract, D108 renderer selection, D110
+stable package topology
+
+Decision: Every platform-native npm package includes the checksum-pinned
+official `NotoSansSC-Regular.otf` regional subset and its OFL license beside
+PDFium. Release CI
+patches the exact reviewed `pdfium-native@0.6.1` source so PDFium is initialized
+with that immutable package-local font directory. The customer install and
+runtime never fetch fonts. The release smoke uses a deterministic PDF that
+declares non-embedded `STSong-Light`, requires PDFium to resolve it to
+`Noto Sans SC`, checks that rendering is non-empty, and then requires the
+Chinese text to survive OCR.
+
+Reason: Bundling only the PDFium addon and shared library does not close the
+rendering dependency. PDFs may legally reference fonts without embedding their
+glyphs; in that case PDFium's host-dependent font discovery can produce blank,
+partial, or tofu-like page images before OCR runs. This is a renderer defect,
+not a text-extraction choice, and cannot be repaired by the OCR stage.
+
+Consequence:
+
+- `0.5.5` remains an immutable published release but is not considered reliable
+  for PDFs whose Chinese fonts are not embedded; the correction is a
+  conservative `0.5.6` patch candidate.
+- Each platform tarball grows by the compressed Noto Sans SC regional subset and
+  records the font lock, license inventory, artifact hash, and SPDX dependency.
+- The release build rejects changed upstream addon bytes, missing or corrupt
+  font bytes, and an incomplete font lock before packaging.
+- The fallback guarantee currently covers the product's Simplified Chinese and
+  Latin scope. Additional scripts or typography require explicit locked fonts
+  and regression fixtures rather than relying on fonts installed on the host.
 
 ## 3. Deferred decisions
 

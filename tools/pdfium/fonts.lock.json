@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "revision": "noto-cjk-sc-subset-20260730.1",
+  "resources": [
+    {
+      "name": "NotoSansSC-Regular.otf",
+      "url": "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/SubsetOTF/SC/NotoSansSC-Regular.otf",
+      "bytes": 8331336,
+      "sha256": "faa6c9df652116dde789d351359f3d7e5d2285a2b2a1f04a2d7244df706d5ea9",
+      "license": "OFL-1.1"
+    },
+    {
+      "name": "OFL.txt",
+      "url": "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/LICENSE",
+      "bytes": 4301,
+      "sha256": "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2",
+      "license": "OFL-1.1"
+    }
+  ]
+}

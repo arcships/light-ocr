@@ -1,6 +1,6 @@
 {
   "name": "@arcships/light-ocr-medium",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "Offline PP-OCRv6 Medium OCR for Node.js — preview quality tier",
   "license": "Apache-2.0",
@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@arcships/light-ocr-model-ppocrv6-medium": "0.1.0",
-    "@arcships/light-ocr-runtime": "0.1.5"
+    "@arcships/light-ocr-runtime": "0.1.6"
   },
   "scripts": {
     "test": "node --test test/*.test.cjs"

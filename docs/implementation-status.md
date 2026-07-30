@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
-更新时间：2026-07-27<br>
-结论：npm `0.5.5` 已完成发布并晋升 stable。PDF/多页能力已直接并入 `@arcships/light-ocr`：六个平台 npm 原生包内置 PDFium addon 与共享库，主包保持无安装脚本，安装和运行均不从客户机二次下载。`@arcships/light-ocr-document@0.1.1` 仅保留兼容入口。S3 renderer 继续采用 `pdfium-native`（D108），新包拓扑由 D110 锁定。六平台构建、离线 `--ignore-scripts` 安装、真实 PDF OCR、registry integrity 和稳定晋升证据见 [npm 0.5.5 发布记录](releases/npm-0.5.5.md)。
+更新时间：2026-07-28<br>
+结论：npm `0.5.5` 已发布，但其平台包只内置 PDFium addon 与共享库，未内置 fallback 字体，因此对非嵌入中文字体的 PDF 不能视为可靠。`0.5.6` 补丁候选现已把校验锁定的官方 Noto Sans SC 区域子集及 OFL 许可证装入六个平台包，并在 patched PDFium 初始化时只使用包内字体目录；用户安装与运行仍无二次下载。当前本机 macOS arm64 已验证 `STSong-Light` 非嵌入字体映射、PNG 渲染与 `中文测试` 端到端 OCR，六平台 release smoke 尚待 CI 实跑。D116 记录修复契约，已发布 `0.5.5` 的原始证据仍见 [npm 0.5.5 发布记录](releases/npm-0.5.5.md)。
 
 状态含义：
 
@@ -24,6 +24,23 @@
 - release set 独立版本化为六个 native `0.4.0`、runtime `0.1.0`、两个 preview model `0.1.0` 和三个 facade；Small model `0.3.4` 直接复用，不重打包。
 - workspace PR 运行 types、Node/server contract 和 Python package tests；只有 native/Core/model contract 路径进入完整构建。release 不重复 qualification、模型转换、Core test 或双重 npm pack。
 - 本机新 Core 对三个真实 bundle 均识别 `HELLO 123`；Tiny/Small/Medium 初始化约 `0.9s / 1.5s / 6.4s`，单次 OCR 约 `58ms / 112ms / 457ms`（Apple M4 Max，仅为 smoke 快照，不作性能承诺）。
+
+## PDF fallback 字体修复（0.5.6 候选）
+
+状态：本机工程验证完成 / 六平台 release CI 待运行
+
+- Noto Sans SC 官方区域子集和 OFL 文本以固定 revision、bytes 与 SHA-256
+  锁定；release staging 对缺失、篡改、重复或不完整 inventory
+  fail closed。
+- release CI 从固定的 `pdfium-native@0.6.1` 源码重建 addon；补丁只在
+  上游源文件 SHA-256 精确匹配时应用，避免静默套用到未知源码。
+- 平台包 loader 在同步加载 addon 时提供包内字体目录，随后恢复宿主
+  环境变量；没有 postinstall、运行时下载或系统字体前置要求。
+- 确定性 fixture 使用未嵌入字形的 `STSong-Light`。本机验证得到
+  `fontFamily = Noto Sans SC`、`isEmbedded = false`、有效 PNG，并由
+  默认 OCR 模型识别出 `中文测试`。
+- 六个平台的离线 tarball smoke 同时检查字体选择、渲染结果和 OCR
+  文本；在该矩阵全部通过前，不能把本机结论写成跨平台发布完成。
 
 ## 需求验收矩阵
 

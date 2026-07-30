@@ -10,9 +10,9 @@ light-ocr doctor --json
 ```
 
 The package exact-pins one model-free runtime, the Small model, and the native
-component and PDFium renderer for the current platform. It has no install
-script and its complete release closure is tested with npm offline and scripts
-disabled.
+component, PDFium renderer, and Noto Sans SC fallback font for the current
+platform. It has no install script and its complete release closure is tested
+with npm offline and scripts disabled.
 
 ```js
 const { createEngine } = require('@arcships/light-ocr');
@@ -27,5 +27,6 @@ try {
 ```
 
 The main package exports `recognizeDocument()` and `createDocumentEngine()`.
-PDFium's native files are inside the platform npm package, so neither install
-nor runtime performs a secondary download.
+PDFium's native files and the checksum-pinned fallback font are inside the
+platform npm package, so neither install nor runtime performs a secondary
+download or requires a system Chinese font.

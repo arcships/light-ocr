@@ -88,8 +88,10 @@ light-ocr doctor --json
 ### PDF 和多页文档
 
 PDF 和多页 OCR 已直接内置于 `@arcships/light-ocr`。匹配当前平台的
-PDFium 二进制与 OCR 原生运行时位于同一个平台 npm 包中：没有
-postinstall 脚本、运行时下载、编译器要求，也不需要另装文档包。
+PDFium 二进制、校验锁定的 Noto Sans SC fallback 字体与 OCR
+原生运行时位于同一个平台 npm 包中。引用常见非嵌入中文字体的 PDF
+可在 OCR 前正确渲染；没有 postinstall 脚本、运行时下载、系统字体
+要求、编译器要求，也不需要另装文档包。
 
 ```bash
 # 单个 PDF，默认 150 DPI
@@ -130,8 +132,8 @@ for await (const page of recognizeDocument([buf1, buf2, buf3])) {
 ## 主要能力
 
 - **本地处理。**图片、PDF 和 OCR 结果始终留在本机。
-- **只需安装一个包。**模型、OCR 运行时和 PDF 渲染器会通过 npm 的当前平台依赖一起安装。
-- **没有二次下载。**安装和运行都不需要 postinstall 拉取、编译器、模型下载或 PDF 引擎下载。
+- **只需安装一个包。**模型、OCR 运行时、PDF 渲染器和中文 fallback 字体会通过 npm 的当前平台依赖一起安装。
+- **没有二次下载。**安装和运行都不需要 postinstall 拉取、编译器、模型下载、PDF 引擎下载或字体下载。
 - **直接得到可用结果。**每一行都包含识别文字、置信度和原图位置。
 - **默认使用硬件加速。**Auto 在 macOS 15+ Apple Silicon 上优先使用 Core ML，在下表的 Linux 和 Windows 版本中优先使用 WebGPU。
 - **适合应用内调用。**识别任务在 JavaScript 主线程之外执行，并支持队列、取消和明确释放资源。

@@ -91,9 +91,11 @@ automatically. See the [CLI design](docs/cli-design.md) and
 ### PDF and multi-page documents
 
 PDF and multi-page OCR are built into `@arcships/light-ocr`. The matching
-PDFium binary is carried by the same platform npm package as the OCR runtime:
-there is no postinstall script, runtime download, compiler, or separate package
-to install.
+PDFium binary and checksum-pinned Noto Sans SC fallback font are carried by
+the same platform npm package as the OCR runtime. This keeps PDFs that reference
+common non-embedded Chinese fonts renderable before OCR, with no postinstall
+script, runtime download, compiler, system-font requirement, or separate
+package to install.
 
 ```bash
 # Single PDF with default 150 DPI
@@ -134,8 +136,8 @@ An [Agent Skill](.agents/skills/local-ocr/SKILL.md) is included for AI agents th
 ## What you get
 
 - **Local processing.** Images, PDFs, and OCR results stay on your machine.
-- **One package to install.** The model, OCR runtime, and PDF renderer are included through the npm package's platform dependency.
-- **No secondary downloads.** Installation and runtime need no postinstall fetch, compiler, model download, or PDF engine download.
+- **One package to install.** The model, OCR runtime, PDF renderer, and Chinese fallback font are included through the npm package's platform dependency.
+- **No secondary downloads.** Installation and runtime need no postinstall fetch, compiler, model download, PDF engine download, or font download.
 - **Useful output.** Every line includes recognized text, confidence, and its position in the original image.
 - **Hardware acceleration by default.** Auto tries Core ML first on macOS 15+ Apple Silicon, and WebGPU first on the Linux and Windows builds below.
 - **Application-friendly execution.** Recognition runs off the JavaScript main thread and supports queues, cancellation, and explicit cleanup.
