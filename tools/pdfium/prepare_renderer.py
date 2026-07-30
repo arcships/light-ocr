@@ -22,6 +22,13 @@ PDFIUM_ADDON_SHA256 = "b52e6a4d0b22579a8f650696e0519b89d101412d57258b3e2550333f8
 ALLOWED_FONT_ORIGIN = "https://raw.githubusercontent.com"
 
 
+def required_tool(name: str) -> str:
+    resolved = shutil.which(name)
+    if resolved is None:
+        raise RuntimeError(f"required build tool is missing: {name}")
+    return resolved
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as source:
@@ -119,7 +126,7 @@ def prepare(arguments: argparse.Namespace) -> None:
             ["node", "scripts/download-pdfium.mjs"], cwd=pdfium_dir, check=True
         )
         subprocess.run(
-            ["npx", "--yes", "node-gyp@11.4.2", "rebuild"],
+            [required_tool("npx"), "--yes", "node-gyp@11.4.2", "rebuild"],
             cwd=pdfium_dir,
             check=True,
         )
