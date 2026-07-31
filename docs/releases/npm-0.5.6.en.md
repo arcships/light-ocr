@@ -1,10 +1,10 @@
-# npm 0.5.6 Release Preparation Record
+# npm 0.5.6 Release Record
 
 [中文版](npm-0.5.6.md)
 
-Status: pre-release validation is complete, but the release has not been
-published. The npm registry and all dist-tags remain unchanged from the
-`0.5.5` release.
+Status: published on 2026-07-31. The stable Small/runtime/native closure is on
+both `latest` and `next`; the Document compatibility facade and Tiny/Medium
+preview facades remain on `next`.
 
 Release identity:
 
@@ -22,6 +22,16 @@ Release identity:
 - Complete release rehearsal:
   [30535822947](https://github.com/arcships/light-ocr/actions/runs/30535822947)
   (all six platforms passed with `publish_to_registry=false`)
+- Final `main` validation:
+  [Core 30599338979](https://github.com/arcships/light-ocr/actions/runs/30599338979)
+  and
+  [Native WebGPU 30599339015](https://github.com/arcships/light-ocr/actions/runs/30599339015)
+- Registry publication and reinstall verification:
+  [30599969242](https://github.com/arcships/light-ocr/actions/runs/30599969242)
+- Stable dist-tag promotion:
+  [30600575756](https://github.com/arcships/light-ocr/actions/runs/30600575756)
+- GitHub Release:
+  [`v0.5.6`](https://github.com/arcships/light-ocr/releases/tag/v0.5.6)
 
 ## User-visible changes
 
@@ -42,24 +52,23 @@ Release identity:
   workloads that require reliable rendering of PDFs with non-embedded Chinese
   fonts.
 
-## Candidate version closure
+## Published version closure
 
-| Maturity | Package | Candidate version | Planned tags after release |
+| Maturity | Package | Published version | Final tags |
 | --- | --- | ---: | --- |
-| stable | `@arcships/light-ocr` | `0.5.6` | publish to `next`, then promote to `latest` |
-| stable | `@arcships/light-ocr-runtime` | `0.1.6` | publish to `next`, then promote to `latest` |
-| stable | six native platform packages | `0.5.6` | publish to `next`, then promote to `latest` |
-| compatibility | `@arcships/light-ocr-document` | `0.1.2` | remain on `next` |
-| preview | `@arcships/light-ocr-tiny` | `0.1.5` | remain on `next` |
-| preview | `@arcships/light-ocr-medium` | `0.1.5` | remain on `next` |
+| stable | `@arcships/light-ocr` | `0.5.6` | `latest`, `next` |
+| stable | `@arcships/light-ocr-runtime` | `0.1.6` | `latest`, `next` |
+| stable | six native platform packages | `0.5.6` | `latest`, `next` |
+| compatibility | `@arcships/light-ocr-document` | `0.1.2` | `next` |
+| preview | `@arcships/light-ocr-tiny` | `0.1.5` | `next` |
+| preview | `@arcships/light-ocr-medium` | `0.1.5` | `next` |
 
-No model receives a new version. Small continues to use `0.3.4`, while Tiny
-and Medium continue to use `0.1.0`. The rehearsal rebuilds or retrieves model
-tarballs for offline installation testing. During publication, an immutable
-model package is skipped only when the same version already exists in the
-registry with identical integrity.
+No model received a new version. Small continues to use `0.3.4`, while Tiny
+and Medium continue to use `0.1.0`. The publication workflow rebuilt or
+retrieved model tarballs for offline installation testing and reused an
+immutable registry version only after confirming identical integrity.
 
-## Six-platform native candidates
+## Six-platform native artifacts
 
 The following values come from the complete rehearsal's
 `release-manifest.json`. Each delta uses the published `0.5.5` tarball as its
@@ -88,29 +97,31 @@ current platform.
 - [x] Non-embedded `STSong-Light` mapped to `Noto Sans SC` on all six platforms
 - [x] Non-empty PDF raster and end-to-end `中文测试` OCR on all six platforms
 - [x] Candidate tarball manifest, byte counts, SHA-256 values, and npm integrity
-- [ ] Publish the immutable candidate to `next` with
+- [x] Publish the immutable candidate to `next` with
       `publish_to_registry=true`
-- [ ] Reinstall from the npm registry and verify integrity
-- [ ] Promote the stable Small/runtime/native closure to `latest`
-- [ ] Create the `v0.5.6` GitHub Release
+- [x] Reinstall from the npm registry and verify integrity
+- [x] Promote the stable Small/runtime/native closure to `latest`
+- [x] Create the `v0.5.6` GitHub Release
 
-## Publication sequence
+## Publication result
 
-1. Run `npm release` again from `main` with version `0.5.6` and
-   `publish_to_registry=true`. The workflow repeats the same build and smoke
-   tests before publishing only to `next`.
-2. Verify registry integrity and reinstall the complete closure.
-3. Run `npm promote` to move only Small `0.5.6`, runtime `0.1.6`, and the six
-   native `0.5.6` packages to `latest`.
-4. Create the `v0.5.6` tag and GitHub Release, then update this record with the
-   final status and workflow IDs.
+1. The final `main` SHA passed the complete Core and Native WebGPU workflows.
+2. [Release run 30599969242](https://github.com/arcships/light-ocr/actions/runs/30599969242)
+   repeated the six-platform build and offline smoke suite, published the
+   immutable package set to `next`, then reinstalled it from the npm registry
+   and verified integrity, image OCR, PDF OCR, and network-disabled operation.
+3. [Promotion run 30600575756](https://github.com/arcships/light-ocr/actions/runs/30600575756)
+   moved only Small `0.5.6`, runtime `0.1.6`, and the six native `0.5.6`
+   packages to `latest`.
+4. The [`v0.5.6` GitHub Release](https://github.com/arcships/light-ocr/releases/tag/v0.5.6)
+   records the public release.
 
 Tiny, Medium, and Document are not part of stable promotion and remain on
 `next`. No external user validation or adoption evidence blocks this release.
 Every blocking gate is satisfied by the source, candidate tarballs, real
 six-platform runners, and npm registry identity.
 
-## GitHub Release draft
+## GitHub Release
 
 Release name:
 
@@ -141,5 +152,7 @@ Verification:
 
 - pre-release dry-run:
   <https://github.com/arcships/light-ocr/actions/runs/30535822947>
-- release workflow: add after publication
-- stable promotion: add after promotion
+- release workflow:
+  <https://github.com/arcships/light-ocr/actions/runs/30599969242>
+- stable promotion:
+  <https://github.com/arcships/light-ocr/actions/runs/30600575756>

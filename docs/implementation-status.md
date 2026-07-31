@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
-更新时间：2026-07-30<br>
-结论：npm `0.5.5` 已发布，但其平台包只内置 PDFium addon 与共享库，未内置 fallback 字体，因此对非嵌入中文字体的 PDF 不能视为可靠。`0.5.6` 补丁候选已把校验锁定的官方 Noto Sans SC 区域子集及 OFL 许可证装入六个平台包，并在 patched PDFium 初始化时只使用包内字体目录；用户安装与运行仍无二次下载。合并后的 Core、sanitizer/fuzzer、oracle 和 WebGPU CI 已全绿，[npm 发布演练 30535822947](https://github.com/arcships/light-ocr/actions/runs/30535822947) 也已完成六平台构建、离线安装、图片 OCR 与非嵌入中文字体 PDF 端到端 smoke；该次演练明确跳过 registry 发布。D116 记录修复契约，候选闭包与后续发布步骤见 [npm 0.5.6 发布准备记录](releases/npm-0.5.6.md)（[English](releases/npm-0.5.6.en.md)）。
+更新时间：2026-07-31<br>
+结论：npm `0.5.6` 已发布并晋升 `latest`。六个平台包内置校验锁定的官方 Noto Sans SC fallback 字体及 OFL 许可证，patched PDFium 初始化时只使用包内字体目录；用户安装与运行均无二次下载。最终 `main` 的 Core、sanitizer/fuzzer、oracle 和 WebGPU CI 已全绿，[发布 run 30599969242](https://github.com/arcships/light-ocr/actions/runs/30599969242) 完成六平台构建、离线安装、图片 OCR、非嵌入中文字体 PDF 端到端 smoke、registry 发布与回装验证，[晋升 run 30600575756](https://github.com/arcships/light-ocr/actions/runs/30600575756) 只将稳定 Small/runtime/native 闭包提升为默认安装。D116 记录修复契约，完整证据见 [npm 0.5.6 发布记录](releases/npm-0.5.6.md)（[English](releases/npm-0.5.6.en.md)）。
 
 状态含义：
 
@@ -25,9 +25,9 @@
 - workspace PR 运行 types、Node/server contract 和 Python package tests；只有 native/Core/model contract 路径进入完整构建。release 不重复 qualification、模型转换、Core test 或双重 npm pack。
 - 本机新 Core 对三个真实 bundle 均识别 `HELLO 123`；Tiny/Small/Medium 初始化约 `0.9s / 1.5s / 6.4s`，单次 OCR 约 `58ms / 112ms / 457ms`（Apple M4 Max，仅为 smoke 快照，不作性能承诺）。
 
-## PDF fallback 字体修复（0.5.6 候选）
+## PDF fallback 字体修复（0.5.6 已发布）
 
-状态：工程验证与六平台 release CI 完成 / npm registry 发布待执行
+状态：已发布至 npm registry / 稳定闭包已晋升 `latest`
 
 - Noto Sans SC 官方区域子集和 OFL 文本以固定 revision、bytes 与 SHA-256
   锁定；release staging 对缺失、篡改、重复或不完整 inventory
@@ -40,8 +40,8 @@
   `fontFamily = Noto Sans SC`、`isEmbedded = false`、有效 PNG，并由
   默认 OCR 模型识别出 `中文测试`。
 - 六个平台的离线 tarball smoke 同时检查字体选择、渲染结果和 OCR
-  文本；[run 30535822947](https://github.com/arcships/light-ocr/actions/runs/30535822947)
-  已全部通过，且 `publish` job 因演练参数保持 skipped。
+  文本；[发布 run 30599969242](https://github.com/arcships/light-ocr/actions/runs/30599969242)
+  已全部通过，并完成 registry 发布、回装与禁网运行验证。
 - 相对 `0.5.5`，每个用户实际安装的平台 native tarball 增加
   `7,226,822–7,232,623` bytes，解包增加约 `8.34 MB`；模型包不变。
 
@@ -107,6 +107,11 @@
 这些数值是这台机器上的验收快照，不是所有硬件的绝对性能承诺。
 
 ## 发布结论与后续范围
+
+`0.5.6` 的稳定 Small/runtime/六平台 native 闭包已发布并晋升
+`latest`；Document compatibility facade 与 Tiny/Medium preview facade
+保持在 `next`。完整发布、回装、禁网 PDF 验证与 dist-tag 证据见
+[npm 0.5.6 发布记录](releases/npm-0.5.6.md)。
 
 `0.3.0` 的四平台 Core、Node.js 22/24 prebuild、六包制品、public registry、provenance、默认 Auto、显式 Apple/WebGPU、tiled 和禁网运行证据已经完成，详见 [npm 0.3.0 发布记录](releases/npm-0.3.0.md)。
 

@@ -1,9 +1,10 @@
-# npm 0.5.6 发布准备记录
+# npm 0.5.6 发布记录
 
 [English version](npm-0.5.6.en.md)
 
-状态：发布前验证完成，尚未发布。npm registry 与 dist-tag 均保持
-`0.5.5` 发布后的状态。
+状态：已于 2026-07-31 发布。稳定 Small/runtime/native 闭包同时位于
+`latest` 与 `next`；Document compatibility facade 和 Tiny/Medium
+preview facade 保持在 `next`。
 
 发布身份：
 
@@ -20,6 +21,16 @@
 - 完整发布演练：
   [30535822947](https://github.com/arcships/light-ocr/actions/runs/30535822947)
   （六平台通过，`publish_to_registry=false`）
+- 最终 `main` 验证：
+  [Core 30599338979](https://github.com/arcships/light-ocr/actions/runs/30599338979)
+  与
+  [Native WebGPU 30599339015](https://github.com/arcships/light-ocr/actions/runs/30599339015)
+- registry 发布与回装验证：
+  [30599969242](https://github.com/arcships/light-ocr/actions/runs/30599969242)
+- 稳定 dist-tag 晋升：
+  [30600575756](https://github.com/arcships/light-ocr/actions/runs/30600575756)
+- GitHub Release：
+  [`v0.5.6`](https://github.com/arcships/light-ocr/releases/tag/v0.5.6)
 
 ## 用户可见变化
 
@@ -36,22 +47,22 @@
 - `0.5.5` 的不可变包继续保留，但不应再用于需要可靠处理非嵌入中文
   字体 PDF 的场景。
 
-## 待发布版本闭包
+## 已发布版本闭包
 
-| 成熟度 | 包 | 候选版本 | 发布后标签计划 |
+| 成熟度 | 包 | 已发布版本 | 最终标签 |
 | --- | --- | ---: | --- |
-| stable | `@arcships/light-ocr` | `0.5.6` | `next` 验证后晋升 `latest` |
-| stable | `@arcships/light-ocr-runtime` | `0.1.6` | `next` 验证后晋升 `latest` |
-| stable | 六个平台 native | `0.5.6` | `next` 验证后晋升 `latest` |
-| compatibility | `@arcships/light-ocr-document` | `0.1.2` | 保持 `next` |
-| preview | `@arcships/light-ocr-tiny` | `0.1.5` | 保持 `next` |
-| preview | `@arcships/light-ocr-medium` | `0.1.5` | 保持 `next` |
+| stable | `@arcships/light-ocr` | `0.5.6` | `latest`、`next` |
+| stable | `@arcships/light-ocr-runtime` | `0.1.6` | `latest`、`next` |
+| stable | 六个平台 native | `0.5.6` | `latest`、`next` |
+| compatibility | `@arcships/light-ocr-document` | `0.1.2` | `next` |
+| preview | `@arcships/light-ocr-tiny` | `0.1.5` | `next` |
+| preview | `@arcships/light-ocr-medium` | `0.1.5` | `next` |
 
-模型包不重发新版本：Small 继续使用 `0.3.4`，Tiny/Medium 继续使用
-`0.1.0`。演练会重建或取得模型 tarball 来完成离线安装验证；发布器只在
-registry 中的同版本 integrity 完全一致时跳过这些不可变包。
+模型包未重发新版本：Small 继续使用 `0.3.4`，Tiny/Medium 继续使用
+`0.1.0`。发布流水线重建或取得模型 tarball 完成离线安装验证，并只在
+registry 中同版本 integrity 完全一致时复用不可变包。
 
-## 六平台 native 候选
+## 六平台 native 制品
 
 下表来自完整演练的 `release-manifest.json`。增量以已发布 `0.5.5`
 tarball 为基线；用户只安装当前平台对应的一个 native 包。
@@ -77,27 +88,28 @@ tarball 为基线；用户只安装当前平台对应的一个 native 包。
 - [x] 六个平台验证非嵌入 `STSong-Light` 映射到 `Noto Sans SC`
 - [x] 六个平台验证非空 PDF raster 与端到端 `中文测试` OCR
 - [x] 候选 tarball manifest、bytes、SHA-256 与 npm integrity
-- [ ] 以 `publish_to_registry=true` 发布不可变候选到 `next`
-- [ ] 从 npm registry 回装并核对 integrity
-- [ ] 将 stable Small/runtime/native 闭包晋升到 `latest`
-- [ ] 创建 `v0.5.6` GitHub Release
+- [x] 以 `publish_to_registry=true` 发布不可变候选到 `next`
+- [x] 从 npm registry 回装并核对 integrity
+- [x] 将 stable Small/runtime/native 闭包晋升到 `latest`
+- [x] 创建 `v0.5.6` GitHub Release
 
-## 实际发布顺序
+## 实际发布结果
 
-1. 从 `main` 重新运行 `npm release`，版本 `0.5.6`，
-   `publish_to_registry=true`；流水线先重复相同构建与 smoke，再只向
-   `next` 写入候选。
-2. 核对 registry integrity 与完整闭包回装结果。
-3. 运行 `npm promote`，只把 Small `0.5.6`、runtime `0.1.6` 与六个
-   native `0.5.6` 晋升到 `latest`。
-4. 创建 `v0.5.6` tag/GitHub Release，并把本记录状态和最终 run ID
-   更新为已发布。
+1. 最终 `main` SHA 通过完整 Core 与 Native WebGPU 工作流。
+2. [发布 run 30599969242](https://github.com/arcships/light-ocr/actions/runs/30599969242)
+   重复六平台构建与离线 smoke，向 `next` 发布不可变包集，再从 npm
+   registry 回装并验证 integrity、图片 OCR、PDF OCR 与禁网运行。
+3. [晋升 run 30600575756](https://github.com/arcships/light-ocr/actions/runs/30600575756)
+   只把 Small `0.5.6`、runtime `0.1.6` 与六个 native `0.5.6` 晋升到
+   `latest`。
+4. [`v0.5.6` GitHub Release](https://github.com/arcships/light-ocr/releases/tag/v0.5.6)
+   记录公开发布。
 
 Tiny、Medium 与 Document 不属于 stable promotion；它们继续停留在
 `next`。整个发布不依赖外部用户验证或采用证明，所有阻断门均由源码、
 候选 tarball、真实六平台 runner 和 npm registry identity 自证完成。
 
-## GitHub Release 文案草案
+## GitHub Release
 
 Release name：
 
@@ -128,5 +140,7 @@ Verification：
 
 - pre-release dry-run:
   <https://github.com/arcships/light-ocr/actions/runs/30535822947>
-- release workflow: 待实际发布后补入
-- stable promotion: 待晋升后补入
+- release workflow:
+  <https://github.com/arcships/light-ocr/actions/runs/30599969242>
+- stable promotion:
+  <https://github.com/arcships/light-ocr/actions/runs/30600575756>
