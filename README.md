@@ -14,7 +14,18 @@ English | [简体中文](README.zh-CN.md)
 
 **Fast, offline OCR for Node.js and C++.**
 
-Recognize text in PDF, JPEG, PNG, or raw image data directly on your machine. `light-ocr` returns lines in reading order with confidence scores and quadrilateral coordinates. For Node.js, the npm package includes PP-OCRv6 Small, PDFium, and prebuilt components for macOS, Linux, and Windows.
+Recognize text in PDF, JPEG, PNG, or raw image data directly on your machine.
+`light-ocr` returns lines in reading order with confidence scores and
+quadrilateral coordinates. The Node.js package includes PP-OCRv6 Small,
+PDFium, a Chinese fallback font, and prebuilt components for macOS, Linux, and
+Windows—without postinstall or first-run downloads.
+
+| | |
+| --- | --- |
+| **Best for** | local OCR in Node.js apps, CLIs, desktop software, and native C++ integrations |
+| **Inputs** | JPEG, PNG, PDF, encoded bytes, or decoded pixel buffers |
+| **Outputs** | text, confidence, quadrilateral boxes, page metadata, and timing |
+| **Distribution** | one npm install; CommonJS, ESM, TypeScript, and six prebuilt platforms |
 
 ## Quick start
 
@@ -29,30 +40,36 @@ import { createEngine } from "@arcships/light-ocr";
 import { readFile } from "node:fs/promises";
 
 const engine = await createEngine();
-const result = await engine.recognizeEncoded(
-  await readFile("image.jpg"),
-);
 
-for (const line of result.lines) {
-  console.log(line.text, line.confidence, line.box);
+try {
+  const result = await engine.recognizeEncoded(
+    await readFile("image.jpg"),
+  );
+
+  for (const line of result.lines) {
+    console.log(line.text, line.confidence, line.box);
+  }
+} finally {
+  await engine.close();
 }
-
-await engine.close();
 ```
 
-`createEngine()` automatically chooses the right execution mode for the current platform. If your application already decodes images, [`recognize()`](bindings/node/README.md#usage) also accepts `GRAY8`, `RGB8`, `BGR8`, and `RGBA8` pixel data.
+`createEngine()` automatically chooses the right execution mode for the
+current platform. If your application already decodes images,
+[`recognize()`](packages/light-ocr/README.md#recognize-decoded-pixels) also
+accepts `GRAY8`, `RGB8`, `BGR8`, and `RGBA8` pixel data.
 
-### Model tiers
+PDF pages use the same package:
 
-Small remains the stable default. N2 also provides two opt-in preview packages under the `next` tag; all three expose the same API, types, result schema, and error model, while each install contains only its selected model.
+```ts
+import { recognizeDocument } from "@arcships/light-ocr";
 
-| Tier | Package / command | Model payload | Status |
-| --- | --- | ---: | --- |
-| Small | `@arcships/light-ocr` / `light-ocr` | ~30 MB | stable default |
-| Tiny | `@arcships/light-ocr-tiny@next` / `light-ocr-tiny` | ~6.3 MB | preview; 49 languages, no Japanese |
-| Medium | `@arcships/light-ocr-medium@next` / `light-ocr-medium` | ~139 MB | preview; quality-first |
+for await (const page of recognizeDocument("report.pdf", { dpi: 200 })) {
+  console.log(page.index, page.lines.map((line) => line.text));
+}
+```
 
-Tiny and Medium stay on `next` until real use shows a clear reason to promote them; they do not change what `npm install @arcships/light-ocr` installs.
+CommonJS uses the same exports through `require("@arcships/light-ocr")`.
 
 ## CLI
 
@@ -86,9 +103,10 @@ Image commands are `recognize` (default), `detect` (boxes only), `info`
 directly to document OCR; `document` handles explicit multi-source jobs. Output
 uses a versioned `schemaVersion: 1` contract. EXIF orientation is corrected
 automatically. See the [CLI design](docs/cli-design.md) and
-[npm README](bindings/node/README.md#cli) for full reference.
+[npm package README](packages/light-ocr/README.md) for the complete
+install-and-use reference.
 
-### PDF and multi-page documents
+## PDF and multi-page documents
 
 PDF and multi-page OCR are built into `@arcships/light-ocr`. The matching
 PDFium binary and checksum-pinned Noto Sans SC fallback font are carried by
@@ -124,15 +142,6 @@ for await (const page of recognizeDocument([buf1, buf2, buf3])) {
 }
 ```
 
-## Agent Skill
-
-An [Agent Skill](.agents/skills/local-ocr/SKILL.md) is included for AI agents that can call local commands. It provides scenario-driven workflows, a decision flow for command selection, and exit code reference:
-
-- When to use OCR vs. a multimodal model
-- Detect-then-recognize two-step pattern for large images
-- ROI field extraction for receipts and forms
-- Verifying multimodal output against deterministic OCR
-
 ## What you get
 
 - **Local processing.** Images, PDFs, and OCR results stay on your machine.
@@ -158,7 +167,24 @@ The npm package provides the following six builds. The default `createEngine()` 
 | Windows x64 | WebGPU through D3D12, then CPU |
 | Windows arm64 | CPU |
 
-Applications that need explicit control can choose `auto`, `cpu`, `apple`, or `webgpu` through the [`execution` option](bindings/node/README.md#with-options).
+Applications that need explicit control can choose `auto`, `cpu`, `apple`, or
+`webgpu` through the
+[`execution` option](packages/light-ocr/README.md#platform-acceleration).
+
+## Model tiers
+
+Small remains the stable default. Tiny and Medium are opt-in preview packages
+under the `next` tag. All three expose the same API, types, result schema, and
+error model, while each install contains only its selected model.
+
+| Tier | Package / command | Model payload | Status |
+| --- | --- | ---: | --- |
+| Small | `@arcships/light-ocr` / `light-ocr` | ~30 MB | stable default |
+| Tiny | `@arcships/light-ocr-tiny@next` / `light-ocr-tiny` | ~6.3 MB | preview; 49 languages, no Japanese |
+| Medium | `@arcships/light-ocr-medium@next` / `light-ocr-medium` | ~139 MB | preview; quality-first |
+
+Tiny and Medium stay on `next`; they do not change what
+`npm install @arcships/light-ocr` installs.
 
 ## Measured performance
 
@@ -178,10 +204,22 @@ These are same-machine comparisons with the CPU path, and results vary by worklo
 
 C++ projects build the static library from source and link the `light_ocr::core` CMake target. The API accepts decoded `GRAY8`, `RGB8`, `BGR8`, or `RGBA8` pixels; start with the [C++ API guide](docs/native-api.md) and [build instructions](docs/build-and-release.md).
 
+## Agent Skill
+
+An [Agent Skill](.agents/skills/local-ocr/SKILL.md) is included for AI agents
+that can call local commands. It provides scenario-driven workflows, command
+selection guidance, and exit code reference:
+
+- When to use OCR vs. a multimodal model
+- Detect-then-recognize workflows for large images
+- ROI field extraction for receipts and forms
+- Verifying multimodal output against deterministic OCR
+
 ## Documentation
 
+- [npm package README](packages/light-ocr/README.md)
 - [CLI reference](docs/cli-design.md)
-- [Node.js API and examples](bindings/node/README.md)
+- [Node.js image engine and CLI details](bindings/node/README.md)
 - [Agent Skill](.agents/skills/local-ocr/SKILL.md)
 - [C++ API](docs/native-api.md)
 - [Apple Silicon acceleration](docs/apple-device-acceleration.md)
@@ -191,9 +229,9 @@ C++ projects build the static library from source and link the `light_ocr::core`
 - [Build and release](docs/build-and-release.md)
 - [Roadmap](docs/roadmap.md)
 - [Changelog](CHANGELOG.md)
+- [npm 0.5.6 release preparation — English](docs/releases/npm-0.5.6.en.md)
+- [npm 0.5.6 发布准备记录 — 中文](docs/releases/npm-0.5.6.md)
 - [npm 0.3.0 release report](docs/releases/npm-0.3.0.md)
-- [npm 0.4.0 N2 candidate record](docs/releases/npm-0.4.0.md)
-- [npm 0.5.0 N3 release record](docs/releases/npm-0.5.0.md)
 
 ## Community and license
 
