@@ -4,7 +4,7 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 
 ## [Unreleased]
 
-## [0.5.6] - 2026-07-30
+## [0.5.6] - 2026-07-31
 
 ### Changed
 
