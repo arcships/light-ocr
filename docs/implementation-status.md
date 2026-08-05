@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
-更新时间：2026-07-31<br>
-结论：npm `0.5.6` 已发布并晋升 `latest`。六个平台包内置校验锁定的官方 Noto Sans SC fallback 字体及 OFL 许可证，patched PDFium 初始化时只使用包内字体目录；用户安装与运行均无二次下载。最终 `main` 的 Core、sanitizer/fuzzer、oracle 和 WebGPU CI 已全绿，[发布 run 30599969242](https://github.com/arcships/light-ocr/actions/runs/30599969242) 完成六平台构建、离线安装、图片 OCR、非嵌入中文字体 PDF 端到端 smoke、registry 发布与回装验证，[晋升 run 30600575756](https://github.com/arcships/light-ocr/actions/runs/30600575756) 只将稳定 Small/runtime/native 闭包提升为默认安装。D116 记录修复契约，完整证据见 [npm 0.5.6 发布记录](releases/npm-0.5.6.md)（[English](releases/npm-0.5.6.en.md)）。
+更新时间：2026-08-05<br>
+结论：npm `0.5.7` 已完成代码合并与发布前验证，尚未写入 registry。该补丁允许下游 macOS 打包器重新签名 `light_ocr_node.node` 与 ONNX Runtime dylib：descriptor 的 bytes/SHA-256 仍是首要门，仅当它因重签名变化时，才接受通过严格 `codesign` 验证且与宿主 TeamIdentifier 相同、或宿主与制品均为 ad-hoc 的 Mach-O。异签名、未签名篡改、非 Mach-O 与非 macOS 平台继续 fail closed。最终 `main` 的 [Core 30986015180](https://github.com/arcships/light-ocr/actions/runs/30986015180) 与 [Native WebGPU 30986015218](https://github.com/arcships/light-ocr/actions/runs/30986015218) 全绿，[六平台演练 30986812237](https://github.com/arcships/light-ocr/actions/runs/30986812237) 已完成构建、离线安装、图片/PDF OCR、签名策略与 manifest 审计。完整版本闭包见 [npm 0.5.7 发布记录](releases/npm-0.5.7.md)（[English](releases/npm-0.5.7.en.md)）。
 
 状态含义：
 
@@ -24,6 +24,26 @@
 - release set 独立版本化为六个 native `0.4.0`、runtime `0.1.0`、两个 preview model `0.1.0` 和三个 facade；Small model `0.3.4` 直接复用，不重打包。
 - workspace PR 运行 types、Node/server contract 和 Python package tests；只有 native/Core/model contract 路径进入完整构建。release 不重复 qualification、模型转换、Core test 或双重 npm pack。
 - 本机新 Core 对三个真实 bundle 均识别 `HELLO 123`；Tiny/Small/Medium 初始化约 `0.9s / 1.5s / 6.4s`，单次 OCR 约 `58ms / 112ms / 457ms`（Apple M4 Max，仅为 smoke 快照，不作性能承诺）。
+
+## macOS 下游重签名兼容（0.5.7）
+
+状态：发布前验证完成 / registry 发布待执行
+
+- runtime descriptor 的 bytes 与 SHA-256 精确匹配仍是正常加载路径；只有
+  macOS 上已知的签名重写导致描述符不一致时才进入等价签名证明。
+- fallback 先检查 Mach-O magic，再执行 `codesign --verify --strict`，并要求
+  制品与宿主拥有相同 TeamIdentifier；只有双方均为 ad-hoc 时允许无 Team ID。
+- 异 Team、未签名篡改、非 Mach-O、畸形 descriptor 与 Linux/Windows
+  仍保持 `package_load_failed`，native inventory 与 ABI contract 门不变。
+- PR CI 同时使用 GitHub runner 默认 Node 和复制后 ad-hoc 重签的 Node
+  执行真实 `codesign` 集成测试；Developer ID signed host 的手工验证使用
+  TeamIdentifier `3AA79YWT4C`，确认原始制品通过、未签名篡改拒绝、异签
+  ad-hoc 制品拒绝。
+- 该兼容无需环境变量、postinstall、keychain 或额外依赖；ad-hoc 签名可由
+  任何人复现，因此其接受范围明确限制为同样 ad-hoc 的 macOS 宿主。
+- [六平台发布演练 30986812237](https://github.com/arcships/light-ocr/actions/runs/30986812237)
+  的 14 个 jobs 全绿；13 包 manifest 绑定 `main` SHA `1a26d53`，11 个新
+  package identity 再次确认未发布，可进入 `next` 发布。
 
 ## PDF fallback 字体修复（0.5.6 已发布）
 

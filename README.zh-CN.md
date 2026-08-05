@@ -223,8 +223,10 @@ AI Agent 使用。它提供场景驱动的工作流、命令选择建议和退�
 - [构建与发布](docs/build-and-release.md)
 - [路线图](docs/roadmap.md)
 - [更新日志](CHANGELOG.md)
-- [npm 0.5.6 release preparation — English](docs/releases/npm-0.5.6.en.md)
-- [npm 0.5.6 发布准备记录 — 中文](docs/releases/npm-0.5.6.md)
+- [npm 0.5.7 release record — English](docs/releases/npm-0.5.7.en.md)
+- [npm 0.5.7 发布记录 — 中文](docs/releases/npm-0.5.7.md)
+- [npm 0.5.6 release record — English](docs/releases/npm-0.5.6.en.md)
+- [npm 0.5.6 发布记录 — 中文](docs/releases/npm-0.5.6.md)
 - [npm 0.3.0 发布报告](docs/releases/npm-0.3.0.md)
 
 ## 社区与协议

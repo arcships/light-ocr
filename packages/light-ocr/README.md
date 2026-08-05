@@ -295,6 +295,7 @@ console.log(modelProfile);
 
 - [Project overview](https://github.com/arcships/light-ocr)
 - [Node.js and CLI reference](https://github.com/arcships/light-ocr/blob/main/bindings/node/README.md)
+- [macOS re-signing 0.5.7 release notes](https://github.com/arcships/light-ocr/blob/main/docs/releases/npm-0.5.7.en.md)
 - [PDF 0.5.6 release notes](https://github.com/arcships/light-ocr/blob/main/docs/releases/npm-0.5.6.en.md)
 - [Agent Skill](https://github.com/arcships/light-ocr/blob/main/.agents/skills/local-ocr/SKILL.md)
 - [Changelog](https://github.com/arcships/light-ocr/blob/main/CHANGELOG.md)
