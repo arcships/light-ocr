@@ -4,6 +4,8 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 
 ## [Unreleased]
 
+## [0.5.7] - 2026-08-05
+
 ### Fixed
 
 - On macOS only, accepted a re-signed native payload as an equivalent
@@ -18,6 +20,9 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
   descriptor gate and the `package_load_failed` contract. The ad-hoc
   acceptance is deliberately macOS-only and documented because ad-hoc
   signatures are reproducible by anyone.
+
+Release record: [English](docs/releases/npm-0.5.7.en.md) /
+[中文](docs/releases/npm-0.5.7.md).
 
 ## [0.5.6] - 2026-07-31
 
@@ -37,7 +42,7 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
   page bytes, and end-to-end Chinese OCR without install-time or runtime
   downloads.
 
-Release preparation: [English](docs/releases/npm-0.5.6.en.md) /
+Release record: [English](docs/releases/npm-0.5.6.en.md) /
 [中文](docs/releases/npm-0.5.6.md).
 
 ## [0.5.5] - 2026-07-27
