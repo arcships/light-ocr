@@ -1,8 +1,100 @@
 'use strict';
 
+const { spawnSync } = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+
+// macOS-only integrity relaxation for downstream re-signing.
+//
+// macOS packaging pipelines re-sign the native payload with a Developer ID
+// (or ad-hoc) identity, and osx-sign rewrites the LC_CODE_SIGNATURE blob of
+// every Mach-O under Contents --force. That changes both file size and
+// sha256, so the strict descriptor comparison alone rejects otherwise intact
+// binaries. On macOS only, a Mach-O whose signature verifies AND whose
+// signing identity matches the host process is accepted as an equivalent
+// integrity proof: same TeamIdentifier as process.execPath, or both sides
+// ad-hoc signed. Ad-hoc signatures are reproducible by anyone, so this
+// relaxation stays macOS-only and documented; win32/linux payloads are never
+// re-signed and keep the strict bytes+sha256 gate.
+
+const MACHO_MAGIC = new Set([
+  0xfeedface, // 32-bit big-endian
+  0xcefaedfe, // 32-bit little-endian
+  0xfeedfacf, // 64-bit big-endian
+  0xcffaedfe, // 64-bit little-endian
+  0xcafebabe, // universal (fat) big-endian
+  0xbebafeca, // universal (fat) little-endian
+]);
+
+function isMachO(filename) {
+  const fd = fs.openSync(filename, 'r');
+  try {
+    const magic = Buffer.allocUnsafe(4);
+    if (fs.readSync(fd, magic, 0, 4, 0) !== 4) return false;
+    return MACHO_MAGIC.has(magic.readUInt32BE(0));
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function codesignOutput(filename) {
+  const result = spawnSync('codesign', ['-dv', '--verbose=4', filename], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (result.error || result.status !== 0) return null;
+  return `${result.stdout}\n${result.stderr}`;
+}
+
+// Returns { teamIdentifier, adhoc } for a readable signature, or null when
+// the file carries no readable signature (unsigned, corrupt, not Mach-O).
+function codesignIdentity(filename) {
+  const output = codesignOutput(filename);
+  if (!output) return null;
+  if (/^Signature=adhoc\s*$/m.test(output)) {
+    return { teamIdentifier: null, adhoc: true };
+  }
+  const teamLine = output.match(/^TeamIdentifier=(.*)$/m);
+  const teamIdentifier = teamLine ? teamLine[1].trim() : '';
+  if (teamIdentifier && teamIdentifier !== 'not set') {
+    return { teamIdentifier, adhoc: false };
+  }
+  return null;
+}
+
+function codesignVerifies(filename) {
+  const result = spawnSync('codesign', ['--verify', '--strict', filename], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  return !result.error && result.status === 0;
+}
+
+let hostCodesignIdentityCache;
+
+function hostCodesignIdentity() {
+  if (hostCodesignIdentityCache === undefined) {
+    hostCodesignIdentityCache = codesignIdentity(process.execPath);
+  }
+  return hostCodesignIdentityCache;
+}
+
+// Accept a re-signature only when it was made with the same identity as the
+// host process: identical TeamIdentifier, or both sides ad-hoc signed.
+function signerMatchesHost(artifactIdentity, host = hostCodesignIdentity()) {
+  if (!artifactIdentity || !host) return false;
+  if (artifactIdentity.adhoc && host.adhoc) return true;
+  return !artifactIdentity.adhoc && !host.adhoc &&
+    artifactIdentity.teamIdentifier === host.teamIdentifier;
+}
+
+function acceptsSignedMacOSMutation(filename) {
+  if (process.platform !== 'darwin') return false;
+  if (!isMachO(filename)) return false;
+  if (!codesignVerifies(filename)) return false;
+  return signerMatchesHost(codesignIdentity(filename));
+}
 
 function adapterError(code, message, detail, cause) {
   const error = new Error(message, cause === undefined ? undefined : { cause });
@@ -108,11 +200,22 @@ function verifyArtifact(root, artifact, field) {
   if (!stats.isFile() || stats.isSymbolicLink()) {
     throw adapterError('package_load_failed', 'Descriptor artifact is not a regular file', artifact.path);
   }
-  if (!Number.isSafeInteger(artifact.bytes) || artifact.bytes < 1 || stats.size !== artifact.bytes) {
+  if (!Number.isSafeInteger(artifact.bytes) || artifact.bytes < 1) {
     throw adapterError('package_load_failed', 'Descriptor artifact byte count mismatch', artifact.path);
   }
-  if (!/^[a-f0-9]{64}$/.test(artifact.sha256 || '') || sha256(filename) !== artifact.sha256) {
+  if (stats.size !== artifact.bytes) {
+    if (!acceptsSignedMacOSMutation(filename)) {
+      throw adapterError('package_load_failed', 'Descriptor artifact byte count mismatch', artifact.path);
+    }
+    return filename;
+  }
+  if (!/^[a-f0-9]{64}$/.test(artifact.sha256 || '')) {
     throw adapterError('package_load_failed', 'Descriptor artifact hash mismatch', artifact.path);
+  }
+  if (sha256(filename) !== artifact.sha256) {
+    if (!acceptsSignedMacOSMutation(filename)) {
+      throw adapterError('package_load_failed', 'Descriptor artifact hash mismatch', artifact.path);
+    }
   }
   return filename;
 }
@@ -496,4 +599,11 @@ function loadNative() {
   }
 }
 
-module.exports = { loadNative, validateRuntimeDescriptor };
+const macOSSignature = Object.freeze({
+  isMachO,
+  codesignIdentity,
+  codesignVerifies,
+  signerMatchesHost,
+});
+
+module.exports = { loadNative, validateRuntimeDescriptor, macOSSignature };

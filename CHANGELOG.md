@@ -4,6 +4,21 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 
 ## [Unreleased]
 
+### Fixed
+
+- On macOS only, accepted a re-signed native payload as an equivalent
+  integrity proof when its runtime descriptor size/SHA-256 check diverges.
+  Downstream macOS packagers (for example app notarization pipelines) may
+  re-sign `light_ocr_node.node` and the ONNX Runtime dylib with their own
+  Developer ID or ad-hoc identity, which rewrites the code signature and
+  changes both file size and SHA-256. The re-signature is trusted only when
+  `codesign --verify --strict` passes and the artifact's TeamIdentifier
+  equals the host process's, or when both sides are ad-hoc signed; unsigned
+  mutations, non-Mach-O artifacts, and every other platform keep the strict
+  descriptor gate and the `package_load_failed` contract. The ad-hoc
+  acceptance is deliberately macOS-only and documented because ad-hoc
+  signatures are reproducible by anyone.
+
 ## [0.5.6] - 2026-07-31
 
 ### Changed

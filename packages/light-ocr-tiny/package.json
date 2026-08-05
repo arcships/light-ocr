@@ -1,6 +1,6 @@
 {
   "name": "@arcships/light-ocr-tiny",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "description": "Offline PP-OCRv6 Tiny OCR for Node.js — preview size-first tier",
   "license": "Apache-2.0",
@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@arcships/light-ocr-model-ppocrv6-tiny": "0.1.0",
-    "@arcships/light-ocr-runtime": "0.1.6"
+    "@arcships/light-ocr-runtime": "0.1.7"
   },
   "scripts": {
     "test": "node --test test/*.test.cjs"

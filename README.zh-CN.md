@@ -145,6 +145,8 @@ for await (const page of recognizeDocument([buf1, buf2, buf3])) {
 - **适合应用内调用。**识别任务在 JavaScript 主线程之外执行，并支持队列、取消和明确释放资源。
 - **识别大图中的小字。**可选的 `tiled` 模式可以保留高分辨率图片中的小字和密集文字。
 
+> **macOS 重新签名。**下游 macOS 打包方可以用自己的 Developer ID（或 ad-hoc）身份重新签名原生二进制，例如在公证分发的应用时。加载器在 macOS 上接受重新签名过的 Mach-O，前提是其代码签名校验通过且签名身份与宿主应用一致（TeamIdentifier 相同，或双方均为 ad-hoc 签名）；其他平台与未经签名的篡改仍保持严格的字节数 + SHA-256 校验。
+
 > ⭐ **觉得 light-ocr 有用？** 点个 Star，让更多人发现这个项目！
 
 ## 平台加速

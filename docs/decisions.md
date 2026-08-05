@@ -422,6 +422,45 @@ Consequence:
   Latin scope. Additional scripts or typography require explicit locked fonts
   and regression fixtures rather than relying on fonts installed on the host.
 
+### D117 — Accept host-matched re-signed Mach-O artifacts on macOS
+
+Status: Accepted and implemented locally<br>
+Authority: D010 offline installation contract, D105 lockstep package set
+
+Decision: The runtime descriptor's bytes + SHA-256 check remains the primary
+integrity gate for every native artifact. On macOS only, when a Mach-O
+artifact's size or hash diverges from the descriptor, the loader accepts the
+file as an equivalent integrity proof if `codesign --verify --strict` passes
+and the artifact's signing identity matches the host process: identical
+TeamIdentifier as `process.execPath`, or both sides ad-hoc signed. Anything
+else fails with the existing `package_load_failed` contract — never a silent
+fallback, never a partial state. The native directory inventory check (the
+referenced artifact set must equal the actual files) and the post-load
+`validateNativeContract()` ABI check stay unchanged. win32/linux keep the
+strict bytes + SHA-256 gate.
+
+Reason: Downstream macOS packaging pipelines re-sign every Mach-O under the
+app bundle (including `light_ocr_node.node` and the ONNX Runtime dylib) with
+a Developer ID or ad-hoc identity while notarizing, rewriting
+LC_CODE_SIGNATURE and changing both file size and SHA-256. The strict gate
+therefore rejected intact, verified binaries. A verified code signature is a
+cryptographic integrity proof over the file content; requiring it to match
+the host identity prevents a different vendor's (or an attacker's) signature
+from laundering an arbitrary replacement payload.
+
+Consequence:
+
+- The same-TeamIdentifier rule lets downstream vendors re-sign with their own
+  Developer ID and keeps the package loadable; the host-match rule rejects
+  payloads signed by any other identity.
+- Ad-hoc signatures are reproducible by anyone, so the both-ad-hoc branch is
+  a documented, macOS-only relaxation. On arm64 macOS the kernel already
+  requires valid (at least ad-hoc) signatures for execution, which bounds the
+  exposure.
+- The relaxation is exercised by automated descriptor tests with ad-hoc
+  re-signing (adaptive to the host identity) and by the release gate with a
+  real Developer ID identity.
+
 ## 3. Deferred decisions
 
 ### D102 — Public native SDK and ABI policy
