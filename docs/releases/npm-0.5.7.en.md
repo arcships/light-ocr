@@ -2,10 +2,9 @@
 
 [中文版](npm-0.5.7.md)
 
-Status: pre-release validation complete. No candidate version has been written
-to the npm registry; the current stable Small/runtime/native closure remains at
-`0.5.6`. The six-platform rehearsal and manifest audit are green, so the
-release may proceed.
+Status: published on 2026-08-05. The stable Small/runtime/native closure is on
+both `latest` and `next`; the Document compatibility facade and Tiny/Medium
+preview facades remain on `next`.
 
 Release identity:
 
@@ -20,9 +19,12 @@ Release identity:
 - Six-platform release rehearsal:
   [30986812237](https://github.com/arcships/light-ocr/actions/runs/30986812237)
   (`publish_to_registry=false`)
-- Registry publication and reinstall verification: pending
-- Stable dist-tag promotion: pending
-- GitHub Release: pending
+- Registry publication and reinstall verification:
+  [30988312627](https://github.com/arcships/light-ocr/actions/runs/30988312627)
+- Stable dist-tag promotion:
+  [30989501173](https://github.com/arcships/light-ocr/actions/runs/30989501173)
+- GitHub Release:
+  [`v0.5.7`](https://github.com/arcships/light-ocr/releases/tag/v0.5.7)
 
 ## User-visible changes
 
@@ -47,36 +49,37 @@ Release identity:
 - Preserve every public API and schema, including image, PDF, multi-page, CLI,
   and provider behavior.
 
-## Candidate version closure
+## Published version closure
 
-| Maturity | Package | Candidate version | Target tags |
+| Maturity | Package | Published version | Final tags |
 | --- | --- | ---: | --- |
-| stable | `@arcships/light-ocr` | `0.5.7` | `next`, then `latest` after verification |
-| stable | `@arcships/light-ocr-runtime` | `0.1.7` | `next`, then `latest` after verification |
-| stable | six native platform packages | `0.5.7` | `next`, then `latest` after verification |
+| stable | `@arcships/light-ocr` | `0.5.7` | `latest`, `next` |
+| stable | `@arcships/light-ocr-runtime` | `0.1.7` | `latest`, `next` |
+| stable | six native platform packages | `0.5.7` | `latest`, `next` |
 | compatibility | `@arcships/light-ocr-document` | `0.1.3` | `next` |
 | preview | `@arcships/light-ocr-tiny` | `0.1.6` | `next` |
 | preview | `@arcships/light-ocr-medium` | `0.1.6` | `next` |
 
-No model receives a new version. Small remains at `0.3.4`, while Tiny and
-Medium remain at `0.1.0`. The publication workflow rebuilds or retrieves these
-immutable model tarballs for complete offline installation testing and reuses
-a registry version only after confirming identical integrity.
+No model received a new version. Small remains at `0.3.4`, while Tiny and
+Medium remain at `0.1.0`. The publication workflow rebuilt or retrieved these
+immutable model tarballs for complete offline installation testing and reused
+the registry versions only after confirming identical integrity.
 
-## Six-platform native candidates
+## Six-platform native artifacts
 
-The following values come from the rehearsal's `release-manifest.json`. Each
-delta uses the published `0.5.6` tarball as its baseline. A customer installs
-only the one native package selected for the current platform.
+The following values come from the formal publication run's
+`release-manifest.json`, and each npm registry integrity was independently
+matched. Each delta uses the published `0.5.6` tarball as its baseline. A
+customer installs only the native package selected for the current platform.
 
 | Platform package | Compressed bytes | Delta from 0.5.6 | Unpacked bytes | SHA-256 |
 | --- | ---: | ---: | ---: | --- |
-| `darwin-arm64` | 22,889,540 | -2 | 56,356,978 | `55f5539456e8da241d8101c7ca5f015b9ab130d77758b5a99552f3b5467c9554` |
-| `darwin-x64` | 24,853,682 | +1 | 62,109,821 | `18975175b52da136d00e740f3a55ba4aab582732a80390b6c21f5b7053f0e51e` |
-| `linux-arm64-gnu` | 20,453,508 | +23 | 40,261,084 | `ffb45dbff2f585010dade1978465b7e5b521c4da01db4dbc955cb20b27d889b7` |
-| `linux-x64-gnu` | 27,033,573 | -18 | 59,390,897 | `a3bb20608d785a054b34c90a579f695a72648dae5db91e321167648b97c2e2c4` |
-| `win32-arm64` | 16,661,617 | -2,136 | 30,977,284 | `7bbb501cfef7909ec319218c57fd5ed732aa619260ddbf5c39649c7005e3dc3c` |
-| `win32-x64` | 30,386,121 | -1,022 | 63,065,652 | `84804a4fa8db6657361d59a2645c6140b00e48de2063a5dab182156ee4fb2d0e` |
+| `darwin-arm64` | 22,889,533 | -9 | 56,356,978 | `d8d0b30f1c30c989d8392d438be3b3e06c0b0f3c86a19bb125dfa6732857dad6` |
+| `darwin-x64` | 24,853,690 | +9 | 62,109,821 | `4b69cbe6aebf44dd052f37fd7173b386b446ebff040e003278d08a9a6d9a77d6` |
+| `linux-arm64-gnu` | 20,453,503 | +18 | 40,261,084 | `81d2f306c247aa21ef18ff881e33df419de8b27c71adf7acf46c50838dd29d7f` |
+| `linux-x64-gnu` | 27,033,585 | -6 | 59,390,897 | `6f83bdfbce7500e56bb0c31001a55143e9874257dafe679dcaad406980b72750` |
+| `win32-arm64` | 16,661,640 | -2,113 | 30,977,284 | `8c702941470a549ffda07cf0ba9e224824c39d5debf6046446018520c1602f01` |
+| `win32-x64` | 30,386,117 | -1,026 | 63,065,652 | `aa2d792a2e476073b39c9d3fc8cdf225695c06b534ce85e640db10c664f25baa` |
 
 ## Signing-policy verification
 
@@ -107,31 +110,33 @@ only the one native package selected for the current platform.
       all six platforms
 - [x] Real image OCR and non-embedded Chinese-font PDF OCR on all six platforms
 - [x] Candidate manifest, byte counts, SHA-256 values, and npm integrity audited
-- [ ] Immutable candidates published to `next` with
+- [x] Immutable candidates published to `next` with
       `publish_to_registry=true`
-- [ ] Registry reinstall, integrity, and network-disabled runtime verification
-- [ ] Stable Small/runtime/native closure promoted to `latest`
-- [ ] `v0.5.7` GitHub Release created
+- [x] Registry reinstall, integrity, and network-disabled runtime verification
+- [x] Stable Small/runtime/native closure promoted to `latest`
+- [x] `v0.5.7` GitHub Release created
 
-## Publication and rollback sequence
+## Publication result and rollback
 
-1. Run the `npm release` rehearsal only from the `main` SHA that passed final
-   validation. Download `light-ocr-npm-0.5.7` and audit package count,
-   versions, bytes, SHA-256 values, and npm integrity in the manifest.
-2. After merging this record, rerun the same six-platform workflow with
-   `publish_to_registry=true`. It publishes new package identities only to
-   `next`, then reinstalls from the registry and executes offline image/PDF
-   smoke tests.
-3. Only after the publication run succeeds, promote Small `0.5.7`, runtime
-   `0.1.7`, and the six native `0.5.7` packages to `latest` from that run's
-   immutable artifact. Document, Tiny, and Medium are not part of stable
-   promotion and remain on `next`.
-4. If a blocking issue appears after promotion, do not overwrite or delete an
-   immutable version. Use the archived `0.5.6` release artifact from run
-   `30599969242` to restore the stable tags to Small/native `0.5.6` and runtime
-   `0.1.6`.
+1. All 14 jobs in [rehearsal run 30986812237](https://github.com/arcships/light-ocr/actions/runs/30986812237)
+   passed. The 13-package manifest passed source SHA, version, uniqueness,
+   bytes, SHA-256, shasum, and npm integrity audits without writing to the
+   registry.
+2. [Release run 30988312627](https://github.com/arcships/light-ocr/actions/runs/30988312627)
+   repeated the six-platform build and offline smoke suite, published the new
+   package identities to `next`, then reinstalled from the registry and
+   verified integrity, image/PDF OCR, and network-disabled operation.
+3. [Promotion run 30989501173](https://github.com/arcships/light-ocr/actions/runs/30989501173)
+   moved only Small `0.5.7`, runtime `0.1.7`, and the six native `0.5.7`
+   packages to `latest`. Document, Tiny, and Medium remain on `next`.
+4. The [`v0.5.7` GitHub Release](https://github.com/arcships/light-ocr/releases/tag/v0.5.7)
+   targets the formal publication source commit `bff2243`.
 
-## GitHub Release draft
+For rollback, do not overwrite or delete an immutable version. Use the
+archived `0.5.6` release artifact from run `30599969242` to restore the stable
+tags to Small/native `0.5.6` and runtime `0.1.6`.
+
+## GitHub Release
 
 Release name:
 
@@ -168,5 +173,9 @@ Verification:
   <https://github.com/arcships/light-ocr/actions/runs/30986015218>
 - pre-release dry-run:
   <https://github.com/arcships/light-ocr/actions/runs/30986812237>
-- release workflow: pending
-- stable promotion: pending
+- release workflow:
+  <https://github.com/arcships/light-ocr/actions/runs/30988312627>
+- stable promotion:
+  <https://github.com/arcships/light-ocr/actions/runs/30989501173>
+- GitHub Release:
+  <https://github.com/arcships/light-ocr/releases/tag/v0.5.7>
