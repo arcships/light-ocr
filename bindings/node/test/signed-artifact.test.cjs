@@ -7,11 +7,13 @@
 // TeamIdentifier, or both ad-hoc). All other platforms keep the strict
 // bytes+sha256 gate, and unsigned mutations are always rejected.
 //
-// The real Developer ID round-trip (same team as the host) is exercised only
-// when a matching code-signing identity is available in the keychain AND
-// codesign can use it without interactive authorization; everywhere else the
-// test self-skips, so the suite never hangs on a keychain prompt. The release
-// gate re-runs this with the vendor keychain provisioned.
+// The release gate runs this suite once with the default Node host and once
+// with an ad-hoc re-signed Node copy, so both the different-identity rejection
+// and mutual ad-hoc acceptance paths execute on macOS. The real Developer ID
+// round-trip (same team as the host) additionally runs when a matching
+// code-signing identity is available in the keychain and usable without an
+// interactive prompt; otherwise that one case self-skips and remains manual
+// release evidence.
 
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
@@ -192,7 +194,7 @@ test(
   'rejects a malformed digest before considering the signed-mutation fallback',
   { skip: !onDarwin },
   () => {
-    const { directory, runtime, descriptorPath } = stagePackage();
+    const { directory, addon, runtime, descriptorPath } = stagePackage();
     try {
       assert.equal(signAdHoc(runtime), true);
       const descriptor = JSON.parse(fs.readFileSync(descriptorPath, 'utf8'));
@@ -235,11 +237,11 @@ test(
       t.skip('host process is not ad-hoc signed');
       return;
     }
-    const { directory, runtime, descriptorPath } = stagePackage();
+    const { directory, addon, runtime, descriptorPath } = stagePackage();
     try {
       flipByte(runtime, Math.floor(fs.statSync(runtime).size / 2));
       assert.equal(signAdHoc(runtime), true);
-      assert.equal(validateRuntimeDescriptor(descriptorPath).addon, runtime);
+      assert.equal(validateRuntimeDescriptor(descriptorPath).addon, addon);
     } finally {
       fs.rmSync(directory, { recursive: true, force: true });
     }
@@ -282,7 +284,7 @@ test(
       t.skip(`no keychain identity for team ${host.teamIdentifier}`);
       return;
     }
-    const { directory, runtime, descriptorPath } = stagePackage();
+    const { directory, addon, runtime, descriptorPath } = stagePackage();
     try {
       flipByte(runtime, Math.floor(fs.statSync(runtime).size / 2));
       // The keychain may require interactive authorization; give codesign a
@@ -296,7 +298,7 @@ test(
         teamIdentifier: host.teamIdentifier,
         adhoc: false,
       });
-      assert.equal(validateRuntimeDescriptor(descriptorPath).addon, runtime);
+      assert.equal(validateRuntimeDescriptor(descriptorPath).addon, addon);
     } finally {
       fs.rmSync(directory, { recursive: true, force: true });
     }
