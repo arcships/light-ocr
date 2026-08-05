@@ -189,6 +189,24 @@ test(
 );
 
 test(
+  'rejects a malformed digest before considering the signed-mutation fallback',
+  { skip: !onDarwin },
+  () => {
+    const { directory, runtime, descriptorPath } = stagePackage();
+    try {
+      assert.equal(signAdHoc(runtime), true);
+      const descriptor = JSON.parse(fs.readFileSync(descriptorPath, 'utf8'));
+      descriptor.runtime.artifacts[0].bytes = fs.statSync(runtime).size - 1;
+      descriptor.runtime.artifacts[0].sha256 = 'not-a-sha256-digest';
+      fs.writeFileSync(descriptorPath, `${JSON.stringify(descriptor)}\n`);
+      assertPackageLoadFailed(() => validateRuntimeDescriptor(descriptorPath), 'hash');
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
   'rejects a mutated artifact re-signed ad-hoc by a different identity',
   { skip: !onDarwin },
   (t) => {

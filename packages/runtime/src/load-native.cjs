@@ -203,14 +203,14 @@ function verifyArtifact(root, artifact, field) {
   if (!Number.isSafeInteger(artifact.bytes) || artifact.bytes < 1) {
     throw adapterError('package_load_failed', 'Descriptor artifact byte count mismatch', artifact.path);
   }
+  if (!/^[a-f0-9]{64}$/.test(artifact.sha256 || '')) {
+    throw adapterError('package_load_failed', 'Descriptor artifact hash mismatch', artifact.path);
+  }
   if (stats.size !== artifact.bytes) {
     if (!acceptsSignedMacOSMutation(filename)) {
       throw adapterError('package_load_failed', 'Descriptor artifact byte count mismatch', artifact.path);
     }
     return filename;
-  }
-  if (!/^[a-f0-9]{64}$/.test(artifact.sha256 || '')) {
-    throw adapterError('package_load_failed', 'Descriptor artifact hash mismatch', artifact.path);
   }
   if (sha256(filename) !== artifact.sha256) {
     if (!acceptsSignedMacOSMutation(filename)) {
