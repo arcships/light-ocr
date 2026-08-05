@@ -296,6 +296,17 @@ jobs:
         shell: bash
         working-directory: package-smoke
         run: node ../tools/npm/document-smoke.cjs
+      - name: Validate macOS signed-artifact policy with the default host
+        if: runner.os == 'macOS'
+        run: node --test bindings/node/test/signed-artifact.test.cjs
+      - name: Validate macOS signed-artifact policy with an ad-hoc host
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          adhoc_node="$RUNNER_TEMP/light-ocr-adhoc-node"
+          cp "$(command -v node)" "$adhoc_node"
+          codesign --force --sign - "$adhoc_node"
+          "$adhoc_node" --test bindings/node/test/signed-artifact.test.cjs
       - name: Install and smoke preview tiers
         if: matrix.preview
         shell: bash

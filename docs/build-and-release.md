@@ -1,6 +1,6 @@
 # light-ocr Core 构建与发布
 
-状态：已实现；Core Tier 1 与 npm `0.2.0` 发布证据已产生
+状态：已实现；当前 npm 版本与发布证据见实施状态和 `docs/releases/`
 范围：C++ Core 的依赖锁、构建、测试、验证报告和发布候选制品  
 需求：[requirements.md](requirements.md)  
 当前状态：[implementation-status.md](implementation-status.md)
@@ -223,20 +223,18 @@ PR、main 与 release 使用分层门禁，避免同一提交在三个阶段重�
 
 `.github/workflows/npm-release.yml` 是仅允许从 `main` 手动触发的发布候选与发布流程。默认 `publish_to_registry=false`，所以第一次运行不会读取 `NPM_TOKEN` 或改动 npm registry：
 
-- 0.3.0 候选先在 Linux/Python 3.11 的哈希锁工具链中重现并校验内部 WebGPU FP16 派生工件，再在 macOS/Python 3.12 中派生固定 Core ML FP16 package hashes，最后把合并的 native superset bundle 交给 Linux assemble；WebGPU 公共执行 profile 只发布 FP32，用户安装、postinstall 和首次运行都不会执行转换或联网。
-- 六个平台分别原生构建 Node-API addon，并保存许可证与 SPDX SBOM。
-- 汇聚为一个 facade、一个 model 和六个 native packages，执行两次 `npm pack` 并要求 tarball SHA-256 完全一致。
-- 在 macOS arm64/x64、Linux x64 glibc、Linux arm64 glibc、Windows x64、Windows arm64 上使用 Node.js 22 从本地 tarballs 执行 `--ignore-scripts` 安装、CLI 和 CJS/ESM bounded OCR；Node.js 24 的 N-API/loader 兼容性只在 Linux x64 额外验证一次，tiled contract 也只在 Linux x64/Node 22 验证一次。平台无关的 TypeScript declarations 从临时 registry 安装后的 facade 统一编译一次。
-- hash-locked Python oracle 只在实际执行完整 acceptance/oracle 的 Linux x64 release job 安装；其他五个平台不注册或安装不会运行的 live-oracle tests。
-- 八个 tarball 先发布到一次性 Verdaccio registry，只安装 facade 后停止 registry，再执行 CLI 与真实 bounded OCR，证明依赖解析正确且没有运行时下载依赖；tiled contract 已由 exact tarball 矩阵的 Linux x64/Node 22 job 单独覆盖。
-- workflow 在进入六平台构建前先查询 facade 版本；若该版本已经发布，立即失败并要求使用独立 promotion workflow，禁止为改 dist-tag 重建或重发不可变版本。只有 facade 尚未发布时才进入后续昂贵 jobs；依赖包已部分发布、facade 尚未发布的中断场景仍可用同一源码重建并由完整性检查安全续传。
-- 只有以上功能/制品 gates、需要时已经单独完成的受审 baseline，以及 `publish_to_registry=true` 同时满足时，`npm-release` GitHub environment 才能读取 `NPM_TOKEN`；先发布七个依赖到 `next`，确认 facade tarball 能从真实 registry 解析这些依赖后再发布主包，最终保留一次真实 registry 安装后的禁网 OCR。相同 bounded OCR 不在 facade 发布前后重复执行。`latest` 晋升始终由独立 promotion workflow 使用原 release artifact 完成。
+- macOS arm64/x64、Linux x64/arm64 glibc 与 Windows x64/arm64 六个平台分别从锁定输入构建 Node-API addon、ONNX Runtime payload、PDFium addon、许可证清单与 SPDX SBOM。Linux x64 与 Windows x64 使用 production-qualified WebGPU runtime，其余平台使用 CPU runtime。
+- assemble 阶段生成六个 native 包、model-free runtime、Small/Tiny/Medium 三个 facade、Document compatibility facade，以及 Tiny/Medium 两个锁定 model 包，共 13 个 manifest 记录；已发布的 Small model `0.3.4` 另外取得 tarball 参与离线安装验证。
+- 六个平台均使用 Node.js 22 从本地 tarball 执行 `--ignore-scripts --offline` 安装、真实 Small 图片 OCR 与内置 PDF OCR；Linux x64 额外验证 Tiny/Medium preview。macOS 两个平台还以默认 Node 宿主和 ad-hoc 重签的 Node 宿主各运行一次 signed-artifact policy，覆盖不同身份拒绝与双方 ad-hoc 接受。
+- workflow 在进入六平台构建前查询 11 个新版本身份；任何目标版本已存在即失败，要求使用原始 release artifact 做 promotion，禁止重建或覆盖 npm 的不可变版本。Tiny/Medium model `0.1.0` 已存在时仅在 registry integrity 与候选完全一致时复用。
+- `publish_to_registry=true` 时，专用 `npm-release` environment 才读取 `NPM_TOKEN`：先把 native、runtime 与可复用 preview model 阶段发布到 `next`，确认 Small facade tarball 能从真实 registry 解析依赖后，再发布 Small/Tiny/Medium/Document 四个 facade；最后从 registry 回装稳定包并在禁网环境运行图片和 PDF OCR。
+- `latest` 晋升始终由独立 promotion workflow 使用原 release run 保存的 `light-ocr-npm-<version>` artifact 完成，不重新构建或发布 tarball。Tiny、Medium 与 Document 保持在 `next`。
 
-`0.3.0` 发布前 dry-run 的触发命令为：
+任一版本发布前 dry-run 的触发命令为：
 
 ```bash
-gh workflow run "npm release" --ref main \
-  -f version=0.3.0 \
+gh workflow run npm-release.yml --ref main \
+  -f version=<version> \
   -f publish_to_registry=false
 ```
 
@@ -250,7 +248,7 @@ benchmark 结果是独立资格审查证据，不是每次发布的重复步骤�
 
 ```bash
 gh workflow run npm-promote.yml --ref main \
-  -f version=0.3.0 \
+  -f version=<version> \
   -f release_run_id=<successful-release-run-id> \
   -f tag=latest
 ```
@@ -289,7 +287,7 @@ bytes: 31334400
 sha256: 74e246bf075c141da51e58515c731298fdabee9fd5bd8feb7cf6c7f4f352de17
 ```
 
-npm release 按 [npm-packaging.md](npm-packaging.md) 生成一个 facade、一个 model 和六个 native staging packages。model package 保存上述归档的精确解包内容；发布候选另外记录八个 npm tarballs 的 bytes、SHA-256、npm integrity 和 registry identity，不能把 Core USTAR hash 当作 npm tarball hash。
+npm release 按 [npm-packaging.md](npm-packaging.md) 生成 13 个受 manifest 管理的 staging packages：六个 native、一个 runtime、Tiny/Medium 两个 model、Small/Tiny/Medium 三个 facade 与一个 Document compatibility facade。已发布的 Small model tarball 另外取得并参与完整闭包安装。`release-manifest.json` 逐包记录 bytes、unpacked bytes、SHA-256、npm shasum、integrity 与 registry identity；不能把 Core USTAR hash 当作 npm tarball hash。
 
 ## 10. 发布候选门槛
 
@@ -298,7 +296,7 @@ npm release 按 [npm-packaging.md](npm-packaging.md) 生成一个 facade、一�
 3. 保存 parity、quality、benchmark、leak、Sanitizer、fuzz 和 offline 报告。
 4. 将精确 bundle 文件打入 `@arcships/light-ocr-model-ppocrv6-small`，验证 sterile install，并记录 npm tarball SHA-256/integrity。独立 USTAR mirror 是非 npm 分发项，不阻塞 npm package release。
 5. 为每个平台生成 manifest、许可证清单和 SBOM。
-6. 在隔离环境验证八个 npm tarballs、platform 选择、默认 `createEngine()` 和模型 payload hash；已安装后的运行测试必须禁网。
+6. 在隔离环境验证 13 个 manifest packages、Small model tarball、platform 选择、默认 `createEngine()` 和模型 payload hash；已安装后的运行测试必须禁网。
 7. 对照 [implementation-status.md](implementation-status.md) 关闭所有 Pending 项。
 
-registry 发布由受保护的 `npm-release` environment 执行；workflow 成功记录、registry metadata 与安装复验才构成完成证据。签名、公证、非 npm 公共下载地址和长期保留策略仍是独立的外部事项。
+registry 发布由专用 `npm-release` environment 执行；workflow 成功记录、registry metadata 与安装复验才构成完成证据。仓库可按维护策略为该 environment 增加 required reviewer。签名、公证、非 npm 公共下载地址和长期保留策略仍是独立的外部事项。
