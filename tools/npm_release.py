@@ -61,12 +61,12 @@ FACADE_PACKAGES = {
     },
     "tiny": {
         "name": "@arcships/light-ocr-tiny",
-        "version": "0.1.5",
+        "version": "0.1.6",
         "workspace": "light-ocr-tiny",
     },
     "medium": {
         "name": "@arcships/light-ocr-medium",
-        "version": "0.1.5",
+        "version": "0.1.6",
         "workspace": "light-ocr-medium",
     },
 }

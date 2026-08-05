@@ -1,6 +1,6 @@
 {
   "name": "@arcships/light-ocr-runtime",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": true,
   "description": "Model-free Node.js runtime for light-ocr",
   "license": "Apache-2.0",
@@ -28,12 +28,12 @@
     "node": "^22.0.0 || ^24.0.0"
   },
   "optionalDependencies": {
-    "@arcships/light-ocr-darwin-arm64": "0.5.6",
-    "@arcships/light-ocr-darwin-x64": "0.5.6",
-    "@arcships/light-ocr-linux-arm64-gnu": "0.5.6",
-    "@arcships/light-ocr-linux-x64-gnu": "0.5.6",
-    "@arcships/light-ocr-win32-arm64": "0.5.6",
-    "@arcships/light-ocr-win32-x64": "0.5.6"
+    "@arcships/light-ocr-darwin-arm64": "0.5.7",
+    "@arcships/light-ocr-darwin-x64": "0.5.7",
+    "@arcships/light-ocr-linux-arm64-gnu": "0.5.7",
+    "@arcships/light-ocr-linux-x64-gnu": "0.5.7",
+    "@arcships/light-ocr-win32-arm64": "0.5.7",
+    "@arcships/light-ocr-win32-x64": "0.5.7"
   },
   "scripts": {
     "test": "node --test test/*.test.cjs"

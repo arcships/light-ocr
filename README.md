@@ -152,6 +152,8 @@ for await (const page of recognizeDocument([buf1, buf2, buf3])) {
 - **Application-friendly execution.** Recognition runs off the JavaScript main thread and supports queues, cancellation, and explicit cleanup.
 - **Small text in large images.** An optional `tiled` mode preserves small and dense text in high-resolution images.
 
+> **macOS re-signing.** Downstream macOS packagers may re-sign the native binaries with their own Developer ID (or ad-hoc) identity, for example when notarizing a distributed app. On macOS the loader accepts a re-signed Mach-O when its code signature verifies and its signing identity matches the host application (same TeamIdentifier, or both ad-hoc signed); other platforms and unsigned mutations keep the strict size + SHA-256 gate.
+
 > ⭐ **Like light-ocr?** Give it a star — it helps others discover the project and keeps us motivated!
 
 ## Platform acceleration

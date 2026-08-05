@@ -269,6 +269,13 @@ Expected failures reject with `OcrError` and a stable `code`, including
 `invalid_argument`, `invalid_image`, `resource_limit_exceeded`,
 `package_load_failed`, and `inference_failed`.
 
+macOS packagers may re-sign the native binaries with their own Developer ID
+(or ad-hoc) identity, for example while notarizing a distributed app. The
+loader accepts a re-signed Mach-O on macOS when its code signature verifies
+and its signing identity matches the host application (same TeamIdentifier,
+or both ad-hoc signed); other platforms and unsigned mutations keep the
+strict size + SHA-256 gate and keep failing with `package_load_failed`.
+
 For environment reports:
 
 ```bash

@@ -1,6 +1,6 @@
 {
   "name": "@arcships/light-ocr",
-  "version": "0.5.6",
+  "version": "0.5.7",
   "private": true,
   "description": "Offline image and PDF OCR for Node.js — the stable PP-OCRv6 Small tier",
   "license": "Apache-2.0",
@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "@arcships/light-ocr-model-ppocrv6-small": "0.3.4",
-    "@arcships/light-ocr-runtime": "0.1.6"
+    "@arcships/light-ocr-runtime": "0.1.7"
   },
   "scripts": {
     "test": "node --test test/*.test.cjs"
