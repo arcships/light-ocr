@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
 更新时间：2026-08-05<br>
-结论：npm `0.5.7` 已完成代码合并与发布前验证，尚未写入 registry。该补丁允许下游 macOS 打包器重新签名 `light_ocr_node.node` 与 ONNX Runtime dylib：descriptor 的 bytes/SHA-256 仍是首要门，仅当它因重签名变化时，才接受通过严格 `codesign` 验证且与宿主 TeamIdentifier 相同、或宿主与制品均为 ad-hoc 的 Mach-O。异签名、未签名篡改、非 Mach-O 与非 macOS 平台继续 fail closed。最终 `main` 的 [Core 30986015180](https://github.com/arcships/light-ocr/actions/runs/30986015180) 与 [Native WebGPU 30986015218](https://github.com/arcships/light-ocr/actions/runs/30986015218) 全绿，[六平台演练 30986812237](https://github.com/arcships/light-ocr/actions/runs/30986812237) 已完成构建、离线安装、图片/PDF OCR、签名策略与 manifest 审计。完整版本闭包见 [npm 0.5.7 发布记录](releases/npm-0.5.7.md)（[English](releases/npm-0.5.7.en.md)）。
+结论：npm `0.5.7` 已发布并晋升 `latest`。该补丁允许下游 macOS 打包器重新签名 `light_ocr_node.node` 与 ONNX Runtime dylib：descriptor 的 bytes/SHA-256 仍是首要门，仅当它因重签名变化时，才接受通过严格 `codesign` 验证且与宿主 TeamIdentifier 相同、或宿主与制品均为 ad-hoc 的 Mach-O。异签名、未签名篡改、非 Mach-O 与非 macOS 平台继续 fail closed。最终 `main` 的 [Core 30986015180](https://github.com/arcships/light-ocr/actions/runs/30986015180) 与 [Native WebGPU 30986015218](https://github.com/arcships/light-ocr/actions/runs/30986015218) 全绿；[发布 run 30988312627](https://github.com/arcships/light-ocr/actions/runs/30988312627) 完成六平台构建、离线 smoke、registry 发布与回装，[晋升 run 30989501173](https://github.com/arcships/light-ocr/actions/runs/30989501173) 只提升稳定闭包。完整证据见 [npm 0.5.7 发布记录](releases/npm-0.5.7.md)（[English](releases/npm-0.5.7.en.md)）与 [`v0.5.7` GitHub Release](https://github.com/arcships/light-ocr/releases/tag/v0.5.7)。
 
 状态含义：
 
@@ -27,7 +27,7 @@
 
 ## macOS 下游重签名兼容（0.5.7）
 
-状态：发布前验证完成 / registry 发布待执行
+状态：已发布至 npm registry / 稳定闭包已晋升 `latest`
 
 - runtime descriptor 的 bytes 与 SHA-256 精确匹配仍是正常加载路径；只有
   macOS 上已知的签名重写导致描述符不一致时才进入等价签名证明。
@@ -42,8 +42,9 @@
 - 该兼容无需环境变量、postinstall、keychain 或额外依赖；ad-hoc 签名可由
   任何人复现，因此其接受范围明确限制为同样 ad-hoc 的 macOS 宿主。
 - [六平台发布演练 30986812237](https://github.com/arcships/light-ocr/actions/runs/30986812237)
-  的 14 个 jobs 全绿；13 包 manifest 绑定 `main` SHA `1a26d53`，11 个新
-  package identity 再次确认未发布，可进入 `next` 发布。
+  的 14 个 jobs 全绿；[正式发布 30988312627](https://github.com/arcships/light-ocr/actions/runs/30988312627)
+  重复全部门并完成 registry 回装验证，[晋升 30989501173](https://github.com/arcships/light-ocr/actions/runs/30989501173)
+  已将 Small/runtime/六平台 native 稳定闭包提升为默认安装。
 
 ## PDF fallback 字体修复（0.5.6 已发布）
 
@@ -128,10 +129,10 @@
 
 ## 发布结论与后续范围
 
-`0.5.6` 的稳定 Small/runtime/六平台 native 闭包已发布并晋升
+`0.5.7` 的稳定 Small/runtime/六平台 native 闭包已发布并晋升
 `latest`；Document compatibility facade 与 Tiny/Medium preview facade
-保持在 `next`。完整发布、回装、禁网 PDF 验证与 dist-tag 证据见
-[npm 0.5.6 发布记录](releases/npm-0.5.6.md)。
+保持在 `next`。完整发布、回装、禁网图片/PDF 验证、dist-tag 与 GitHub
+Release 证据见 [npm 0.5.7 发布记录](releases/npm-0.5.7.md)。
 
 `0.3.0` 的四平台 Core、Node.js 22/24 prebuild、六包制品、public registry、provenance、默认 Auto、显式 Apple/WebGPU、tiled 和禁网运行证据已经完成，详见 [npm 0.3.0 发布记录](releases/npm-0.3.0.md)。
 

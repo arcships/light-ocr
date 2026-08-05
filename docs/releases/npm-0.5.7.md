@@ -2,9 +2,9 @@
 
 [English version](npm-0.5.7.en.md)
 
-状态：发布前验证已完成。候选版本尚未写入 npm registry；当前稳定
-Small/runtime/native 闭包仍为 `0.5.6`。六平台演练与 manifest 审计全绿，
-可进入正式发布。
+状态：已于 2026-08-05 发布。稳定 Small/runtime/native 闭包同时位于
+`latest` 与 `next`；Document compatibility facade 和 Tiny/Medium preview
+facade 保持在 `next`。
 
 发布身份：
 
@@ -19,9 +19,12 @@ Small/runtime/native 闭包仍为 `0.5.6`。六平台演练与 manifest 审计�
 - 六平台发布演练：
   [30986812237](https://github.com/arcships/light-ocr/actions/runs/30986812237)
   （`publish_to_registry=false`）
-- registry 发布与回装验证：待执行
-- 稳定 dist-tag 晋升：待执行
-- GitHub Release：待创建
+- registry 发布与回装验证：
+  [30988312627](https://github.com/arcships/light-ocr/actions/runs/30988312627)
+- 稳定 dist-tag 晋升：
+  [30989501173](https://github.com/arcships/light-ocr/actions/runs/30989501173)
+- GitHub Release：
+  [`v0.5.7`](https://github.com/arcships/light-ocr/releases/tag/v0.5.7)
 
 ## 用户可见变化
 
@@ -41,34 +44,35 @@ Small/runtime/native 闭包仍为 `0.5.6`。六平台演练与 manifest 审计�
 - 没有 public API 或 schema 破坏；图片、PDF、多页图片、CLI 与 provider
   行为保持不变。
 
-## 待发布版本闭包
+## 已发布版本闭包
 
-| 成熟度 | 包 | 候选版本 | 目标标签 |
+| 成熟度 | 包 | 已发布版本 | 最终标签 |
 | --- | --- | ---: | --- |
-| stable | `@arcships/light-ocr` | `0.5.7` | `next`，验证后晋升 `latest` |
-| stable | `@arcships/light-ocr-runtime` | `0.1.7` | `next`，验证后晋升 `latest` |
-| stable | 六个平台 native | `0.5.7` | `next`，验证后晋升 `latest` |
+| stable | `@arcships/light-ocr` | `0.5.7` | `latest`、`next` |
+| stable | `@arcships/light-ocr-runtime` | `0.1.7` | `latest`、`next` |
+| stable | 六个平台 native | `0.5.7` | `latest`、`next` |
 | compatibility | `@arcships/light-ocr-document` | `0.1.3` | `next` |
 | preview | `@arcships/light-ocr-tiny` | `0.1.6` | `next` |
 | preview | `@arcships/light-ocr-medium` | `0.1.6` | `next` |
 
-模型包不重发新版本：Small 继续使用 `0.3.4`，Tiny/Medium 继续使用
-`0.1.0`。发布流水线重建或取得这些不可变模型 tarball 用于完整离线安装
-验证，并只在 registry 中同版本 integrity 完全一致时复用。
+模型包没有重发新版本：Small 继续使用 `0.3.4`，Tiny/Medium 继续使用
+`0.1.0`。发布流水线重建或取得这些不可变模型 tarball 完成完整离线安装
+验证，并在确认 registry 同版本 integrity 完全一致后复用。
 
-## 六平台 native 候选制品
+## 六平台 native 制品
 
-下表来自发布演练的 `release-manifest.json`。增量以已发布 `0.5.6`
-tarball 为基线；用户只安装当前平台对应的一个 native 包。
+下表来自正式发布 run 的 `release-manifest.json`，且 npm registry integrity
+已逐包核对一致。增量以已发布 `0.5.6` tarball 为基线；用户只安装当前
+平台对应的一个 native 包。
 
 | 平台包 | 压缩 bytes | 相对 0.5.6 | 解包 bytes | SHA-256 |
 | --- | ---: | ---: | ---: | --- |
-| `darwin-arm64` | 22,889,540 | -2 | 56,356,978 | `55f5539456e8da241d8101c7ca5f015b9ab130d77758b5a99552f3b5467c9554` |
-| `darwin-x64` | 24,853,682 | +1 | 62,109,821 | `18975175b52da136d00e740f3a55ba4aab582732a80390b6c21f5b7053f0e51e` |
-| `linux-arm64-gnu` | 20,453,508 | +23 | 40,261,084 | `ffb45dbff2f585010dade1978465b7e5b521c4da01db4dbc955cb20b27d889b7` |
-| `linux-x64-gnu` | 27,033,573 | -18 | 59,390,897 | `a3bb20608d785a054b34c90a579f695a72648dae5db91e321167648b97c2e2c4` |
-| `win32-arm64` | 16,661,617 | -2,136 | 30,977,284 | `7bbb501cfef7909ec319218c57fd5ed732aa619260ddbf5c39649c7005e3dc3c` |
-| `win32-x64` | 30,386,121 | -1,022 | 63,065,652 | `84804a4fa8db6657361d59a2645c6140b00e48de2063a5dab182156ee4fb2d0e` |
+| `darwin-arm64` | 22,889,533 | -9 | 56,356,978 | `d8d0b30f1c30c989d8392d438be3b3e06c0b0f3c86a19bb125dfa6732857dad6` |
+| `darwin-x64` | 24,853,690 | +9 | 62,109,821 | `4b69cbe6aebf44dd052f37fd7173b386b446ebff040e003278d08a9a6d9a77d6` |
+| `linux-arm64-gnu` | 20,453,503 | +18 | 40,261,084 | `81d2f306c247aa21ef18ff881e33df419de8b27c71adf7acf46c50838dd29d7f` |
+| `linux-x64-gnu` | 27,033,585 | -6 | 59,390,897 | `6f83bdfbce7500e56bb0c31001a55143e9874257dafe679dcaad406980b72750` |
+| `win32-arm64` | 16,661,640 | -2,113 | 30,977,284 | `8c702941470a549ffda07cf0ba9e224824c39d5debf6046446018520c1602f01` |
+| `win32-x64` | 30,386,117 | -1,026 | 63,065,652 | `aa2d792a2e476073b39c9d3fc8cdf225695c06b534ce85e640db10c664f25baa` |
 
 ## 签名策略验证
 
@@ -96,27 +100,30 @@ tarball 为基线；用户只安装当前平台对应的一个 native 包。
 - [x] 六个平台离线、禁用安装脚本安装完整闭包
 - [x] 六个平台真实图片 OCR 与非嵌入中文字体 PDF OCR
 - [x] 候选 tarball manifest、bytes、SHA-256 与 npm integrity 审计
-- [ ] 以 `publish_to_registry=true` 发布不可变候选到 `next`
-- [ ] 从 npm registry 回装并核对 integrity 与禁网运行
-- [ ] 将 stable Small/runtime/native 闭包晋升到 `latest`
-- [ ] 创建 `v0.5.7` GitHub Release
+- [x] 以 `publish_to_registry=true` 发布不可变候选到 `next`
+- [x] 从 npm registry 回装并核对 integrity 与禁网运行
+- [x] 将 stable Small/runtime/native 闭包晋升到 `latest`
+- [x] 创建 `v0.5.7` GitHub Release
 
-## 发布与回滚顺序
+## 实际发布结果与回滚
 
-1. 只从通过主干验证的 `main` 运行 `npm release` dry-run；下载
-   `light-ocr-npm-0.5.7`，审计 manifest、包数、版本、bytes、SHA-256 与
-   npm integrity。
-2. 合并本记录后，以 `publish_to_registry=true` 重跑同一六平台流程。
-   新 package identity 只发布到 `next`，随后从 registry 回装并执行离线
-   图片/PDF smoke。
-3. 仅在发布 run 全绿后，使用该 run 的不可变 artifact 将 Small
-   `0.5.7`、runtime `0.1.7` 与六个 native `0.5.7` 晋升到 `latest`。
-   Document、Tiny 与 Medium 不属于 stable promotion，继续保持 `next`。
-4. 如晋升后发现阻断问题，不覆盖或删除已发布版本；使用已归档的
-   `0.5.6` 发布 artifact（run `30599969242`）将 stable 标签回退到
-   Small/native `0.5.6` 与 runtime `0.1.6`。
+1. [演练 run 30986812237](https://github.com/arcships/light-ocr/actions/runs/30986812237)
+   的 14 个 jobs 全绿；13 包 manifest 的来源 SHA、版本、唯一性、bytes、
+   SHA-256、shasum 与 npm integrity 审计通过，且没有写入 registry。
+2. [发布 run 30988312627](https://github.com/arcships/light-ocr/actions/runs/30988312627)
+   重复六平台构建与离线 smoke，将新 package identity 发布到 `next`，
+   再从 registry 回装并验证 integrity、图片/PDF OCR 与禁网运行。
+3. [晋升 run 30989501173](https://github.com/arcships/light-ocr/actions/runs/30989501173)
+   只把 Small `0.5.7`、runtime `0.1.7` 与六个 native `0.5.7` 晋升到
+   `latest`。Document、Tiny 与 Medium 继续保持 `next`。
+4. [`v0.5.7` GitHub Release](https://github.com/arcships/light-ocr/releases/tag/v0.5.7)
+   绑定正式发布来源提交 `bff2243`，记录公开发布。
 
-## GitHub Release 草案
+如需回滚，不覆盖或删除已发布版本；使用已归档的 `0.5.6` 发布 artifact
+（run `30599969242`）将 stable 标签恢复到 Small/native `0.5.6` 与 runtime
+`0.1.6`。
+
+## GitHub Release
 
 Release name：
 
@@ -153,5 +160,9 @@ Verification：
   <https://github.com/arcships/light-ocr/actions/runs/30986015218>
 - pre-release dry-run:
   <https://github.com/arcships/light-ocr/actions/runs/30986812237>
-- release workflow: pending
-- stable promotion: pending
+- release workflow:
+  <https://github.com/arcships/light-ocr/actions/runs/30988312627>
+- stable promotion:
+  <https://github.com/arcships/light-ocr/actions/runs/30989501173>
+- GitHub Release:
+  <https://github.com/arcships/light-ocr/releases/tag/v0.5.7>
