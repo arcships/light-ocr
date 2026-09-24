@@ -2,9 +2,9 @@
 
 [English version](npm-0.5.8.en.md)
 
-状态：发布准备中。版本闭包已同步到 `main`；八平台发布演练进行中
-（[run 36000485825](https://github.com/arcships/light-ocr/actions/runs/36000485825)，
-`publish_to_registry=false`）。
+状态：已于 2026-09-24 发布。稳定 Small/runtime/native 闭包同时位于
+`latest` 与 `next`；Document compatibility facade 和 Tiny/Medium preview
+facade 保持在 `next`。
 
 发布身份：
 
@@ -16,10 +16,12 @@
 - 版本同步提交：
   [`947ee35`](https://github.com/arcships/light-ocr/commit/947ee3518b521a1cf76ba5169ebf4e8ef2e1ee9d0)
 - 八平台发布演练：
-  [36000485825](https://github.com/arcships/light-ocr/actions/runs/36000485825)
+  [36012260612](https://github.com/arcships/light-ocr/actions/runs/36012260612)
   （`publish_to_registry=false`）
-- registry 发布与回装验证：发布后回填
-- 稳定 dist-tag 晋升：发布后回填
+- registry 发布与回装验证：
+  [36013862673](https://github.com/arcships/light-ocr/actions/runs/36013862673)
+- 稳定 dist-tag 晋升：
+  [36018294655](https://github.com/arcships/light-ocr/actions/runs/36018294655)
 - GitHub Release：[`v0.5.8`](https://github.com/arcships/light-ocr/releases/tag/v0.5.8)
 
 ## 用户可见变化
@@ -78,7 +80,16 @@ integrity 已逐包核对一致。用户只安装当前平台对应的一个 nat
 
 | 平台包 | 压缩 bytes | 解包 bytes | SHA-256 |
 | --- | ---: | ---: | --- |
-| PENDING-manifest-table | | | |
+| 平台包 | 压缩 bytes | 解包 bytes | SHA-256 |
+| --- | ---: | ---: | --- |
+| `darwin-arm64` | 22,889,689 | 56,358,450 | `b073519dd23d3898f47272e79caa6e795c1e8b4210776daf7f52ca78d2283d69` |
+| `darwin-x64` | 24,854,005 | 62,111,293 | `77258f6e33cdd8060fa930b35b647dd277ca1a6f928c1fa93f9ae6447508eb43` |
+| `linux-arm64-gnu` | 20,453,594 | 40,262,556 | `b1e640f2f22908075e1c639957b7217d5fb983f4770c62f25a4a9fb0b3a61773` |
+| `linux-x64-gnu` | 27,033,567 | 59,390,887 | `925d2a2a8097ed2266ab24b285fb2e9dafc17e8912a70d416b39cfb4a0991e26` |
+| `linux-arm64-musl` | 22,839,920 | 49,120,781 | `a46665a54fdeebbdbc03bff372873050ccf58a156c84a4e8aa73ab836b4458eb` |
+| `linux-x64-musl` | 24,712,425 | 56,327,142 | `6bb8bef38acaf8095b3f1b42f1d8c5394ae086ecb0525ed8b54399ca7e3177fd` |
+| `win32-arm64` | 16,669,552 | 31,027,950 | `9a317d2e93fded0def42e0a42e24a7d277e845f062bef5430e4b6bc9b1c9cda9` |
+| `win32-x64` | 30,386,113 | 63,065,642 | `0faf1a65b4dd4a7ff965fd99c3c80b619ab93ae63a3154f4bafae7c2856800b5` |
 
 ## 发布门
 
@@ -92,14 +103,30 @@ integrity 已逐包核对一致。用户只安装当前平台对应的一个 nat
 - [x] glibc 六平台真实图片 OCR 与非嵌入中文字体 PDF OCR
 - [x] musl 两平台在 Alpine 容器真实图片 OCR 与内置 PDF OCR
 - [x] 候选 tarball manifest、bytes、SHA-256 与 npm integrity 审计
-- [ ] 以 `publish_to_registry=true` 发布不可变候选到 `next`
-- [ ] 从 npm registry 回装并核对 integrity 与禁网运行
-- [ ] 将 stable Small/runtime/native 闭包晋升到 `latest`
-- [ ] 创建 `v0.5.8` GitHub Release
+- [x] 以 `publish_to_registry=true` 发布不可变候选到 `next`
+- [x] 从 npm registry 回装并核对 integrity 与禁网运行
+- [x] 将 stable Small/runtime/native 闭包晋升到 `latest`
+- [x] 创建 `v0.5.8` GitHub Release
 
 ## 实际发布结果
 
-发布后回填：发布 run、晋升 run 与回滚路径。
+1. [演练 run 36012260612](https://github.com/arcships/light-ocr/actions/runs/36012260612)
+   的全部 job 全绿；15 包 manifest 审计通过且没有写入 registry。
+2. [发布 run 36013862673](https://github.com/arcships/light-ocr/actions/runs/36013862673)
+   重复八平台构建与离线 smoke，将新 package identity 发布到 `next`，再从
+   registry 回装并验证 integrity、图片/PDF OCR 与禁网运行。首次 publish
+   job 因 npm registry 对部分包的 integrity 传播超过 600 秒超时；重跑该
+   单个 job 后按幂等语义跳过已发布包并完成剩余发布，最终全绿。
+3. [晋升 run 36018294655](https://github.com/arcships/light-ocr/actions/runs/36018294655)
+   只把 Small `0.5.8`、runtime `0.1.8` 与八个 native `0.5.8` 晋升到
+   `latest`。Document、Tiny 与 Medium 继续保持 `next`（musl 首版由 npm
+   规则自动带 `latest`，与 `next` 一致）。
+4. [`v0.5.8` GitHub Release](https://github.com/arcships/light-ocr/releases/tag/v0.5.8)
+   绑定正式发布来源提交，记录公开发布。
+
+如需回滚，不覆盖或删除已发布版本；使用已归档的 `0.5.7` 发布 artifact
+（run `30988312627`）将 stable 标签恢复到 Small/native `0.5.7` 与 runtime
+`0.1.7`。
 
 ## GitHub Release
 

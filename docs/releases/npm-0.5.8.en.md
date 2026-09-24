@@ -2,10 +2,9 @@
 
 [中文版](npm-0.5.8.md)
 
-Status: release preparation in progress. The version closure is synced on
-`main`; the eight-platform release rehearsal is running
-([run 36000485825](https://github.com/arcships/light-ocr/actions/runs/36000485825),
-`publish_to_registry=false`).
+Status: published on 2026-09-24. The stable Small/runtime/native closure is on
+both `latest` and `next`; the Document compatibility facade and Tiny/Medium
+preview facades remain on `next`.
 
 Release identity:
 
@@ -17,10 +16,12 @@ Release identity:
 - Version sync commit:
   [`947ee35`](https://github.com/arcships/light-ocr/commit/947ee3518b521a1cf76ba5169ebf4e8ef2e1ee9d0)
 - Eight-platform release rehearsal:
-  [36000485825](https://github.com/arcships/light-ocr/actions/runs/36000485825)
+  [36012260612](https://github.com/arcships/light-ocr/actions/runs/36012260612)
   (`publish_to_registry=false`)
-- Registry publication and reinstall verification: filled after publishing
-- Stable dist-tag promotion: filled after publishing
+- Registry publication and reinstall verification:
+  [36013862673](https://github.com/arcships/light-ocr/actions/runs/36013862673)
+- Stable dist-tag promotion:
+  [36018294655](https://github.com/arcships/light-ocr/actions/runs/36018294655)
 - GitHub Release: [`v0.5.8`](https://github.com/arcships/light-ocr/releases/tag/v0.5.8)
 
 ## User-visible changes
@@ -89,7 +90,16 @@ only the one native package matching their platform.
 
 | Platform package | Packed bytes | Unpacked bytes | SHA-256 |
 | --- | ---: | ---: | --- |
-| PENDING-manifest-table | | | |
+| Platform package | Packed bytes | Unpacked bytes | SHA-256 |
+| --- | ---: | ---: | --- |
+| `darwin-arm64` | 22,889,689 | 56,358,450 | `b073519dd23d3898f47272e79caa6e795c1e8b4210776daf7f52ca78d2283d69` |
+| `darwin-x64` | 24,854,005 | 62,111,293 | `77258f6e33cdd8060fa930b35b647dd277ca1a6f928c1fa93f9ae6447508eb43` |
+| `linux-arm64-gnu` | 20,453,594 | 40,262,556 | `b1e640f2f22908075e1c639957b7217d5fb983f4770c62f25a4a9fb0b3a61773` |
+| `linux-x64-gnu` | 27,033,567 | 59,390,887 | `925d2a2a8097ed2266ab24b285fb2e9dafc17e8912a70d416b39cfb4a0991e26` |
+| `linux-arm64-musl` | 22,839,920 | 49,120,781 | `a46665a54fdeebbdbc03bff372873050ccf58a156c84a4e8aa73ab836b4458eb` |
+| `linux-x64-musl` | 24,712,425 | 56,327,142 | `6bb8bef38acaf8095b3f1b42f1d8c5394ae086ecb0525ed8b54399ca7e3177fd` |
+| `win32-arm64` | 16,669,552 | 31,027,950 | `9a317d2e93fded0def42e0a42e24a7d277e845f062bef5430e4b6bc9b1c9cda9` |
+| `win32-x64` | 30,386,113 | 63,065,642 | `0faf1a65b4dd4a7ff965fd99c3c80b619ab93ae63a3154f4bafae7c2856800b5` |
 
 ## Release gates
 
@@ -105,14 +115,35 @@ only the one native package matching their platform.
 - [x] Real image OCR and non-embedded CJK font PDF OCR on six glibc platforms
 - [x] Real image OCR and built-in PDF OCR on both musl platforms in Alpine
 - [x] Candidate tarball manifest, bytes, SHA-256, and npm integrity audit
-- [ ] Publish immutable candidates to `next` with `publish_to_registry=true`
-- [ ] Reinstall from the npm registry, verify integrity and offline operation
-- [ ] Promote the stable Small/runtime/native closure to `latest`
-- [ ] Create the `v0.5.8` GitHub Release
+- [x] Publish immutable candidates to `next` with `publish_to_registry=true`
+- [x] Reinstall from the npm registry, verify integrity and offline operation
+- [x] Promote the stable Small/runtime/native closure to `latest`
+- [x] Create the `v0.5.8` GitHub Release
 
 ## Actual release results
 
-Filled after publishing: publication run, promotion run, and rollback path.
+1. The [rehearsal run 36012260612](https://github.com/arcships/light-ocr/actions/runs/36012260612)
+   finished green across all jobs; the 15-package manifest audit passed and
+   nothing was written to the registry.
+2. The [publication run 36013862673](https://github.com/arcships/light-ocr/actions/runs/36013862673)
+   repeated the eight-platform builds and offline smoke, published the new
+   package identities to `next`, and reinstalled from the registry to verify
+   integrity, image/PDF OCR, and offline operation. The first publish job
+   attempt timed out because npm registry integrity propagation for some
+   packages exceeded the 600-second wait; rerunning that single job skipped
+   the already-published packages per the idempotent semantics and completed
+   the remaining publications, ending green.
+3. The [promotion run 36018294655](https://github.com/arcships/light-ocr/actions/runs/36018294655)
+   advanced only Small `0.5.8`, runtime `0.1.8`, and the eight native
+   `0.5.8` packages to `latest`. Document, Tiny, and Medium stay on `next`
+   (the first musl versions carry `latest` automatically per npm rules,
+   matching `next`).
+4. The [`v0.5.8` GitHub Release](https://github.com/arcships/light-ocr/releases/tag/v0.5.8)
+   binds the release source commit and records the public release.
+
+To roll back, do not overwrite or delete published versions; use the archived
+`0.5.7` release artifact (run `30988312627`) to restore the stable tags to
+Small/native `0.5.7` and runtime `0.1.7`.
 
 ## GitHub Release
 
