@@ -104,19 +104,20 @@ function adapterError(code, message, detail, cause) {
   return error;
 }
 
-// Detect musl Linux (Alpine and friends). glibc hosts report a glibcVersionRuntime
-// field through process.report; musl hosts do not, so the loader checks the
-// dynamic linker identity the same way pdfium-native does.
+// Detect musl Linux (Alpine and friends). Only reached when the host does not
+// report glibcVersionRuntime through process.report. The musl dynamic linker
+// path is the primary signal; the ldd output check covers hosts with a
+// non-standard loader location.
 function isMuslLinux() {
   if (process.platform !== 'linux') return false;
-  try {
-    const ldd = spawnSync('ldd', ['--version'], { encoding: 'utf8' });
-    const output = `${ldd.stdout || ''}${ldd.stderr || ''}`;
-    return output.toLowerCase().includes('musl');
-  } catch {
-    return fs.existsSync('/lib/ld-musl-x86_64.so.1')
-      || fs.existsSync('/lib/ld-musl-aarch64.so.1');
-  }
+  const loader = process.arch === 'arm64'
+    ? '/lib/ld-musl-aarch64.so.1'
+    : '/lib/ld-musl-x86_64.so.1';
+  if (fs.existsSync(loader)) return true;
+  const ldd = spawnSync('ldd', ['--version'], { encoding: 'utf8', timeout: 5000 });
+  if (ldd.error) return false;
+  const output = `${ldd.stdout || ''}${ldd.stderr || ''}`;
+  return output.toLowerCase().includes('musl');
 }
 
 function platformIdentity() {

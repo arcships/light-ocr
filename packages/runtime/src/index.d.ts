@@ -289,4 +289,15 @@ export interface DetectionResult {
   readonly timingUs: TimingUs;
 }
 
+/** Resolved host platform identity used to select the native package. */
+export interface PlatformIdentity {
+  readonly id: string;
+  readonly os: string;
+  readonly architecture: string;
+  /** Present for Linux hosts; `"glibc"` or `"musl"`. */
+  readonly libc?: 'glibc' | 'musl';
+}
+
+export function platformIdentity(): PlatformIdentity;
+
 export function createEngine(options: CreateEngineOptions): Promise<OcrEngine>;

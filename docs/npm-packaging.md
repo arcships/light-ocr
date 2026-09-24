@@ -1,7 +1,7 @@
 # @arcships/light-ocr npm Package Design
 
-状态：六包设计与 `0.3.0` Apple/WebGPU native superset bundle 已完成 lockstep 发布，并提升为 npm `latest`<br>
-更新时间：2026-07-19<br>
+状态：六包设计在 `0.3.0` 完成 lockstep 发布并提升为 npm `latest`；musl x64/arm64 平台包已加入，当前共十个公开 scoped packages<br>
+更新时间：2026-09-24<br>
 Authority：npm 包名、包拆分、依赖关系、内置模型、版本与发布门槛<br>
 Node API：[napi-design.md](napi-design.md)<br>
 Model contract：[model-bundle.md](model-bundle.md)<br>
@@ -43,7 +43,7 @@ const engine = await createEngine();
 
 ## 2. 包集合与依赖图
 
-首个 release set 固定为十个公开 scoped packages：
+当前 release set 固定为十个公开 scoped packages：
 
 | 包 | 类型 | 内容 | 安装关系 |
 | --- | --- | --- | --- |
@@ -108,6 +108,8 @@ v1 不提供无模型的 `core`/`lite` 入口，也不允许用户单独拼装 f
     "@arcships/light-ocr-darwin-x64": "0.3.0",
     "@arcships/light-ocr-linux-x64-gnu": "0.3.0",
     "@arcships/light-ocr-linux-arm64-gnu": "0.3.0",
+    "@arcships/light-ocr-linux-x64-musl": "0.3.0",
+    "@arcships/light-ocr-linux-arm64-musl": "0.3.0",
     "@arcships/light-ocr-win32-x64": "0.3.0",
     "@arcships/light-ocr-win32-arm64": "0.3.0"
   },
@@ -261,7 +263,7 @@ packages/runtime + packages/light-ocr{,-tiny,-medium}
 models/generated/ppocrv6-{tiny,medium}-onnx-*
 dist/native-input/<platform>
                          ↓
-dist/npm/<fourteen staging directories>
+dist/npm/<fifteen staging directories>
 ```
 
 `dist/npm` 是临时生成目录，不是源码 authority。打包器必须使用 `files` allowlist，并拒绝 source、test fixture、cache、绝对路径、symlink、额外动态库和未登记文件。
@@ -269,7 +271,7 @@ dist/npm/<fourteen staging directories>
 发布顺序保持可恢复，但不重复已经在资格工作流完成的验证：
 
 1. 八个平台仅构建 addon/runtime payload 并生成 license、SBOM 与 descriptor，不在 release 内重跑 Core/qualification。
-2. assembly job 只生成 Tiny/Medium bundle 一次，复用已发布 Small model `0.3.4`，组装十四个 staging directories。
+2. assembly job 只生成 Tiny/Medium bundle 一次，复用已发布 Small model `0.3.4`，组装十五个 staging directories。
 3. 每个目录执行一次 `npm pack --json --ignore-scripts`，核对 inventory，并记录 filename、bytes、SHA-256 和 npm integrity；不做无收益的第二次压包。
 4. 八个平台离线安装各自 native + runtime + Small facade 并跑真实 OCR；代表性 Linux x64 额外跑 Tiny/Medium。
 5. 先发布 native、runtime 和两个 preview model 到 `next`，registry 能解析稳定 facade 后再发布三个 facade。
@@ -297,7 +299,7 @@ dist/npm/<fourteen staging directories>
 - 在网络禁用环境里，对已经安装好的 package 重复 create/recognize/close 成功。
 - 模型 package 的 bundle 文件总字节、manifest、`SHA256SUMS` 和 bundle ID 与 `models/bundles.lock.json` 对应生成物一致。
 - native package 的 addon、ORT library、artifact hashes、license inventory 和 SPDX SBOM 一致。
-- 从干净 release commit 生成并记录十四个 npm tarballs 的 SHA-256、registry integrity、dist-tag 和 CI artifact URL。
+- 从干净 release commit 生成并记录十五个 npm tarballs（外加复用的 Small model tarball）的 SHA-256、registry integrity、dist-tag 和 CI artifact URL。
 - 仓库根 `LICENSE`/`NOTICE`、facade/native package 的 SPDX `license` 字段与 Apache-2.0 一致。
 
 ## 10. `0.1.0` 首发时明确不做（历史约束）
@@ -307,5 +309,5 @@ dist/npm/<fourteen staging directories>
 - 将模型直接复制进六个 native packages；这会造成六份重复分发。
 - 当时不做无模型 facade、按需语言包、tiny/medium、orientation 或 GPU packages；N2 的 runtime/tier 与 `0.3.0` provider 分发已由后续决策替代这些历史范围。
 - 源码编译 fallback、`node-gyp` fallback 或消费者系统 ORT fallback。
-- Electron、Bun、Deno、Linux musl 支持声明。
+- Electron、Bun、Deno、Linux musl 支持声明。（Linux musl 的 CPU-only 平台包已由后续 PR 交付；Electron/Bun/Deno 仍不做支持声明。）
 - Yarn Plug'n'Play/zip archive 兼容声明；v1 release gate 以官方 npm 的物理安装目录为准。

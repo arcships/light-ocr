@@ -125,6 +125,20 @@ class BootstrapDependenciesTest(unittest.TestCase):
             [record["id"] for record in exact], ["ort-cpu-musl-x64", "opencv"]
         )
 
+    def test_cache_complete_mode_still_rejects_webgpu(self) -> None:
+        # The webgpu flavor never resolves from deps.lock.json (external SDK
+        # boundary), including in cache-complete mode.
+        lock = {
+            "dependencies": [
+                {"id": "ort-cpu-gnu", "runtimeFlavor": "cpu", "platforms": ["linux-x64-gnu"]},
+                {"id": "opencv", "runtimeFlavor": "common", "platforms": ["all"]},
+            ]
+        }
+        with self.assertRaisesRegex(RuntimeError, "externally verified SDK"):
+            bootstrap_dependencies.select_dependencies(
+                lock, platform_id=None, runtime_flavor="webgpu"
+            )
+
     def test_explains_external_webgpu_sdk_boundary(self) -> None:
         lock = {
             "dependencies": [

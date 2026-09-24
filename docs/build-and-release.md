@@ -223,10 +223,10 @@ PR、main 与 release 使用分层门禁，避免同一提交在三个阶段重�
 
 `.github/workflows/npm-release.yml` 是仅允许从 `main` 手动触发的发布候选与发布流程。默认 `publish_to_registry=false`，所以第一次运行不会读取 `NPM_TOKEN` 或改动 npm registry：
 
-- macOS arm64/x64、Linux x64/arm64 glibc 与 Windows x64/arm64 六个平台分别从锁定输入构建 Node-API addon、ONNX Runtime payload、PDFium addon、许可证清单与 SPDX SBOM。Linux x64 与 Windows x64 使用 production-qualified WebGPU runtime，其余平台使用 CPU runtime。
-- assemble 阶段生成六个 native 包、model-free runtime、Small/Tiny/Medium 三个 facade、Document compatibility facade，以及 Tiny/Medium 两个锁定 model 包，共 13 个 manifest 记录；已发布的 Small model `0.3.4` 另外取得 tarball 参与离线安装验证。
-- 六个平台均使用 Node.js 22 从本地 tarball 执行 `--ignore-scripts --offline` 安装、真实 Small 图片 OCR 与内置 PDF OCR；Linux x64 额外验证 Tiny/Medium preview。macOS 两个平台还以默认 Node 宿主和 ad-hoc 重签的 Node 宿主各运行一次 signed-artifact policy，覆盖不同身份拒绝与双方 ad-hoc 接受。
-- workflow 在进入六平台构建前查询 11 个新版本身份；任何目标版本已存在即失败，要求使用原始 release artifact 做 promotion，禁止重建或覆盖 npm 的不可变版本。Tiny/Medium model `0.1.0` 已存在时仅在 registry integrity 与候选完全一致时复用。
+- macOS arm64/x64、Linux x64/arm64 glibc 与 Windows x64/arm64 六个平台在系统 runner 构建；Linux x64/arm64 musl 两个平台在 `alpine:3.22` 容器构建。八个平台分别从锁定输入构建 Node-API addon、ONNX Runtime payload、PDFium addon、许可证清单与 SPDX SBOM。Linux x64 与 Windows x64 使用 production-qualified WebGPU runtime，其余平台使用 CPU runtime。
+- assemble 阶段生成八个 native 包、model-free runtime、Small/Tiny/Medium 三个 facade、Document compatibility facade，以及 Tiny/Medium 两个锁定 model 包，共 15 个 manifest 记录；已发布的 Small model `0.3.4` 另外取得 tarball 参与离线安装验证。
+- glibc 六平台在系统 runner 使用 Node.js 22 从本地 tarball 执行 `--ignore-scripts --offline` 安装、真实 Small 图片 OCR 与内置 PDF OCR；musl 两平台在 Alpine 容器使用发行版 Node.js 22 执行同一安装与 OCR/PDF 验证；Linux x64 额外验证 Tiny/Medium preview。macOS 两个平台还以默认 Node 宿主和 ad-hoc 重签的 Node 宿主各运行一次 signed-artifact policy，覆盖不同身份拒绝与双方 ad-hoc 接受。
+- workflow 在进入八平台构建前查询 11 个新版本身份；任何目标版本已存在即失败，要求使用原始 release artifact 做 promotion，禁止重建或覆盖 npm 的不可变版本。Tiny/Medium model `0.1.0` 已存在时仅在 registry integrity 与候选完全一致时复用。
 - `publish_to_registry=true` 时，专用 `npm-release` environment 才读取 `NPM_TOKEN`：先把 native、runtime 与可复用 preview model 阶段发布到 `next`，确认 Small facade tarball 能从真实 registry 解析依赖后，再发布 Small/Tiny/Medium/Document 四个 facade；最后从 registry 回装稳定包并在禁网环境运行图片和 PDF OCR。
 - `latest` 晋升始终由独立 promotion workflow 使用原 release run 保存的 `light-ocr-npm-<version>` artifact 完成，不重新构建或发布 tarball。Tiny、Medium 与 Document 保持在 `next`。
 
@@ -296,7 +296,7 @@ npm release 按 [npm-packaging.md](npm-packaging.md) 生成 13 个受 manifest �
 3. 保存 parity、quality、benchmark、leak、Sanitizer、fuzz 和 offline 报告。
 4. 将精确 bundle 文件打入 `@arcships/light-ocr-model-ppocrv6-small`，验证 sterile install，并记录 npm tarball SHA-256/integrity。独立 USTAR mirror 是非 npm 分发项，不阻塞 npm package release。
 5. 为每个平台生成 manifest、许可证清单和 SBOM。
-6. 在隔离环境验证 13 个 manifest packages、Small model tarball、platform 选择、默认 `createEngine()` 和模型 payload hash；已安装后的运行测试必须禁网。
+6. 在隔离环境验证 15 个 manifest packages、Small model tarball、platform 选择、默认 `createEngine()` 和模型 payload hash；已安装后的运行测试必须禁网。
 7. 对照 [implementation-status.md](implementation-status.md) 关闭所有 Pending 项。
 
 registry 发布由专用 `npm-release` environment 执行；workflow 成功记录、registry metadata 与安装复验才构成完成证据。仓库可按维护策略为该 environment 增加 required reviewer。签名、公证、非 npm 公共下载地址和长期保留策略仍是独立的外部事项。

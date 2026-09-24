@@ -38,8 +38,8 @@ class CiWorkflowContractTests(unittest.TestCase):
         source = (ROOT / ".github/workflows/npm-release.yml").read_text("utf-8")
         musl_job = source[source.index("build-native-musl"):]
 
-        self.assertIn("smoke-musl", source)
-        self.assertIn("container: alpine:3.22", source)
+        self.assertIn("smoke-musl", musl_job)
+        self.assertIn("container: alpine:3.22", musl_job)
         bootstrap = musl_job[musl_job.index("Bootstrap pinned native dependencies"):]
         self.assertIn("--platform-id", bootstrap[:1200])
         configure = musl_job[musl_job.index("Configure native package"):]

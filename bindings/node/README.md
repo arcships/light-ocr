@@ -182,7 +182,7 @@ TypeScript types are included in the shared runtime [`index.d.ts`](../../package
   jobs through the main package's document API
 - **EXIF orientation**: JPEG orientation tags 1–8 automatically corrected
 - **ROI**: pageSpace axis-aligned rectangle, coordinates offset back to full page
-- **Providers**: CPU (all platforms), Apple Core ML (macOS arm64), WebGPU (Linux x64, Windows x64)
+- **Providers**: CPU (all platforms), Apple Core ML (macOS arm64), WebGPU (Linux x64 glibc, Windows x64)
 - **Offline**: no network at install or runtime; model bundled in npm package
 - **Concurrency**: one engine = one worker thread, bounded FIFO queue, AbortSignal support
 - **Platforms**: macOS arm64/x64, Linux x64/arm64 (glibc and musl), Windows x64/arm64
@@ -203,9 +203,10 @@ TypeScript types are included in the shared runtime [`index.d.ts`](../../package
 | --- | --- | --- |
 | macOS arm64 | Apple Core ML → CPU | FP16 detection + recognition via Neural Engine / GPU |
 | macOS x64 | CPU | Core ML parity not met on Intel |
-| Linux x64 | WebGPU → CPU | FP32, bounded CPU partition for Concat/Gather/Slice |
+| Linux x64 (glibc) | WebGPU → CPU | FP32, bounded CPU partition for Concat/Gather/Slice |
 | Windows x64 | WebGPU → CPU | FP32, D3D12 |
-| Linux arm64 | CPU | WebGPU plugin has no arm64 binary |
+| Linux arm64 (glibc) | CPU | WebGPU plugin has no arm64 binary |
+| Linux x64/arm64 (musl) | CPU | CPU-only platform packages |
 | Windows arm64 | CPU | WebGPU not yet qualified |
 
 Use `light-ocr info --model-info` to inspect the actual provider chain, device, and qualification status.

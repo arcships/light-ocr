@@ -1,7 +1,7 @@
 # @arcships/light-ocr
 
 [![npm version](https://img.shields.io/npm/v/%40arcships%2Flight-ocr?color=CB3837)](https://www.npmjs.com/package/@arcships/light-ocr)
-[![Node.js 22 and 24](https://img.shields.io/badge/Node.js-22%20%7C%2024-339933)](https://nodejs.org/)
+[![Node.js 22+](https://img.shields.io/badge/Node.js-22%2B-339933)](https://nodejs.org/)
 [![Apache-2.0](https://img.shields.io/npm/l/%40arcships%2Flight-ocr)](https://github.com/arcships/light-ocr/blob/main/LICENSE)
 
 ![light-ocr](https://raw.githubusercontent.com/arcships/light-ocr/main/docs/assets/light-ocr-banner.png)
@@ -18,8 +18,8 @@ cloud APIs, postinstall downloads, or local native compilation.
 | **Input** | JPEG, PNG, PDF, `Uint8Array`, or decoded pixel buffers |
 | **Output** | text lines in reading order, confidence, quadrilateral boxes, and timing |
 | **Runtime** | CommonJS + ESM + bundled TypeScript declarations |
-| **Platforms** | macOS, Linux glibc, and Windows on x64 and ARM64 |
-| **Node.js** | 22 and 24 |
+| **Platforms** | macOS, Linux (glibc and musl), and Windows on x64 and ARM64 |
+| **Node.js** | 22 or newer; the 22/24 LTS lines are Tier 1, and the stable Node-API ABI lets newer majors load the same prebuilt binaries |
 
 ## Install
 
@@ -244,6 +244,8 @@ and ends with CPU as the stable fallback:
 | macOS on Intel | CPU |
 | Linux x64 with glibc | WebGPU through Vulkan, then CPU |
 | Linux arm64 with glibc | CPU |
+| Linux x64 with musl (Alpine) | CPU |
+| Linux arm64 with musl (Alpine) | CPU |
 | Windows x64 | WebGPU through D3D12, then CPU |
 | Windows arm64 | CPU |
 

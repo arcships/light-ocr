@@ -128,12 +128,15 @@ function(light_ocr_configure_dependencies)
       "Build a qualification-only WebGPU runtime")
   endif()
 
+  # LIGHT_OCR_TARGET_LIBC follows the existing WebGpuRuntime.cmake vocabulary:
+  # "glibc" (default) or "musl". The shared variable gates both the WebGPU
+  # cross-compile contract and the musl ONNX Runtime archive selection.
   if(NOT DEFINED LIGHT_OCR_TARGET_LIBC OR LIGHT_OCR_TARGET_LIBC STREQUAL "")
-    set(LIGHT_OCR_TARGET_LIBC "gnu")
+    set(LIGHT_OCR_TARGET_LIBC "glibc")
   endif()
-  if(NOT LIGHT_OCR_TARGET_LIBC MATCHES "^(gnu|musl)$")
+  if(NOT LIGHT_OCR_TARGET_LIBC MATCHES "^(glibc|musl)$")
     message(FATAL_ERROR
-      "LIGHT_OCR_TARGET_LIBC must be gnu or musl, got: ${LIGHT_OCR_TARGET_LIBC}")
+      "LIGHT_OCR_TARGET_LIBC must be glibc or musl, got: ${LIGHT_OCR_TARGET_LIBC}")
   endif()
   if(LIGHT_OCR_ONNXRUNTIME_FLAVOR STREQUAL "webgpu"
      AND LIGHT_OCR_TARGET_LIBC STREQUAL "musl")
@@ -142,8 +145,16 @@ function(light_ocr_configure_dependencies)
   if(LIGHT_OCR_TARGET_LIBC STREQUAL "musl")
     execute_process(
       COMMAND ${CMAKE_CXX_COMPILER} -dumpmachine
+      RESULT_VARIABLE _light_ocr_dumpmachine_result
       OUTPUT_VARIABLE _light_ocr_dumpmachine
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
+      ERROR_QUIET
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      TIMEOUT 30)
+    if(NOT _light_ocr_dumpmachine_result EQUAL 0)
+      message(FATAL_ERROR
+        "LIGHT_OCR_TARGET_LIBC=musl requires a musl toolchain; the compiler "
+        "does not support -dumpmachine (result: ${_light_ocr_dumpmachine_result})")
+    endif()
     if(NOT _light_ocr_dumpmachine MATCHES "musl")
       message(FATAL_ERROR
         "LIGHT_OCR_TARGET_LIBC=musl requires a musl toolchain; the compiler "
@@ -155,10 +166,10 @@ function(light_ocr_configure_dependencies)
     if(LIGHT_OCR_TARGET_LIBC STREQUAL "musl")
       if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
         set(_ort_musl_arch "x64")
-        set(_ort_musl_sha256 "d0a6bca9119c5b6dd848fb6636c8cff99995bd1b8591047a6724f0ddf029cf8a")
+        set(_ort_musl_sha256 "1b5aaa7c54c0a575e44a09e424168a35e2b3d005349a6e87dad24f718c5b6ab9")
       elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
         set(_ort_musl_arch "arm64")
-        set(_ort_musl_sha256 "a6a651ec86f3b3dbc8af07fa89109787a49ed6c63bfea0be48e2e8c3429eb7bb")
+        set(_ort_musl_sha256 "50705761fb84c69c1c2ea0f31a968a58f0810c115e73d24db65fcb869abc4ac3")
       else()
         message(FATAL_ERROR
           "musl ONNX Runtime is only prepared for linux x64 and arm64")

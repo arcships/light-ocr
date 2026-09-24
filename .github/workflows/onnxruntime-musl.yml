@@ -22,9 +22,6 @@ on:
         required: true
         default: true
         type: boolean
-  push:
-    tags:
-      - "musl-runtime-*"
 
 permissions:
   contents: read
@@ -60,6 +57,7 @@ jobs:
           git clone --recursive --depth 1 --shallow-submodules \
             --branch "v${ONNXRUNTIME_VERSION}" \
             https://github.com/microsoft/onnxruntime onnxruntime
+          echo "ORT_SOURCE_SHA=$(git -C onnxruntime rev-parse HEAD)" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Patch the musl execinfo dependency
         shell: bash
         run: |
@@ -111,6 +109,7 @@ jobs:
           name="onnxruntime-musl-${version}-linux-${{ matrix.arch }}"
           mkdir -p "pkg/${name}/build/native/include" \
                    "pkg/${name}/runtimes/linux-${{ matrix.arch }}-musl/native"
+          cp onnxruntime/LICENSE "pkg/${name}/LICENSE"
           cp onnxruntime/include/onnxruntime/core/session/*.h \
              "pkg/${name}/build/native/include/"
           cp -r onnxruntime/include/onnxruntime/core/providers \
@@ -151,9 +150,17 @@ jobs:
             echo "expected two musl runtime archives" >&2
             exit 1
           fi
+          for zip in "${zips[@]}"; do
+            expected="$(cut -d' ' -f1 "${zip}.sha256")"
+            actual="$(sha256sum "$zip" | cut -d' ' -f1)"
+            if [ "$expected" != "$actual" ]; then
+              echo "checksum mismatch for $zip" >&2
+              exit 1
+            fi
+          done
           gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" \
             --notes "Pinned CPU-only ONNX Runtime musl builds. Archives are pinned by SHA-256 in models/deps.lock.json." \
-            "${zips[@]}" 2>/dev/null \
-          || gh release upload "$RELEASE_TAG" "${zips[@]}" --clobber
+            dist/musl-runtime/*.zip dist/musl-runtime/*.zip.sha256 2>/dev/null \
+          || gh release upload "$RELEASE_TAG" dist/musl-runtime/*.zip dist/musl-runtime/*.zip.sha256 --clobber
         env:
           GH_TOKEN: ${{ github.token }}

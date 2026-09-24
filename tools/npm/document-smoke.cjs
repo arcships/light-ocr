@@ -9,21 +9,23 @@ const {
   createDocumentEngine,
   hasPdfSupport,
 } = consumerRequire('@arcships/light-ocr');
+const { platformIdentity } = consumerRequire('@arcships/light-ocr-runtime');
 const {
   createNonEmbeddedCjkPdf,
   createTextPdf,
 } = require('./pdf-fixture.cjs');
 
 function nativePackageName() {
-  const key = `${process.platform}-${process.arch}`;
   return {
-    'darwin-arm64': '@arcships/light-ocr-darwin-arm64',
-    'darwin-x64': '@arcships/light-ocr-darwin-x64',
+    'macos-arm64': '@arcships/light-ocr-darwin-arm64',
+    'macos-x64': '@arcships/light-ocr-darwin-x64',
     'linux-arm64': '@arcships/light-ocr-linux-arm64-gnu',
     'linux-x64': '@arcships/light-ocr-linux-x64-gnu',
-    'win32-arm64': '@arcships/light-ocr-win32-arm64',
-    'win32-x64': '@arcships/light-ocr-win32-x64',
-  }[key];
+    'linux-arm64-musl': '@arcships/light-ocr-linux-arm64-musl',
+    'linux-x64-musl': '@arcships/light-ocr-linux-x64-musl',
+    'windows-arm64': '@arcships/light-ocr-win32-arm64',
+    'windows-x64': '@arcships/light-ocr-win32-x64',
+  }[platformIdentity().id];
 }
 
 async function main() {
