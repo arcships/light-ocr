@@ -10,6 +10,19 @@ const encodedBlankPng = Buffer.from(
   'base64',
 );
 
+// Self-contained musl detection (the smoke runs against installed closures
+// whose runtime may predate the platformIdentity export). Mirrors the
+// loader: glibc hosts report glibcVersionRuntime, musl hosts do not and
+// always have the musl dynamic linker.
+function isMuslLinux() {
+  if (process.platform !== 'linux') return false;
+  if (process.report?.getReport?.()?.header?.glibcVersionRuntime) return false;
+  const loader = process.arch === 'arm64'
+    ? '/lib/ld-musl-aarch64.so.1'
+    : '/lib/ld-musl-x86_64.so.1';
+  return fs.existsSync(loader);
+}
+
 async function main() {
   const fixtureDirectory = process.env.LIGHT_OCR_SMOKE_FIXTURE;
   assert.ok(fixtureDirectory, 'LIGHT_OCR_SMOKE_FIXTURE is required');
@@ -86,9 +99,10 @@ async function main() {
         engine.info.execution.selectionTrace.selectedProvider,
         'cpu',
       );
-    } else if (process.arch === 'arm64') {
-      // Linux arm64 and Windows arm64 packages are CPU-only: the WebGPU
-      // plugin has no arm64 binary and Windows arm64 is not yet qualified.
+    } else if (process.arch === 'arm64' || isMuslLinux()) {
+      // CPU-only platform packages: the WebGPU plugin has no arm64 binary,
+      // Windows arm64 is not yet qualified, and the musl packages are
+      // CPU-only pending a separate Dawn/musl qualification.
       assert.deepEqual(
         engine.info.execution.selectionTrace.orderedCandidates,
         ['cpu'],
