@@ -129,40 +129,44 @@ function(light_ocr_configure_dependencies)
   endif()
 
   # LIGHT_OCR_TARGET_LIBC follows the existing WebGpuRuntime.cmake vocabulary:
-  # "glibc" (default) or "musl". The shared variable gates both the WebGPU
-  # cross-compile contract and the musl ONNX Runtime archive selection.
-  if(NOT DEFINED LIGHT_OCR_TARGET_LIBC OR LIGHT_OCR_TARGET_LIBC STREQUAL "")
-    set(LIGHT_OCR_TARGET_LIBC "glibc")
-  endif()
-  if(NOT LIGHT_OCR_TARGET_LIBC MATCHES "^(glibc|musl)$")
-    message(FATAL_ERROR
-      "LIGHT_OCR_TARGET_LIBC must be glibc or musl, got: ${LIGHT_OCR_TARGET_LIBC}")
-  endif()
-  if(LIGHT_OCR_ONNXRUNTIME_FLAVOR STREQUAL "webgpu"
-     AND LIGHT_OCR_TARGET_LIBC STREQUAL "musl")
-    message(FATAL_ERROR "the WebGPU flavor is not available for musl targets")
-  endif()
-  if(LIGHT_OCR_TARGET_LIBC STREQUAL "musl")
-    execute_process(
-      COMMAND ${CMAKE_CXX_COMPILER} -dumpmachine
-      RESULT_VARIABLE _light_ocr_dumpmachine_result
-      OUTPUT_VARIABLE _light_ocr_dumpmachine
-      ERROR_QUIET
-      OUTPUT_STRIP_TRAILING_WHITESPACE
-      TIMEOUT 30)
-    if(NOT _light_ocr_dumpmachine_result EQUAL 0)
+  # "glibc" (default for the CPU flavor) or "musl". Validate only when set so
+  # the WebGPU flavor keeps LIGHT_OCR_TARGET_LIBC optional: injecting a default
+  # would shadow WebGpuRuntime.cmake's own glibc detection (CMP0126 keeps a
+  # normal variable in front of its cache entry).
+  if(DEFINED LIGHT_OCR_TARGET_LIBC AND NOT LIGHT_OCR_TARGET_LIBC STREQUAL "")
+    if(NOT LIGHT_OCR_TARGET_LIBC MATCHES "^(glibc|musl)$")
       message(FATAL_ERROR
-        "LIGHT_OCR_TARGET_LIBC=musl requires a musl toolchain; the compiler "
-        "does not support -dumpmachine (result: ${_light_ocr_dumpmachine_result})")
+        "LIGHT_OCR_TARGET_LIBC must be glibc or musl, got: ${LIGHT_OCR_TARGET_LIBC}")
     endif()
-    if(NOT _light_ocr_dumpmachine MATCHES "musl")
-      message(FATAL_ERROR
-        "LIGHT_OCR_TARGET_LIBC=musl requires a musl toolchain; the compiler "
-        "reports: ${_light_ocr_dumpmachine}")
+    if(LIGHT_OCR_ONNXRUNTIME_FLAVOR STREQUAL "webgpu"
+       AND LIGHT_OCR_TARGET_LIBC STREQUAL "musl")
+      message(FATAL_ERROR "the WebGPU flavor is not available for musl targets")
+    endif()
+    if(LIGHT_OCR_TARGET_LIBC STREQUAL "musl")
+      execute_process(
+        COMMAND ${CMAKE_CXX_COMPILER} -dumpmachine
+        RESULT_VARIABLE _light_ocr_dumpmachine_result
+        OUTPUT_VARIABLE _light_ocr_dumpmachine
+        ERROR_QUIET
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        TIMEOUT 30)
+      if(NOT _light_ocr_dumpmachine_result EQUAL 0)
+        message(FATAL_ERROR
+          "LIGHT_OCR_TARGET_LIBC=musl requires a musl toolchain; the compiler "
+          "does not support -dumpmachine (result: ${_light_ocr_dumpmachine_result})")
+      endif()
+      if(NOT _light_ocr_dumpmachine MATCHES "musl")
+        message(FATAL_ERROR
+          "LIGHT_OCR_TARGET_LIBC=musl requires a musl toolchain; the compiler "
+          "reports: ${_light_ocr_dumpmachine}")
+      endif()
     endif()
   endif()
 
   if(LIGHT_OCR_ONNXRUNTIME_FLAVOR STREQUAL "cpu")
+    if(NOT DEFINED LIGHT_OCR_TARGET_LIBC OR LIGHT_OCR_TARGET_LIBC STREQUAL "")
+      set(LIGHT_OCR_TARGET_LIBC "glibc")
+    endif()
     if(LIGHT_OCR_TARGET_LIBC STREQUAL "musl")
       if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
         set(_ort_musl_arch "x64")

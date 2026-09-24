@@ -226,7 +226,7 @@ PR、main 与 release 使用分层门禁，避免同一提交在三个阶段重�
 - macOS arm64/x64、Linux x64/arm64 glibc 与 Windows x64/arm64 六个平台在系统 runner 构建；Linux x64/arm64 musl 两个平台在 `alpine:3.22` 容器构建。八个平台分别从锁定输入构建 Node-API addon、ONNX Runtime payload、PDFium addon、许可证清单与 SPDX SBOM。Linux x64 与 Windows x64 使用 production-qualified WebGPU runtime，其余平台使用 CPU runtime。
 - assemble 阶段生成八个 native 包、model-free runtime、Small/Tiny/Medium 三个 facade、Document compatibility facade，以及 Tiny/Medium 两个锁定 model 包，共 15 个 manifest 记录；已发布的 Small model `0.3.4` 另外取得 tarball 参与离线安装验证。
 - glibc 六平台在系统 runner 使用 Node.js 22 从本地 tarball 执行 `--ignore-scripts --offline` 安装、真实 Small 图片 OCR 与内置 PDF OCR；musl 两平台在 Alpine 容器使用发行版 Node.js 22 执行同一安装与 OCR/PDF 验证；Linux x64 额外验证 Tiny/Medium preview。macOS 两个平台还以默认 Node 宿主和 ad-hoc 重签的 Node 宿主各运行一次 signed-artifact policy，覆盖不同身份拒绝与双方 ad-hoc 接受。
-- workflow 在进入八平台构建前查询 11 个新版本身份；任何目标版本已存在即失败，要求使用原始 release artifact 做 promotion，禁止重建或覆盖 npm 的不可变版本。Tiny/Medium model `0.1.0` 已存在时仅在 registry integrity 与候选完全一致时复用。
+- workflow 在进入八平台构建前查询 15 个新版本身份；任何目标版本已存在即失败，要求使用原始 release artifact 做 promotion，禁止重建或覆盖 npm 的不可变版本。Tiny/Medium model `0.1.0` 已存在时仅在 registry integrity 与候选完全一致时复用。
 - `publish_to_registry=true` 时，专用 `npm-release` environment 才读取 `NPM_TOKEN`：先把 native、runtime 与可复用 preview model 阶段发布到 `next`，确认 Small facade tarball 能从真实 registry 解析依赖后，再发布 Small/Tiny/Medium/Document 四个 facade；最后从 registry 回装稳定包并在禁网环境运行图片和 PDF OCR。
 - `latest` 晋升始终由独立 promotion workflow 使用原 release run 保存的 `light-ocr-npm-<version>` artifact 完成，不重新构建或发布 tarball。Tiny、Medium 与 Document 保持在 `next`。
 

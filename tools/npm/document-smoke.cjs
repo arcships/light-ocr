@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const path = require('node:path');
 const { createRequire } = require('node:module');
 
@@ -9,11 +10,34 @@ const {
   createDocumentEngine,
   hasPdfSupport,
 } = consumerRequire('@arcships/light-ocr');
-const { platformIdentity } = consumerRequire('@arcships/light-ocr-runtime');
 const {
   createNonEmbeddedCjkPdf,
   createTextPdf,
 } = require('./pdf-fixture.cjs');
+
+// Self-contained host platform detection. This smoke tool runs against
+// several installed closures, including published packages that predate the
+// runtime's platformIdentity() export, so it cannot depend on that API.
+function hostPlatformId() {
+  const key = `${process.platform}-${process.arch}`;
+  const staticIds = {
+    'darwin-arm64': 'macos-arm64',
+    'darwin-x64': 'macos-x64',
+    'win32-arm64': 'windows-arm64',
+    'win32-x64': 'windows-x64',
+  };
+  if (staticIds[key]) return staticIds[key];
+  if (process.platform !== 'linux') return undefined;
+  const arm64 = process.arch === 'arm64';
+  if (process.report?.getReport?.()?.header?.glibcVersionRuntime) {
+    return arm64 ? 'linux-arm64' : 'linux-x64';
+  }
+  const loader = `/lib/ld-musl-${arm64 ? 'aarch64' : 'x86_64'}.so.1`;
+  if (fs.existsSync(loader)) {
+    return arm64 ? 'linux-arm64-musl' : 'linux-x64-musl';
+  }
+  return undefined;
+}
 
 function nativePackageName() {
   return {
@@ -25,7 +49,7 @@ function nativePackageName() {
     'linux-x64-musl': '@arcships/light-ocr-linux-x64-musl',
     'windows-arm64': '@arcships/light-ocr-win32-arm64',
     'windows-x64': '@arcships/light-ocr-win32-x64',
-  }[platformIdentity().id];
+  }[hostPlatformId()];
 }
 
 async function main() {
