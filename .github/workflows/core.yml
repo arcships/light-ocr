@@ -56,11 +56,15 @@ jobs:
             executable_suffix: ".exe"
             binary_dir: build-ci/bin/Release
             cmake_arch: x64
+            cmake_generator: "Visual Studio 17 2022"
           - id: windows-arm64
             runner: windows-11-arm
             executable_suffix: ".exe"
             binary_dir: build-ci/bin/Release
             cmake_arch: ARM64
+            # windows-11-arm migrated to the Visual Studio 2026 image in
+            # September 2026; its CMake 4.4.2 ships the VS 2026 generator.
+            cmake_generator: "Visual Studio 18 2026"
           - id: linux-x64
             runner: ubuntu-24.04
             executable_suffix: ""
@@ -94,7 +98,7 @@ jobs:
       - name: Configure without dependency network access (Windows)
         if: runner.os == 'Windows'
         shell: bash
-        run: cmake -S . -B build-ci -G "Visual Studio 17 2022" -A ${{ matrix.cmake_arch }} -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
+        run: cmake -S . -B build-ci -G "${{ matrix.cmake_generator }}" -A ${{ matrix.cmake_arch }} -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
       - name: Build
         run: cmake --build build-ci --config Release --parallel
       - name: Test real PP-OCRv6 models
