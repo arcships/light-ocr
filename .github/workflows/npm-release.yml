@@ -63,10 +63,14 @@ jobs:
             runner: windows-2022
             runtime_flavor: webgpu
             cmake_arch: x64
+            cmake_generator: "Visual Studio 17 2022"
           - id: windows-arm64
             runner: windows-11-arm
             runtime_flavor: cpu
             cmake_arch: ARM64
+            # windows-11-arm migrated to the Visual Studio 2026 image in
+            # September 2026; its CMake 4.4.2 ships the VS 2026 generator.
+            cmake_generator: "Visual Studio 18 2026"
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -150,7 +154,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: >-
-          cmake -S . -B build-npm -G "Visual Studio 17 2022" -A ${{ matrix.cmake_arch }}
+          cmake -S . -B build-npm -G "${{ matrix.cmake_generator }}" -A ${{ matrix.cmake_arch }}
           "-DLIGHT_OCR_DEPENDENCY_CACHE_DIR=$env:GITHUB_WORKSPACE/.cache/dependencies"
           -DLIGHT_OCR_ONNXRUNTIME_FLAVOR=${{ matrix.runtime_flavor }}
           "-DLIGHT_OCR_WEBGPU_SDK_DIR=$env:GITHUB_WORKSPACE/dist/webgpu-sdk/${{ matrix.id }}"
