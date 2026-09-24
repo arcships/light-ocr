@@ -235,6 +235,8 @@ selection guidance, and exit code reference:
 - [Build and release](docs/build-and-release.md)
 - [Roadmap](docs/roadmap.md)
 - [Changelog](CHANGELOG.md)
+- [npm 0.5.8 release record — English](docs/releases/npm-0.5.8.en.md)
+- [npm 0.5.8 发布记录 — 中文](docs/releases/npm-0.5.8.md)
 - [npm 0.5.7 release record — English](docs/releases/npm-0.5.7.en.md)
 - [npm 0.5.7 发布记录 — 中文](docs/releases/npm-0.5.7.md)
 - [npm 0.5.6 release record — English](docs/releases/npm-0.5.6.en.md)

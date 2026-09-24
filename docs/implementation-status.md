@@ -1,7 +1,7 @@
 # C++ Core 与 Node-API 实施状态
 
-更新时间：2026-08-05<br>
-结论：npm `0.5.7` 已发布并晋升 `latest`。该补丁允许下游 macOS 打包器重新签名 `light_ocr_node.node` 与 ONNX Runtime dylib：descriptor 的 bytes/SHA-256 仍是首要门，仅当它因重签名变化时，才接受通过严格 `codesign` 验证且与宿主 TeamIdentifier 相同、或宿主与制品均为 ad-hoc 的 Mach-O。异签名、未签名篡改、非 Mach-O 与非 macOS 平台继续 fail closed。最终 `main` 的 [Core 30986015180](https://github.com/arcships/light-ocr/actions/runs/30986015180) 与 [Native WebGPU 30986015218](https://github.com/arcships/light-ocr/actions/runs/30986015218) 全绿；[发布 run 30988312627](https://github.com/arcships/light-ocr/actions/runs/30988312627) 完成六平台构建、离线 smoke、registry 发布与回装，[晋升 run 30989501173](https://github.com/arcships/light-ocr/actions/runs/30989501173) 只提升稳定闭包。完整证据见 [npm 0.5.7 发布记录](releases/npm-0.5.7.md)（[English](releases/npm-0.5.7.en.md)）与 [`v0.5.7` GitHub Release](https://github.com/arcships/light-ocr/releases/tag/v0.5.7)。
+更新时间：2026-09-24<br>
+结论：npm `0.5.8` 发布准备中。本版新增 musl（Alpine）Linux 的 CPU-only 预编译平台包（`@arcships/light-ocr-linux-x64-musl`/`-arm64-musl`，平台包总数八），其 onnxruntime 1.22.0 musl 产物从源码构建、由 `models/deps.lock.json` 以 SHA-256 锁定于 [`musl-runtime-1.22.0`](https://github.com/arcships/light-ocr/releases/tag/musl-runtime-1.22.0)；同时所有包的 `engines.node` 放宽为下限式 `>=22.0.0`（Node-API 稳定 ABI，Tier 1 仍为 22/24 LTS）。实现经 [PR #63](https://github.com/arcships/light-ocr/pull/63) 两轮独立 review；八平台发布演练与后续发布证据见 [npm 0.5.8 发布记录](releases/npm-0.5.8.md)（[English](releases/npm-0.5.8.en.md)）。上一版 `0.5.7`（macOS 下游重签名兼容）的证据链见 [npm 0.5.7 发布记录](releases/npm-0.5.7.md)（[English](releases/npm-0.5.7.en.md)）与 [`v0.5.7` GitHub Release](https://github.com/arcships/light-ocr/releases/tag/v0.5.7)。
 
 状态含义：
 

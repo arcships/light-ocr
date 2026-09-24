@@ -2,7 +2,7 @@
 
 This file records user-visible changes to `light-ocr`. Published artifact details and immutable hashes remain in [`docs/releases/`](docs/releases/).
 
-## [Unreleased]
+## [0.5.8] - 2026-09-24
 
 ### Added
 
@@ -27,6 +27,12 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
   than blocked at install time. This also unblocks Yarn installs, which fail
   hard on engines ranges that do not list the running Node major
   ([#62](https://github.com/arcships/light-ocr/issues/62)).
+- `@arcships/light-ocr-runtime` now exports `platformIdentity()` (also declared
+  in the TypeScript definitions) so facades and tooling resolve the native
+  platform package through one glibc/musl-aware identity.
+
+Release record: [English](docs/releases/npm-0.5.8.en.md) /
+[中文](docs/releases/npm-0.5.8.md).
 
 ## [0.5.7] - 2026-08-05
 
