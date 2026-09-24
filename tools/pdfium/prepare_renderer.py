@@ -126,7 +126,7 @@ def prepare(arguments: argparse.Namespace) -> None:
             ["node", "scripts/download-pdfium.mjs"], cwd=pdfium_dir, check=True
         )
         subprocess.run(
-            [required_tool("npx"), "--yes", "node-gyp@11.4.2", "rebuild"],
+            [required_tool("npx"), "--yes", "node-gyp@13.0.2", "rebuild"],
             cwd=pdfium_dir,
             check=True,
         )

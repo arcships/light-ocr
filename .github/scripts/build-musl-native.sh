@@ -37,7 +37,7 @@ python3 /src/tools/pdfium/prepare_renderer.py \
 echo "=== [4] node headers + cmake configure ==="
 cd /src
 node_version="$(node -p process.versions.node)"
-npx --yes node-gyp@11.4.2 install "$node_version" --devdir "$PWD/.cache/node-gyp"
+npx --yes node-gyp@13.0.2 install "$node_version" --devdir "$PWD/.cache/node-gyp"
 NODE_INCLUDE_DIR="$PWD/.cache/node-gyp/$node_version/include/node"
 export NODE_INCLUDE_DIR
 
@@ -68,5 +68,12 @@ python3 tools/npm_release.py stage-native \
   --pdfium-dir .cache/pdfium-package/node_modules/pdfium-native \
   --output-dir "dist/native-input/${platform_id}" \
   --runtime-flavor cpu
+
+# The container runs as root, but the host upload-artifact step reads the
+# staged output as the runner user; hand ownership back when requested.
+if [ -n "${HOST_UID:-}" ]; then
+  chown -R "$HOST_UID" "/src/dist/native-input/${platform_id}" \
+    "/src/reports/npm/${platform_id}"
+fi
 
 echo "=== musl native build staged for ${platform_id} ==="

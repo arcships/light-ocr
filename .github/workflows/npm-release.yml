@@ -127,7 +127,7 @@ jobs:
         run: |
           $nodeVersion = node -p process.versions.node
           $devDir = Join-Path $env:GITHUB_WORKSPACE ".cache/node-gyp"
-          npx --yes node-gyp@11.4.2 install $nodeVersion --devdir $devDir
+          npx --yes node-gyp@13.0.2 install $nodeVersion --devdir $devDir
           $nodeRoot = Join-Path $devDir $nodeVersion
           $nodeLibrary = Get-ChildItem $nodeRoot -Recurse -Filter node.lib | Select-Object -First 1
           "NODE_INCLUDE_DIR=$(Join-Path $nodeRoot 'include/node')" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -211,6 +211,7 @@ jobs:
         shell: bash
         run: >-
           docker run --rm -v "$PWD:/src" -w /src
+          -e HOST_UID="$(id -u)"
           alpine:3.22 sh .github/scripts/build-musl-native.sh "${{ matrix.id }}"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
