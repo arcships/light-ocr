@@ -39,11 +39,16 @@ class CiWorkflowContractTests(unittest.TestCase):
         musl_job = source[source.index("build-native-musl"):]
 
         self.assertIn("smoke-musl", musl_job)
-        self.assertIn("container: alpine:3.22", musl_job)
-        bootstrap = musl_job[musl_job.index("Bootstrap pinned native dependencies"):]
-        self.assertIn("--platform-id", bootstrap[:1200])
-        configure = musl_job[musl_job.index("Configure native package"):]
-        self.assertIn("-DLIGHT_OCR_TARGET_LIBC=musl", configure[:2000])
+        self.assertIn("alpine:3.22", musl_job)
+        self.assertIn(".github/scripts/build-musl-native.sh", musl_job)
+        self.assertIn(".github/scripts/smoke-musl.sh", musl_job)
+
+        build_script = (ROOT / ".github/scripts/build-musl-native.sh").read_text("utf-8")
+        self.assertIn("--platform-id", build_script)
+        self.assertIn("-DLIGHT_OCR_TARGET_LIBC=musl", build_script)
+
+        smoke_script = (ROOT / ".github/scripts/smoke-musl.sh").read_text("utf-8")
+        self.assertIn("document-smoke.cjs", smoke_script)
 
     def test_musl_runtime_rebuild_workflow_pins_the_expected_artifacts(self) -> None:
         source = (ROOT / ".github/workflows/onnxruntime-musl.yml").read_text("utf-8")

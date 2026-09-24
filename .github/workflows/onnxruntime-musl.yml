@@ -110,6 +110,7 @@ jobs:
           mkdir -p "pkg/${name}/build/native/include" \
                    "pkg/${name}/runtimes/linux-${{ matrix.arch }}-musl/native"
           cp onnxruntime/LICENSE "pkg/${name}/LICENSE"
+          cp onnxruntime/ThirdPartyNotices.txt "pkg/${name}/ThirdPartyNotices.txt"
           cp onnxruntime/include/onnxruntime/core/session/*.h \
              "pkg/${name}/build/native/include/"
           cp -r onnxruntime/include/onnxruntime/core/providers \

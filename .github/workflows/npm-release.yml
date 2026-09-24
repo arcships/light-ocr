@@ -202,74 +202,16 @@ jobs:
           - id: linux-arm64-musl
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
-    container: alpine:3.22
+    # Alpine job containers cannot run JavaScript Actions on arm64 runners,
+    # so the musl builds checkout on the host and run the whole build inside
+    # `docker run` (see .github/scripts/build-musl-native.sh).
     steps:
-      - name: Install the musl build toolchain
-        shell: sh
-        run: >-
-          apk add --no-cache
-          nodejs npm python3 py3-pip bash git gcc g++ make cmake ninja
-          patch tar xz linux-headers
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-      - name: Bootstrap pinned native dependencies
+      - name: Build the native package inside an Alpine container
         shell: bash
         run: >-
-          python3 tools/bootstrap_dependencies.py
-          --cache-dir .cache/dependencies
-          --platform-id "${{ matrix.id }}"
-      - name: Fetch the pinned PDF renderer for npm bundling
-        shell: bash
-        run: |
-          mkdir -p .cache/pdfium-package
-          cd .cache/pdfium-package
-          npm init --yes
-          npm install --ignore-scripts --no-audit --no-fund --package-lock=false \
-            pdfium-native@0.6.1
-          python "$GITHUB_WORKSPACE/tools/pdfium/prepare_renderer.py" \
-            --pdfium-dir node_modules/pdfium-native \
-            --font-cache "$GITHUB_WORKSPACE/.cache/pdf-fonts" \
-            --download \
-            --build
-      - name: Install Node development files
-        shell: bash
-        run: |
-          node_version="$(node -p process.versions.node)"
-          npx --yes node-gyp@11.4.2 install "$node_version" --devdir "$PWD/.cache/node-gyp"
-          echo "NODE_INCLUDE_DIR=$PWD/.cache/node-gyp/$node_version/include/node" >> "$GITHUB_ENV"
-      - name: Configure native package
-        shell: bash
-        run: >-
-          cmake -S . -B build-npm -G Ninja
-          -DCMAKE_BUILD_TYPE=Release
-          -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
-          -DLIGHT_OCR_ONNXRUNTIME_FLAVOR=cpu
-          -DLIGHT_OCR_TARGET_LIBC=musl
-          -DLIGHT_OCR_BUILD_NODE=ON
-          -DLIGHT_OCR_BUILD_TESTS=OFF
-          -DLIGHT_OCR_BUILD_TOOLS=OFF
-          -DLIGHT_OCR_NODE_INCLUDE_DIR="$NODE_INCLUDE_DIR"
-          -DLIGHT_OCR_NODE_EXECUTABLE="$(command -v node)"
-      - name: Build the addon and release metadata
-        shell: bash
-        run: |
-          cmake --build build-npm --config Release --parallel
-          python3 tools/generate_release_metadata.py \
-            --build-dir build-npm \
-            --output-dir "reports/npm/${{ matrix.id }}" \
-            --platform-id "${{ matrix.id }}" \
-            --configuration Release \
-            --model-free
-      - name: Stage native package input
-        shell: bash
-        run: >-
-          python3 tools/npm_release.py stage-native
-          --platform-id "${{ matrix.id }}"
-          --build-dir build-npm
-          --configuration Release
-          --metadata-dir "reports/npm/${{ matrix.id }}"
-          --pdfium-dir .cache/pdfium-package/node_modules/pdfium-native
-          --output-dir "dist/native-input/${{ matrix.id }}"
-          --runtime-flavor cpu
+          docker run --rm -v "$PWD:/src" -w /src
+          alpine:3.22 sh .github/scripts/build-musl-native.sh "${{ matrix.id }}"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: native-${{ matrix.id }}
@@ -423,40 +365,23 @@ jobs:
           - id: linux-arm64-musl
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
-    container: alpine:3.22
+    # Same arm64 constraint as build-native-musl: run the smoke inside
+    # `docker run` (see .github/scripts/smoke-musl.sh).
     env:
       RELEASE_VERSION: ${{ inputs.version }}
     steps:
-      - name: Install the musl runtime
-        shell: sh
-        run: apk add --no-cache nodejs npm bash
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: light-ocr-npm-${{ inputs.version }}
           path: dist/release
-      - name: Install the local stable closure without scripts or network
+      - name: Install and smoke inside an Alpine container
         shell: bash
-        run: |
-          mkdir package-smoke
-          cd package-smoke
-          npm init --yes
-          npm install --offline --ignore-scripts --no-audit --no-fund --package-lock=false \
-            ../dist/release/arcships-light-ocr-model-ppocrv6-small-0.3.4.tgz \
-            ../dist/release/arcships-light-ocr-${{ matrix.id }}-${RELEASE_VERSION}.tgz \
-            ../dist/release/arcships-light-ocr-runtime-0.1.8.tgz \
-            ../dist/release/arcships-light-ocr-${RELEASE_VERSION}.tgz
-          cp ../tools/npm/smoke.cjs .
-      - name: Run stable Small OCR
-        shell: bash
-        working-directory: package-smoke
-        env:
-          LIGHT_OCR_SMOKE_FIXTURE: ${{ github.workspace }}/corpus/fixtures/generated-hello-123
-        run: node smoke.cjs
-      - name: Run built-in PDF OCR without scripts or network
-        shell: bash
-        working-directory: package-smoke
-        run: node ../tools/npm/document-smoke.cjs
+        run: >-
+          docker run --rm -v "$PWD:/work" -w /work
+          -e LIGHT_OCR_SMOKE_FIXTURE=/work/corpus/fixtures/generated-hello-123
+          alpine:3.22 sh .github/scripts/smoke-musl.sh
+          "${{ matrix.id }}" "${{ inputs.version }}" "0.1.8"
 
   publish:
     needs: [test-packages, smoke-musl]

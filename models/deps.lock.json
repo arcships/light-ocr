@@ -29,8 +29,8 @@
       "version": "1.22.0",
       "filename": "onnxruntime-musl-1.22.0-linux-x64.zip",
       "source": "https://github.com/arcships/light-ocr/releases/download/musl-runtime-1.22.0/onnxruntime-musl-1.22.0-linux-x64.zip",
-      "bytes": 9202413,
-      "sha256": "1b5aaa7c54c0a575e44a09e424168a35e2b3d005349a6e87dad24f718c5b6ab9",
+      "bytes": "9234464",
+      "sha256": "a372c05947efdc67e76fcbdc9760f5b84a304c0556ea11da07f1dc3a9d9e3376",
       "license": "MIT",
       "buildOptions": {
         "executionProvider": "CPU",
@@ -52,8 +52,8 @@
       "version": "1.22.0",
       "filename": "onnxruntime-musl-1.22.0-linux-arm64.zip",
       "source": "https://github.com/arcships/light-ocr/releases/download/musl-runtime-1.22.0/onnxruntime-musl-1.22.0-linux-arm64.zip",
-      "bytes": 8449435,
-      "sha256": "50705761fb84c69c1c2ea0f31a968a58f0810c115e73d24db65fcb869abc4ac3",
+      "bytes": "8481486",
+      "sha256": "bbc8b4591002516cf45acb3f0bf1fb59219696b9efe9cf7a394b5ec104cb5579",
       "license": "MIT",
       "buildOptions": {
         "executionProvider": "CPU",
