@@ -87,7 +87,7 @@ light-ocr/
 ├── bin: light-ocr-document（兼容）
 └── 转发主包 Document API；不含 renderer 或安装脚本
 
-六个平台 native package
+八个平台 native package
 ├── OCR Node-API addon + ONNX Runtime
 ├── PDFium Node-API addon + 相邻共享库
 └── npm tarball 自包含；无 postinstall 或运行时下载

@@ -14,7 +14,7 @@
   },
   "type": "commonjs",
   "engines": {
-    "node": "^22.0.0 || ^24.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "test": "node --test --test-concurrency=1 test/*.test.cjs"

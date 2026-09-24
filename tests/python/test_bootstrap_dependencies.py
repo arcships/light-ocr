@@ -99,6 +99,46 @@ class BootstrapDependenciesTest(unittest.TestCase):
         )
         self.assertEqual([record["id"] for record in selected], ["ort-webgpu", "opencv"])
 
+    def test_cache_complete_mode_selects_every_cpu_runtime(self) -> None:
+        # Without a platform id, bootstrap populates a shared dependency cache:
+        # every CPU runtime entry (the glibc NuGet and both musl archives) is
+        # fetched, while an exact platform selection still resolves to one.
+        lock = {
+            "dependencies": [
+                {"id": "ort-cpu-gnu", "runtimeFlavor": "cpu", "platforms": ["linux-x64-gnu"]},
+                {"id": "ort-cpu-musl-x64", "runtimeFlavor": "cpu", "platforms": ["linux-x64-musl"]},
+                {"id": "ort-cpu-musl-arm64", "runtimeFlavor": "cpu", "platforms": ["linux-arm64-musl"]},
+                {"id": "opencv", "runtimeFlavor": "common", "platforms": ["all"]},
+            ]
+        }
+        selected = bootstrap_dependencies.select_dependencies(
+            lock, platform_id=None, runtime_flavor="cpu"
+        )
+        self.assertEqual(
+            [record["id"] for record in selected],
+            ["ort-cpu-gnu", "ort-cpu-musl-x64", "ort-cpu-musl-arm64", "opencv"],
+        )
+        exact = bootstrap_dependencies.select_dependencies(
+            lock, platform_id="linux-x64-musl", runtime_flavor="cpu"
+        )
+        self.assertEqual(
+            [record["id"] for record in exact], ["ort-cpu-musl-x64", "opencv"]
+        )
+
+    def test_cache_complete_mode_still_rejects_webgpu(self) -> None:
+        # The webgpu flavor never resolves from deps.lock.json (external SDK
+        # boundary), including in cache-complete mode.
+        lock = {
+            "dependencies": [
+                {"id": "ort-cpu-gnu", "runtimeFlavor": "cpu", "platforms": ["linux-x64-gnu"]},
+                {"id": "opencv", "runtimeFlavor": "common", "platforms": ["all"]},
+            ]
+        }
+        with self.assertRaisesRegex(RuntimeError, "externally verified SDK"):
+            bootstrap_dependencies.select_dependencies(
+                lock, platform_id=None, runtime_flavor="webgpu"
+            )
+
     def test_explains_external_webgpu_sdk_boundary(self) -> None:
         lock = {
             "dependencies": [

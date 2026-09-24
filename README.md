@@ -25,11 +25,13 @@ Windows—without postinstall or first-run downloads.
 | **Best for** | local OCR in Node.js apps, CLIs, desktop software, and native C++ integrations |
 | **Inputs** | JPEG, PNG, PDF, encoded bytes, or decoded pixel buffers |
 | **Outputs** | text, confidence, quadrilateral boxes, page metadata, and timing |
-| **Distribution** | one npm install; CommonJS, ESM, TypeScript, and six prebuilt platforms |
+| **Distribution** | one npm install; CommonJS, ESM, TypeScript, and eight prebuilt platforms |
 
 ## Quick start
 
-Node.js 22 and 24 are supported.
+Node.js 22 or newer is supported; the 22 and 24 LTS lines are Tier 1
+(fully tested), and the stable Node-API ABI lets newer Node versions load the
+same prebuilt binaries without a library release.
 
 ```bash
 npm install @arcships/light-ocr
@@ -158,7 +160,7 @@ for await (const page of recognizeDocument([buf1, buf2, buf3])) {
 
 ## Platform acceleration
 
-The npm package provides the following six builds. The default `createEngine()` call uses Auto mode:
+The npm package provides the following eight builds. The default `createEngine()` call uses Auto mode:
 
 | Platform | Auto mode |
 | --- | --- |
@@ -166,6 +168,8 @@ The npm package provides the following six builds. The default `createEngine()` 
 | macOS on Intel | CPU |
 | Linux x64 with glibc | WebGPU through Vulkan, then CPU |
 | Linux arm64 with glibc | CPU |
+| Linux x64 with musl (Alpine) | CPU |
+| Linux arm64 with musl (Alpine) | CPU |
 | Windows x64 | WebGPU through D3D12, then CPU |
 | Windows arm64 | CPU |
 

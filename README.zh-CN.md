@@ -22,11 +22,12 @@ Small 模型、PDFium、中文 fallback 字体，以及 macOS、Linux 和 Window
 | **适合场景** | Node.js 应用、CLI、桌面软件与原生 C++ 集成中的本地 OCR |
 | **输入** | JPEG、PNG、PDF、编码后的字节或解码后的像素 |
 | **输出** | 文字、置信度、四边形坐标、页面元数据与耗时 |
-| **分发方式** | 一次 npm 安装；同时提供 CommonJS、ESM、TypeScript 与六个平台预编译包 |
+| **分发方式** | 一次 npm 安装；同时提供 CommonJS、ESM、TypeScript 与八个平台预编译包 |
 
 ## 快速开始
 
-支持 Node.js 22 和 24。
+支持 Node.js 22 及以上；22/24 LTS 为 Tier 1 完整测试版本，Node-API 稳定 ABI
+保证更新的 Node 版本无需等待库发版即可加载同一份预编译产物。
 
 ```bash
 npm install @arcships/light-ocr
@@ -151,7 +152,7 @@ for await (const page of recognizeDocument([buf1, buf2, buf3])) {
 
 ## 平台加速
 
-npm 包提供以下六个平台版本。默认的 `createEngine()` 使用 Auto 模式：
+npm 包提供以下八个平台版本。默认的 `createEngine()` 使用 Auto 模式：
 
 | 平台 | Auto 模式 |
 | --- | --- |
@@ -159,6 +160,8 @@ npm 包提供以下六个平台版本。默认的 `createEngine()` 使用 Auto �
 | macOS / Intel | CPU |
 | Linux x64 glibc | 通过 Vulkan 使用 WebGPU，然后使用 CPU |
 | Linux arm64 glibc | CPU |
+| Linux x64 musl（Alpine） | CPU |
+| Linux arm64 musl（Alpine） | CPU |
 | Windows x64 | 通过 D3D12 使用 WebGPU，然后使用 CPU |
 | Windows arm64 | CPU |
 

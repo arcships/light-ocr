@@ -4,6 +4,30 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 
 ## [Unreleased]
 
+### Added
+
+- Added CPU-only prebuilt platform packages for musl Linux
+  (`@arcships/light-ocr-linux-x64-musl` and
+  `@arcships/light-ocr-linux-arm64-musl`), so Alpine (musl) hosts install a
+  working engine directly. The musl ONNX Runtime 1.22.0 shared libraries are
+  built from source with a one-line musl execinfo guard, packaged in the NuGet
+  layout, and pinned by SHA-256 in `models/deps.lock.json`
+  ([musl-runtime-1.22.0](https://github.com/arcships/light-ocr/releases/tag/musl-runtime-1.22.0));
+  `.github/workflows/onnxruntime-musl.yml` rebuilds them on demand. The npm
+  release pipeline builds and smokes both musl platforms in an Alpine 3.22
+  container ([#62](https://github.com/arcships/light-ocr/issues/62)).
+
+### Changed
+
+- Relaxed `engines.node` in every published package from the enumerated
+  `^22.0.0 || ^24.0.0` range to the floor `>=22.0.0`. The addon uses the stable
+  Node-API ABI, so newer Node major versions (including 26) load the same
+  prebuilt binaries without a library release. Tier 1 support continues to
+  cover the 22/24 LTS lines; Current lines are validated by CI smoke rather
+  than blocked at install time. This also unblocks Yarn installs, which fail
+  hard on engines ranges that do not list the running Node major
+  ([#62](https://github.com/arcships/light-ocr/issues/62)).
+
 ## [0.5.7] - 2026-08-05
 
 ### Fixed

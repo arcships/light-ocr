@@ -3,7 +3,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
-const { OcrError } = require('@arcships/light-ocr-runtime');
+const { OcrError, platformIdentity } = require('@arcships/light-ocr-runtime');
 
 const DEFAULTS = Object.freeze({
   dpi: 150,
@@ -19,14 +19,16 @@ let defaultCreateEngine;
 
 function platformPdfiumPackage() {
   const packages = {
-    'darwin-arm64': '@arcships/light-ocr-darwin-arm64',
-    'darwin-x64': '@arcships/light-ocr-darwin-x64',
+    'macos-arm64': '@arcships/light-ocr-darwin-arm64',
+    'macos-x64': '@arcships/light-ocr-darwin-x64',
     'linux-arm64': '@arcships/light-ocr-linux-arm64-gnu',
     'linux-x64': '@arcships/light-ocr-linux-x64-gnu',
-    'win32-arm64': '@arcships/light-ocr-win32-arm64',
-    'win32-x64': '@arcships/light-ocr-win32-x64',
+    'linux-arm64-musl': '@arcships/light-ocr-linux-arm64-musl',
+    'linux-x64-musl': '@arcships/light-ocr-linux-x64-musl',
+    'windows-arm64': '@arcships/light-ocr-win32-arm64',
+    'windows-x64': '@arcships/light-ocr-win32-x64',
   };
-  return packages[`${process.platform}-${process.arch}`];
+  return packages[platformIdentity().id];
 }
 
 function loadPdfium() {

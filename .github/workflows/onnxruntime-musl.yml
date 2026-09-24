@@ -1,0 +1,166 @@
+name: onnxruntime musl runtime
+
+# Rebuilds the pinned CPU-only ONNX Runtime shared library for musl (Alpine)
+# Linux and attaches the packaged archives to a "musl-runtime-<version>"
+# release. deps.lock.json and cmake/Dependencies.cmake pin these archives by
+# SHA-256; run this workflow only when the pin is intentionally changed.
+on:
+  workflow_dispatch:
+    inputs:
+      onnxruntime_version:
+        description: ONNX Runtime release tag version (without the v prefix)
+        required: true
+        default: "1.22.0"
+        type: string
+      release_tag:
+        description: Release tag that stores the musl runtime archives
+        required: true
+        default: "musl-runtime-1.22.0"
+        type: string
+      publish_to_release:
+        description: Attach the archives to the release tag
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build ${{ matrix.id }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: linux-x64-musl
+            runner: ubuntu-24.04
+            arch: x64
+          - id: linux-arm64-musl
+            runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    container: alpine:3.22
+    env:
+      ONNXRUNTIME_VERSION: ${{ inputs.onnxruntime_version || '1.22.0' }}
+      RELEASE_TAG: ${{ inputs.release_tag || 'musl-runtime-1.22.0' }}
+    steps:
+      - name: Install the musl build toolchain
+        shell: sh
+        run: >-
+          apk add --no-cache
+          nodejs npm python3 py3-pip bash git gcc g++ make cmake ninja
+          patch tar xz zip unzip curl linux-headers
+      - name: Clone ONNX Runtime ${{ env.ONNXRUNTIME_VERSION }}
+        shell: bash
+        run: |
+          git clone --recursive --depth 1 --shallow-submodules \
+            --branch "v${ONNXRUNTIME_VERSION}" \
+            https://github.com/microsoft/onnxruntime onnxruntime
+          echo "ORT_SOURCE_SHA=$(git -C onnxruntime rev-parse HEAD)" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Patch the musl execinfo dependency
+        shell: bash
+        run: |
+          # musl has no execinfo.h. The backtrace() body in stacktrace.cc is
+          # compiled out under NDEBUG (Release), but the include is
+          # unconditional in 1.22.0, so guard it as well.
+          python3 - <<'EOF'
+          from pathlib import Path
+          p = Path('onnxruntime/onnxruntime/core/platform/posix/stacktrace.cc')
+          s = p.read_text()
+          old = ('#if !defined(__ANDROID__) && !defined(__wasm__) '
+                 '&& !defined(_OPSCHEMA_LIB_) && !defined(_AIX)\n#include <execinfo.h>')
+          new = ('#if !defined(__ANDROID__) && !defined(__wasm__) '
+                 '&& !defined(_OPSCHEMA_LIB_) && !defined(_AIX) && !defined(NDEBUG)\n'
+                 '#include <execinfo.h>')
+          if new not in s:
+              if s.count(old) != 1:
+                  raise SystemExit('stacktrace.cc anchor not found')
+              p.write_text(s.replace(old, new))
+          print('stacktrace.cc execinfo guard applied')
+          EOF
+      - name: Prefetch the pinned Eigen source
+        shell: bash
+        run: |
+          # onnxruntime's deps.txt pins the GitLab archive by SHA-1, but GitLab
+          # regenerated the archive bytes (same commit, new packaging), which
+          # invalidates the pin on every platform. Provide the source tree
+          # directly and bypass the download check.
+          mkdir -p eigen
+          curl -fsSL -o eigen.zip \
+            "https://gitlab.com/libeigen/eigen/-/archive/1d8b82b0740839c0de7f1242a3585e3390ff5f33/eigen-1d8b82b0740839c0de7f1242a3585e3390ff5f33.zip"
+          unzip -q eigen.zip
+          mv eigen-1d8b82b0740839c0de7f1242a3585e3390ff5f33/* eigen/
+          rmdir eigen-1d8b82b0740839c0de7f1242a3585e3390ff5f33
+          rm eigen.zip
+      - name: Build the CPU shared library
+        shell: bash
+        run: |
+          cd onnxruntime
+          ./build.sh --allow_running_as_root --build_shared_lib \
+            --config Release --skip_tests --parallel "$(nproc)" \
+            --cmake_extra_defines \
+              onnxruntime_BUILD_UNIT_TESTS=OFF \
+              "FETCHCONTENT_SOURCE_DIR_EIGEN3=${GITHUB_WORKSPACE}/eigen"
+      - name: Package the NuGet-shaped archive
+        shell: bash
+        run: |
+          version="${ONNXRUNTIME_VERSION}"
+          name="onnxruntime-musl-${version}-linux-${{ matrix.arch }}"
+          mkdir -p "pkg/${name}/build/native/include" \
+                   "pkg/${name}/runtimes/linux-${{ matrix.arch }}-musl/native"
+          cp onnxruntime/LICENSE "pkg/${name}/LICENSE"
+          cp onnxruntime/include/onnxruntime/core/session/*.h \
+             "pkg/${name}/build/native/include/"
+          cp -r onnxruntime/include/onnxruntime/core/providers \
+             "pkg/${name}/build/native/include/providers"
+          cp -L "onnxruntime/build/Linux/Release/libonnxruntime.so.${version}" \
+             "pkg/${name}/runtimes/linux-${{ matrix.arch }}-musl/native/libonnxruntime.so"
+          (cd "pkg/${name}" && zip -q -r "../${name}.zip" .)
+          sha256sum "${name}.zip" | tee "${name}.zip.sha256"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: musl-runtime-${{ matrix.id }}
+          path: |
+            pkg/onnxruntime-musl-*.zip
+            pkg/onnxruntime-musl-*.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: build
+    if: inputs.publish_to_release != false
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag || 'musl-runtime-1.22.0' }}
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: musl-runtime-*
+          path: dist/musl-runtime
+          merge-multiple: true
+      - name: Attach the archives to the release
+        shell: bash
+        run: |
+          shopt -s nullglob
+          zips=(dist/musl-runtime/*.zip)
+          if [ "${#zips[@]}" -ne 2 ]; then
+            echo "expected two musl runtime archives" >&2
+            exit 1
+          fi
+          for zip in "${zips[@]}"; do
+            expected="$(cut -d' ' -f1 "${zip}.sha256")"
+            actual="$(sha256sum "$zip" | cut -d' ' -f1)"
+            if [ "$expected" != "$actual" ]; then
+              echo "checksum mismatch for $zip" >&2
+              exit 1
+            fi
+          done
+          gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" \
+            --notes "Pinned CPU-only ONNX Runtime musl builds. Archives are pinned by SHA-256 in models/deps.lock.json." \
+            dist/musl-runtime/*.zip dist/musl-runtime/*.zip.sha256 2>/dev/null \
+          || gh release upload "$RELEASE_TAG" dist/musl-runtime/*.zip dist/musl-runtime/*.zip.sha256 --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -165,6 +165,10 @@ def select_dependencies(
             platform_id is None or platform_id in platforms
         ):
             runtime_matches.append(value)
+    if platform_id is None and runtime_flavor == "cpu":
+        # Cache-complete mode: fetch every CPU runtime entry (glibc NuGet and
+        # the musl builds) so one shared cache can serve any platform build.
+        return [*runtime_matches, *selected]
     if len(runtime_matches) != 1:
         identity = platform_id or "unspecified platform"
         if runtime_flavor == "webgpu" and not runtime_matches:

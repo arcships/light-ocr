@@ -34,6 +34,27 @@ class CiWorkflowContractTests(unittest.TestCase):
         self.assertIn("python tools/generate_release_metadata.py", metadata)
         self.assertIn("--model-free", metadata)
 
+    def test_musl_release_jobs_pin_the_target_and_dependency_selection(self) -> None:
+        source = (ROOT / ".github/workflows/npm-release.yml").read_text("utf-8")
+        musl_job = source[source.index("build-native-musl"):]
+
+        self.assertIn("smoke-musl", musl_job)
+        self.assertIn("container: alpine:3.22", musl_job)
+        bootstrap = musl_job[musl_job.index("Bootstrap pinned native dependencies"):]
+        self.assertIn("--platform-id", bootstrap[:1200])
+        configure = musl_job[musl_job.index("Configure native package"):]
+        self.assertIn("-DLIGHT_OCR_TARGET_LIBC=musl", configure[:2000])
+
+    def test_musl_runtime_rebuild_workflow_pins_the_expected_artifacts(self) -> None:
+        source = (ROOT / ".github/workflows/onnxruntime-musl.yml").read_text("utf-8")
+
+        self.assertIn("musl-runtime-", source)
+        self.assertIn("onnxruntime_BUILD_UNIT_TESTS=OFF", source)
+        self.assertIn("FETCHCONTENT_SOURCE_DIR_EIGEN3", source)
+        self.assertIn(
+            "runtimes/linux-${{ matrix.arch }}-musl/native/libonnxruntime.so", source
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

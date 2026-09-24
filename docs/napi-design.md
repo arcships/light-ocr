@@ -13,7 +13,7 @@ Decision：[decisions.md](decisions.md) D101、D105、D111
 第一版 Node.js 适配器是 C++ Core 的异步、无损映射：
 
 - 使用原始 Node-API C 接口，编译目标固定为 `NAPI_VERSION=8`。
-- 支持 Node.js 22 和 24；Node.js 26 先做前向兼容 smoke test，不在其进入 LTS 并通过完整矩阵前声明正式支持。
+- 支持 Node.js 22 及以上（`engines.node` 下限式 `>=22.0.0`）；Tier 1 完整测试覆盖 22/24 LTS，Current 线（如 26）以 CI smoke 保障，Node-API 稳定 ABI 保证新大版本无需库发版即可加载同一份预编译产物。
 - 每个 JavaScript `OcrEngine` 拥有一个 C++ Core `Engine` 和一条专用原生工作线程。
 - 每个 engine 使用有界 FIFO 队列；不同 engine 可以并行，同一 engine 永不并发进入 Core。
 - `createEngine`、`recognize` 和 `close` 都返回 Promise，OCR 推理不占用 JavaScript 线程，也不占用 Node.js/libuv 共享工作池。
@@ -602,12 +602,13 @@ JavaScript package 的正式支持矩阵是：
 | --- | --- |
 | Node.js 22.x | Tier 1，完整测试 |
 | Node.js 24.x | Tier 1，完整测试 |
+| Node.js 25.x | 非 LTS 线，已 EOL；engines 下限式允许安装，不做支持承诺 |
 | Node.js 26.x | Current smoke；进入 LTS 后再提升为 Tier 1 |
 | Node.js 20 及更早 | 不支持 |
 | Electron | Windows addon host 重定向与 Electron 37 CPU smoke；完整 major/ASAR/worker/lifecycle matrix 完成前不提升为 Tier 1 |
 | Bun | 未声明；需按其 Node-API 实现做兼容验证 |
 
-`package.json.engines.node` 在 v1 发布时写为 `^22.0.0 || ^24.0.0`；Node 26 提升为 Tier 1 后再加入，不能把 smoke test 写成正式承诺。
+`package.json.engines.node` 采用下限式 `>=22.0.0`，只声明真实支持的最低版本，不枚举 Node 大版本：Node-API 是稳定 ABI，`NAPI_VERSION=8` 的 addon 无需重编译即可在后续所有 Node 大版本（含 26 及未来版本）加载，因此新 Node 大版本发布不需要库跟发版本。各版本的实际支持程度由上表 Tier 矩阵声明、由 CI gate 保障，两者与 engines 分离。不枚举的另一原因：npm 默认对 engines 不匹配只警告，而 Yarn 系默认硬失败——枚举式意味着每个新 Current 版本发布当天 Yarn 用户无法安装，直到库发版。
 
 ## 12. npm 与二进制布局
 
@@ -644,9 +645,11 @@ bindings/node/
 @arcships/light-ocr-win32-arm64                  addon + onnxruntime.dll + licenses
 @arcships/light-ocr-linux-x64-gnu                addon + ONNX Runtime so + licenses
 @arcships/light-ocr-linux-arm64-gnu              addon + ONNX Runtime so + licenses
+@arcships/light-ocr-linux-x64-musl               addon + musl ONNX Runtime so + licenses
+@arcships/light-ocr-linux-arm64-musl             addon + musl ONNX Runtime so + licenses
 ```
 
-Facade 同时提供 ESM 和 CommonJS exports，但两者加载同一个 environment-aware `.node` addon。native 子路径不作为 public export。model package 是 exact-version 普通 dependency；六个平台包是 exact-version optional dependencies，由 `os`、`cpu` 和 Linux `libc` metadata 筛选。
+Facade 同时提供 ESM 和 CommonJS exports，但两者加载同一个 environment-aware `.node` addon。native 子路径不作为 public export。model package 是 exact-version 普通 dependency；八个平台包是 exact-version optional dependencies，由 `os`、`cpu` 和 Linux `libc` metadata 筛选。
 
 安装规则：
 
@@ -658,7 +661,7 @@ Facade 同时提供 ESM 和 CommonJS exports，但两者加载同一个 environm
 - source build 是显式开发命令，不是 install fallback。
 - 使用 `--omit=optional` 会缺少 native package；facade 必须返回可操作的 `package_load_failed`，不能尝试下载或编译。
 
-Node-API 解决 Node/V8 ABI 兼容，不消除 OS、architecture、libc、C++ runtime 和 ONNX Runtime 的平台差异。因此仍需六个平台的原生构建和加载测试。
+Node-API 解决 Node/V8 ABI 兼容，不消除 OS、architecture、libc、C++ runtime 和 ONNX Runtime 的平台差异。因此仍需八个平台的原生构建和加载测试。
 
 ## 13. 构建边界
 
@@ -717,13 +720,13 @@ Node-API 解决 Node/V8 ABI 兼容，不消除 OS、architecture、libc、C++ ru
 
 ### 14.6 npm package contract
 
-- 从八个本地 `.tgz` 在 sterile 临时目录安装；CJS、ESM 和 types 都只能使用 package 内容，不能回读仓库。
+- 从十个本地 `.tgz`（八个平台包、model、facade）在 sterile 临时目录安装；CJS、ESM 和 types 都只能使用 package 内容，不能回读仓库。
 - `createEngine()`、`createEngine({})` 和 `model: "ppocrv6-small"` 都加载同一 bundle ID；显式 `bundlePath` 仍工作；`model` 与 `bundlePath` 同时提供时拒绝。
 - model package 缺失、bundle ID 不匹配、支持平台 package 缺失、unsupported platform 和 `--omit=optional` 分别得到稳定、可操作的错误。
 - `--ignore-scripts` 安装正常；已安装后禁网运行正常；没有 postinstall、下载、解压或源码编译副作用。
 - `npm pack --dry-run` inventory、tarball hashes、model payload hashes、licenses、SBOM 和 package exact versions 全部核对。
 
-完整 release gate 在 macOS arm64、macOS x64、Windows x64、Linux x64 GNU 上分别运行 Node 22 和 24；Node 26 运行加载、创建、golden、close 和 worker teardown smoke。
+完整 release gate 在 macOS arm64、macOS x64、Windows x64、Linux x64 GNU 上分别运行 Node 22 和 24；Linux x64/arm64 musl 在 Alpine 容器以发行版 Node 22 运行同一安装与 OCR/PDF 验证；Node 26 运行加载、创建、golden、close 和 worker teardown smoke。
 
 ## 15. 实施顺序
 
@@ -748,5 +751,6 @@ Node-API 解决 Node/V8 ABI 兼容，不消除 OS、architecture、libc、C++ ru
 | zero-copy/transfer | 延期 | 能证明 mutation、detachment、Worker 和 teardown 安全 |
 | running inference 硬中断 | 延期 | Core 或隔离层提供经过验证的安全 interruption |
 | Electron/Bun | 延期 | 独立 runtime/version/prebuild/lifecycle matrix 全绿 |
-| Linux musl/arm64、Windows arm64 | 延期 | Core 和 addon 原生 Tier 1 证据齐全 |
+| Windows arm64 WebGPU | 延期 | Core 和 addon 原生 Tier 1 证据齐全 |
+| musl WebGPU | 延期 | musl CPU-only 平台已交付；Dawn/musl 需独立资格矩阵 |
 | GPU EP | 延期 | 独立 bundle、设备选择、并发、内存和发布策略 |
