@@ -104,6 +104,21 @@ function adapterError(code, message, detail, cause) {
   return error;
 }
 
+// Detect musl Linux (Alpine and friends). glibc hosts report a glibcVersionRuntime
+// field through process.report; musl hosts do not, so the loader checks the
+// dynamic linker identity the same way pdfium-native does.
+function isMuslLinux() {
+  if (process.platform !== 'linux') return false;
+  try {
+    const ldd = spawnSync('ldd', ['--version'], { encoding: 'utf8' });
+    const output = `${ldd.stdout || ''}${ldd.stderr || ''}`;
+    return output.toLowerCase().includes('musl');
+  } catch {
+    return fs.existsSync('/lib/ld-musl-x86_64.so.1')
+      || fs.existsSync('/lib/ld-musl-aarch64.so.1');
+  }
+}
+
 function platformIdentity() {
   const key = `${process.platform}-${process.arch}`;
   const identities = {
@@ -117,9 +132,12 @@ function platformIdentity() {
     if (report?.header?.glibcVersionRuntime) {
       return { id: 'linux-x64', os: 'linux', architecture: 'x86_64', libc: 'glibc' };
     }
+    if (isMuslLinux()) {
+      return { id: 'linux-x64-musl', os: 'linux', architecture: 'x86_64', libc: 'musl' };
+    }
     throw adapterError(
       'unsupported_platform',
-      'light-ocr currently supports Linux x64 with glibc only',
+      'light-ocr currently supports Linux x64 with glibc or musl only',
       key,
     );
   }
@@ -128,9 +146,12 @@ function platformIdentity() {
     if (report?.header?.glibcVersionRuntime) {
       return { id: 'linux-arm64', os: 'linux', architecture: 'arm64', libc: 'glibc' };
     }
+    if (isMuslLinux()) {
+      return { id: 'linux-arm64-musl', os: 'linux', architecture: 'arm64', libc: 'musl' };
+    }
     throw adapterError(
       'unsupported_platform',
-      'light-ocr currently supports Linux arm64 with glibc only',
+      'light-ocr currently supports Linux arm64 with glibc or musl only',
       key,
     );
   }
@@ -149,6 +170,8 @@ function platformPackage() {
     'windows-x64': '@arcships/light-ocr-win32-x64',
     'linux-x64': '@arcships/light-ocr-linux-x64-gnu',
     'linux-arm64': '@arcships/light-ocr-linux-arm64-gnu',
+    'linux-x64-musl': '@arcships/light-ocr-linux-x64-musl',
+    'linux-arm64-musl': '@arcships/light-ocr-linux-arm64-musl',
   };
   return packages[platformIdentity().id];
 }
@@ -606,4 +629,4 @@ const macOSSignature = Object.freeze({
   signerMatchesHost,
 });
 
-module.exports = { loadNative, validateRuntimeDescriptor, macOSSignature };
+module.exports = { loadNative, validateRuntimeDescriptor, macOSSignature, platformIdentity };

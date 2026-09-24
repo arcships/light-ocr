@@ -25,6 +25,52 @@
       ]
     },
     {
+      "name": "onnxruntime",
+      "version": "1.22.0",
+      "filename": "onnxruntime-musl-1.22.0-linux-x64.zip",
+      "source": "https://github.com/arcships/light-ocr/releases/download/musl-runtime-1.22.0/onnxruntime-musl-1.22.0-linux-x64.zip",
+      "bytes": 9201645,
+      "sha256": "d0a6bca9119c5b6dd848fb6636c8cff99995bd1b8591047a6724f0ddf029cf8a",
+      "license": "MIT",
+      "buildOptions": {
+        "executionProvider": "CPU",
+        "libc": "musl",
+        "buildImage": "alpine:3.22",
+        "unitTests": false
+      },
+      "patches": [
+        "musl-stacktrace-execinfo-guard"
+      ],
+      "id": "onnxruntime-cpu-musl-x64",
+      "runtimeFlavor": "cpu",
+      "platforms": [
+        "linux-x64-musl"
+      ]
+    },
+    {
+      "name": "onnxruntime",
+      "version": "1.22.0",
+      "filename": "onnxruntime-musl-1.22.0-linux-arm64.zip",
+      "source": "https://github.com/arcships/light-ocr/releases/download/musl-runtime-1.22.0/onnxruntime-musl-1.22.0-linux-arm64.zip",
+      "bytes": 8448667,
+      "sha256": "a6a651ec86f3b3dbc8af07fa89109787a49ed6c63bfea0be48e2e8c3429eb7bb",
+      "license": "MIT",
+      "buildOptions": {
+        "executionProvider": "CPU",
+        "libc": "musl",
+        "buildImage": "alpine:3.22",
+        "unitTests": false
+      },
+      "patches": [
+        "musl-stacktrace-execinfo-guard"
+      ],
+      "id": "onnxruntime-cpu-musl-arm64",
+      "runtimeFlavor": "cpu",
+      "platforms": [
+        "linux-arm64-musl"
+      ]
+    },
+    {
       "name": "opencv",
       "version": "4.10.0",
       "filename": "opencv-4.10.0.tar.gz",

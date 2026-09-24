@@ -26,7 +26,7 @@
     "NOTICE"
   ],
   "engines": {
-    "node": "^22.0.0 || ^24.0.0"
+    "node": ">=22.0.0"
   },
   "dependencies": {
     "@arcships/light-ocr-model-ppocrv6-small": "0.3.4",

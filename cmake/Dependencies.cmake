@@ -128,23 +128,67 @@ function(light_ocr_configure_dependencies)
       "Build a qualification-only WebGPU runtime")
   endif()
 
-  if(LIGHT_OCR_ONNXRUNTIME_FLAVOR STREQUAL "cpu")
-    light_ocr_archive_url(_ort_url microsoft.ml.onnxruntime.1.22.0.nupkg
-      https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.22.0/microsoft.ml.onnxruntime.1.22.0.nupkg)
-    if(EXISTS "${_ort_url}")
-      # CMake 3.31 chooses the extractor for local files from their suffix and
-      # does not recognize NuGet's .nupkg suffix. Use a hard-linked .zip alias.
-      set(_ort_archive_dir "${CMAKE_BINARY_DIR}/_light_ocr_archives")
-      set(_ort_archive_zip "${_ort_archive_dir}/microsoft.ml.onnxruntime.1.22.0.zip")
-      file(MAKE_DIRECTORY "${_ort_archive_dir}")
-      file(CREATE_LINK "${_ort_url}" "${_ort_archive_zip}" COPY_ON_ERROR)
-      set(_ort_url "${_ort_archive_zip}")
+  if(NOT DEFINED LIGHT_OCR_TARGET_LIBC OR LIGHT_OCR_TARGET_LIBC STREQUAL "")
+    set(LIGHT_OCR_TARGET_LIBC "gnu")
+  endif()
+  if(NOT LIGHT_OCR_TARGET_LIBC MATCHES "^(gnu|musl)$")
+    message(FATAL_ERROR
+      "LIGHT_OCR_TARGET_LIBC must be gnu or musl, got: ${LIGHT_OCR_TARGET_LIBC}")
+  endif()
+  if(LIGHT_OCR_ONNXRUNTIME_FLAVOR STREQUAL "webgpu"
+     AND LIGHT_OCR_TARGET_LIBC STREQUAL "musl")
+    message(FATAL_ERROR "the WebGPU flavor is not available for musl targets")
+  endif()
+  if(LIGHT_OCR_TARGET_LIBC STREQUAL "musl")
+    execute_process(
+      COMMAND ${CMAKE_CXX_COMPILER} -dumpmachine
+      OUTPUT_VARIABLE _light_ocr_dumpmachine
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(NOT _light_ocr_dumpmachine MATCHES "musl")
+      message(FATAL_ERROR
+        "LIGHT_OCR_TARGET_LIBC=musl requires a musl toolchain; the compiler "
+        "reports: ${_light_ocr_dumpmachine}")
     endif()
-    FetchContent_Declare(onnxruntime_package
-      URL "${_ort_url}"
-      DOWNLOAD_NAME microsoft.ml.onnxruntime.1.22.0.zip
-      URL_HASH SHA256=d571e63a2329baacb713f441e65ad75284de354db6e1ac435fe4bebbb417986a
-      DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+  endif()
+
+  if(LIGHT_OCR_ONNXRUNTIME_FLAVOR STREQUAL "cpu")
+    if(LIGHT_OCR_TARGET_LIBC STREQUAL "musl")
+      if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
+        set(_ort_musl_arch "x64")
+        set(_ort_musl_sha256 "d0a6bca9119c5b6dd848fb6636c8cff99995bd1b8591047a6724f0ddf029cf8a")
+      elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+        set(_ort_musl_arch "arm64")
+        set(_ort_musl_sha256 "a6a651ec86f3b3dbc8af07fa89109787a49ed6c63bfea0be48e2e8c3429eb7bb")
+      else()
+        message(FATAL_ERROR
+          "musl ONNX Runtime is only prepared for linux x64 and arm64")
+      endif()
+      set(_ort_musl_filename "onnxruntime-musl-1.22.0-linux-${_ort_musl_arch}.zip")
+      light_ocr_archive_url(_ort_url "${_ort_musl_filename}"
+        "https://github.com/arcships/light-ocr/releases/download/musl-runtime-1.22.0/${_ort_musl_filename}")
+      FetchContent_Declare(onnxruntime_package
+        URL "${_ort_url}"
+        DOWNLOAD_NAME "${_ort_musl_filename}"
+        URL_HASH SHA256=${_ort_musl_sha256}
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+    else()
+      light_ocr_archive_url(_ort_url microsoft.ml.onnxruntime.1.22.0.nupkg
+        https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.22.0/microsoft.ml.onnxruntime.1.22.0.nupkg)
+      if(EXISTS "${_ort_url}")
+        # CMake 3.31 chooses the extractor for local files from their suffix and
+        # does not recognize NuGet's .nupkg suffix. Use a hard-linked .zip alias.
+        set(_ort_archive_dir "${CMAKE_BINARY_DIR}/_light_ocr_archives")
+        set(_ort_archive_zip "${_ort_archive_dir}/microsoft.ml.onnxruntime.1.22.0.zip")
+        file(MAKE_DIRECTORY "${_ort_archive_dir}")
+        file(CREATE_LINK "${_ort_url}" "${_ort_archive_zip}" COPY_ON_ERROR)
+        set(_ort_url "${_ort_archive_zip}")
+      endif()
+      FetchContent_Declare(onnxruntime_package
+        URL "${_ort_url}"
+        DOWNLOAD_NAME microsoft.ml.onnxruntime.1.22.0.zip
+        URL_HASH SHA256=d571e63a2329baacb713f441e65ad75284de354db6e1ac435fe4bebbb417986a
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+    endif()
     FetchContent_MakeAvailable(nlohmann_json clipper opencv onnxruntime_package)
   else()
     FetchContent_MakeAvailable(nlohmann_json clipper opencv)
@@ -206,7 +250,11 @@ function(light_ocr_configure_dependencies)
       endif()
       set(_ort_runtime_files "${_ort_library}" "${_ort_versioned_library}")
     elseif(UNIX AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
-      set(_ort_runtime_dir "runtimes/linux-x64/native")
+      if(LIGHT_OCR_TARGET_LIBC STREQUAL "musl")
+        set(_ort_runtime_dir "runtimes/linux-x64-musl/native")
+      else()
+        set(_ort_runtime_dir "runtimes/linux-x64/native")
+      endif()
       set(_ort_library "${onnxruntime_package_SOURCE_DIR}/${_ort_runtime_dir}/libonnxruntime.so")
       set(_ort_soname_library
         "${onnxruntime_package_SOURCE_DIR}/${_ort_runtime_dir}/libonnxruntime.so.1")
@@ -215,7 +263,11 @@ function(light_ocr_configure_dependencies)
       endif()
       set(_ort_runtime_files "${_ort_library}" "${_ort_soname_library}")
     elseif(UNIX AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
-      set(_ort_runtime_dir "runtimes/linux-arm64/native")
+      if(LIGHT_OCR_TARGET_LIBC STREQUAL "musl")
+        set(_ort_runtime_dir "runtimes/linux-arm64-musl/native")
+      else()
+        set(_ort_runtime_dir "runtimes/linux-arm64/native")
+      endif()
       set(_ort_library "${onnxruntime_package_SOURCE_DIR}/${_ort_runtime_dir}/libonnxruntime.so")
       set(_ort_soname_library
         "${onnxruntime_package_SOURCE_DIR}/${_ort_runtime_dir}/libonnxruntime.so.1")

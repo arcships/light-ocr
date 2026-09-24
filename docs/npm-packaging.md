@@ -43,7 +43,7 @@ const engine = await createEngine();
 
 ## 2. 包集合与依赖图
 
-首个 release set 固定为八个公开 scoped packages：
+首个 release set 固定为十个公开 scoped packages：
 
 | 包 | 类型 | 内容 | 安装关系 |
 | --- | --- | --- | --- |
@@ -55,6 +55,8 @@ const engine = await createEngine();
 | `@arcships/light-ocr-win32-arm64` | native | arm64 `.node`、`onnxruntime.dll`、licenses、SBOM、hashes | facade 的 optional dependency |
 | `@arcships/light-ocr-linux-x64-gnu` | native | glibc x64 `.node`、ONNX Runtime `.so`、licenses、SBOM、hashes | facade 的 optional dependency |
 | `@arcships/light-ocr-linux-arm64-gnu` | native | glibc arm64 `.node`、ONNX Runtime `.so`、licenses、SBOM、hashes | facade 的 optional dependency |
+| `@arcships/light-ocr-linux-x64-musl` | native | musl x64 `.node`、源码编译的 musl ONNX Runtime `.so`、licenses、SBOM、hashes | facade 的 optional dependency |
+| `@arcships/light-ocr-linux-arm64-musl` | native | musl arm64 `.node`、源码编译的 musl ONNX Runtime `.so`、licenses、SBOM、hashes | facade 的 optional dependency |
 
 依赖方向只有两层：
 
@@ -67,7 +69,9 @@ const engine = await createEngine();
     ├── @arcships/light-ocr-win32-x64
     ├── @arcships/light-ocr-win32-arm64
     ├── @arcships/light-ocr-linux-x64-gnu
-    └── @arcships/light-ocr-linux-arm64-gnu
+    ├── @arcships/light-ocr-linux-arm64-gnu
+    ├── @arcships/light-ocr-linux-x64-musl
+    └── @arcships/light-ocr-linux-arm64-musl
 ```
 
 模型包不能是 optional dependency。否则 `--omit=optional`、平台筛选或安装器的可选依赖容错会让一次“成功安装”缺少默认模型，违背主包契约。native 包必须是 optional dependencies，因为同一机器只需要一个平台产物。
@@ -95,7 +99,7 @@ v1 不提供无模型的 `core`/`lite` 入口，也不允许用户单独拼装 f
     }
   },
   "files": ["js/", "README.md", "LICENSE", "NOTICE"],
-  "engines": { "node": "^22.0.0 || ^24.0.0" },
+  "engines": { "node": ">=22.0.0" },
   "dependencies": {
     "@arcships/light-ocr-model-ppocrv6-small": "0.3.0"
   },
@@ -170,7 +174,7 @@ Facade 在创建 engine 前读取 manifest，并核对 `bundleId` 是否等于�
   "cpu": ["x64"],
   "libc": ["glibc"],
   "files": ["native/", "licenses/", "sbom.spdx.json", "artifact-hashes.json", "README.md", "LICENSE", "NOTICE"],
-  "engines": { "node": "^22.0.0 || ^24.0.0" },
+  "engines": { "node": ">=22.0.0" },
   "publishConfig": { "access": "public" }
 }
 ```
@@ -187,6 +191,8 @@ Facade 只按固定映射加载 package：
 | `win32` | `arm64` | `@arcships/light-ocr-win32-arm64` |
 | `linux` + glibc | `x64` | `@arcships/light-ocr-linux-x64-gnu` |
 | `linux` + glibc | `arm64` | `@arcships/light-ocr-linux-arm64-gnu` |
+| `linux` + musl | `x64` | `@arcships/light-ocr-linux-x64-musl` |
+| `linux` + musl | `arm64` | `@arcships/light-ocr-linux-arm64-musl` |
 
 未知组合以 `unsupported_platform` 拒绝 `createEngine()`。已支持组合但 native package 缺失时，以 `package_load_failed` 拒绝，并提示重新安装且不要使用 `--omit=optional`；不能静默源码编译或在线下载二进制。开发环境仍可显式设置 `LIGHT_OCR_NODE_BINARY`，但 published README 不把它当作生产配置。
 
@@ -248,24 +254,24 @@ export function createEngine(options?: CreateEngineOptions): Promise<OcrEngine>;
 
 ## 8. 构建与发布流程
 
-仓库不提交模型二进制副本。N2 release staging 从 workspace、两个锁定 preview bundle 和六个平台 native input 组装：
+仓库不提交模型二进制副本。N2 release staging 从 workspace、两个锁定 preview bundle 和八个平台 native input 组装：
 
 ```text
 packages/runtime + packages/light-ocr{,-tiny,-medium}
 models/generated/ppocrv6-{tiny,medium}-onnx-*
 dist/native-input/<platform>
                          ↓
-dist/npm/<twelve staging directories>
+dist/npm/<fourteen staging directories>
 ```
 
 `dist/npm` 是临时生成目录，不是源码 authority。打包器必须使用 `files` allowlist，并拒绝 source、test fixture、cache、绝对路径、symlink、额外动态库和未登记文件。
 
 发布顺序保持可恢复，但不重复已经在资格工作流完成的验证：
 
-1. 六个平台仅构建 addon/runtime payload 并生成 license、SBOM 与 descriptor，不在 release 内重跑 Core/qualification。
-2. assembly job 只生成 Tiny/Medium bundle 一次，复用已发布 Small model `0.3.4`，组装十二个 staging directories。
+1. 八个平台仅构建 addon/runtime payload 并生成 license、SBOM 与 descriptor，不在 release 内重跑 Core/qualification。
+2. assembly job 只生成 Tiny/Medium bundle 一次，复用已发布 Small model `0.3.4`，组装十四个 staging directories。
 3. 每个目录执行一次 `npm pack --json --ignore-scripts`，核对 inventory，并记录 filename、bytes、SHA-256 和 npm integrity；不做无收益的第二次压包。
-4. 六个平台离线安装各自 native + runtime + Small facade 并跑真实 OCR；代表性 Linux x64 额外跑 Tiny/Medium。
+4. 八个平台离线安装各自 native + runtime + Small facade 并跑真实 OCR；代表性 Linux x64 额外跑 Tiny/Medium。
 5. 先发布 native、runtime 和两个 preview model 到 `next`，registry 能解析稳定 facade 后再发布三个 facade。
 6. promotion 只移动 native/runtime/Small 的 stable closure；Tiny/Medium 保持 `next`，直到 G2 有实际晋升证据。
 
@@ -283,7 +289,7 @@ dist/npm/<twelve staging directories>
 
 一个 N2 npm release candidate 至少满足：
 
-- 六个 native packages 分别在目标 OS/arch 原生构建并完成安装后真实 Small OCR；生命周期、sanitizer、fuzz 和 provider qualification 由 Core/qualification workflow 负责，不在 release 重复。
+- 八个 native packages 分别在目标 OS/arch 原生构建并完成安装后真实 Small OCR；生命周期、sanitizer、fuzz 和 provider qualification 由 Core/qualification workflow 负责，不在 release 重复。
 - `npm pack` inventory 与 allowlist 完全一致；package 内没有源码缓存、测试图像、原始上游 archive 或绝对构建路径。
 - Facade 的 ESM、CJS 和 TypeScript compile tests 均通过。
 - Small、Tiny、Medium 都能在安装后的隔离目录中不传 `bundlePath` 完成真实 PP-OCRv6 识别；Tiny/Medium 只要求代表性平台 preview smoke。
@@ -291,7 +297,7 @@ dist/npm/<twelve staging directories>
 - 在网络禁用环境里，对已经安装好的 package 重复 create/recognize/close 成功。
 - 模型 package 的 bundle 文件总字节、manifest、`SHA256SUMS` 和 bundle ID 与 `models/bundles.lock.json` 对应生成物一致。
 - native package 的 addon、ORT library、artifact hashes、license inventory 和 SPDX SBOM 一致。
-- 从干净 release commit 生成并记录十二个 npm tarballs 的 SHA-256、registry integrity、dist-tag 和 CI artifact URL。
+- 从干净 release commit 生成并记录十四个 npm tarballs 的 SHA-256、registry integrity、dist-tag 和 CI artifact URL。
 - 仓库根 `LICENSE`/`NOTICE`、facade/native package 的 SPDX `license` 字段与 Apache-2.0 一致。
 
 ## 10. `0.1.0` 首发时明确不做（历史约束）

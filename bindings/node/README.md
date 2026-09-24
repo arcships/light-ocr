@@ -185,8 +185,8 @@ TypeScript types are included in the shared runtime [`index.d.ts`](../../package
 - **Providers**: CPU (all platforms), Apple Core ML (macOS arm64), WebGPU (Linux x64, Windows x64)
 - **Offline**: no network at install or runtime; model bundled in npm package
 - **Concurrency**: one engine = one worker thread, bounded FIFO queue, AbortSignal support
-- **Platforms**: macOS arm64/x64, Linux x64/arm64 (glibc), Windows x64/arm64
-- **Node.js**: 22, 24
+- **Platforms**: macOS arm64/x64, Linux x64/arm64 (glibc and musl), Windows x64/arm64
+- **Node.js**: 22+ (22/24 LTS are Tier 1; newer majors load the same prebuilt binaries via the stable Node-API ABI)
 
 ### Not supported
 

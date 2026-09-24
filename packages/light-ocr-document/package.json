@@ -30,7 +30,7 @@
     "NOTICE"
   ],
   "engines": {
-    "node": "^22.0.0 || ^24.0.0"
+    "node": ">=22.0.0"
   },
   "dependencies": {
     "@arcships/light-ocr": "0.5.7"

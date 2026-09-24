@@ -607,7 +607,7 @@ JavaScript package 的正式支持矩阵是：
 | Electron | Windows addon host 重定向与 Electron 37 CPU smoke；完整 major/ASAR/worker/lifecycle matrix 完成前不提升为 Tier 1 |
 | Bun | 未声明；需按其 Node-API 实现做兼容验证 |
 
-`package.json.engines.node` 在 v1 发布时写为 `^22.0.0 || ^24.0.0`；Node 26 提升为 Tier 1 后再加入，不能把 smoke test 写成正式承诺。
+`package.json.engines.node` 采用下限式 `>=22.0.0`，只声明真实支持的最低版本，不枚举 Node 大版本：Node-API 是稳定 ABI，`NAPI_VERSION=8` 的 addon 无需重编译即可在后续所有 Node 大版本（含 26 及未来版本）加载，因此新 Node 大版本发布不需要库跟发版本。各版本的实际支持程度由上表 Tier 矩阵声明、由 CI gate 保障，两者与 engines 分离。不枚举的另一原因：npm 默认对 engines 不匹配只警告，而 Yarn 系默认硬失败——枚举式意味着每个新 Current 版本发布当天 Yarn 用户无法安装，直到库发版。
 
 ## 12. npm 与二进制布局
 

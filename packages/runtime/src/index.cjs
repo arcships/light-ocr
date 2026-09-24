@@ -1,6 +1,6 @@
 'use strict';
 
-const { loadNative } = require('./load-native.cjs');
+const { loadNative, platformIdentity } = require('./load-native.cjs');
 
 class OcrError extends Error {
   constructor(code, message, detail) {
@@ -174,4 +174,4 @@ async function createEngine(options) {
   }
 }
 
-module.exports = { createEngine, OcrError, loadNative };
+module.exports = { createEngine, OcrError, loadNative, platformIdentity };

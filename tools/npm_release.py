@@ -104,6 +104,22 @@ PLATFORMS: dict[str, dict[str, Any]] = {
         "libc": ["glibc"],
         "runtime": "libonnxruntime.so.1",
     },
+    "linux-x64-musl": {
+        "package": "@arcships/light-ocr-linux-x64-musl",
+        "os": ["linux"],
+        "cpu": ["x64"],
+        "architecture": "x86_64",
+        "libc": ["musl"],
+        "runtime": "libonnxruntime.so.1",
+    },
+    "linux-arm64-musl": {
+        "package": "@arcships/light-ocr-linux-arm64-musl",
+        "os": ["linux"],
+        "cpu": ["arm64"],
+        "architecture": "arm64",
+        "libc": ["musl"],
+        "runtime": "libonnxruntime.so.1",
+    },
     "windows-x64": {
         "package": "@arcships/light-ocr-win32-x64",
         "os": ["win32"],
@@ -126,6 +142,8 @@ PDFIUM_LIBRARIES = {
     "macos-x64": "libpdfium.dylib",
     "linux-x64": "libpdfium.so",
     "linux-arm64": "libpdfium.so",
+    "linux-x64-musl": "libpdfium.so",
+    "linux-arm64-musl": "libpdfium.so",
     "windows-x64": "pdfium.dll",
     "windows-arm64": "pdfium.dll",
 }
@@ -1194,7 +1212,7 @@ def assemble(arguments: argparse.Namespace) -> None:
                     "LICENSE",
                     "NOTICE",
                 ],
-                "engines": {"node": "^22.0.0 || ^24.0.0"},
+                "engines": {"node": ">=22.0.0"},
             }
         )
         if "libc" in platform:

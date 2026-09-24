@@ -25,13 +25,15 @@
     "NOTICE"
   ],
   "engines": {
-    "node": "^22.0.0 || ^24.0.0"
+    "node": ">=22.0.0"
   },
   "optionalDependencies": {
     "@arcships/light-ocr-darwin-arm64": "0.5.7",
     "@arcships/light-ocr-darwin-x64": "0.5.7",
     "@arcships/light-ocr-linux-arm64-gnu": "0.5.7",
+    "@arcships/light-ocr-linux-arm64-musl": "0.5.7",
     "@arcships/light-ocr-linux-x64-gnu": "0.5.7",
+    "@arcships/light-ocr-linux-x64-musl": "0.5.7",
     "@arcships/light-ocr-win32-arm64": "0.5.7",
     "@arcships/light-ocr-win32-x64": "0.5.7"
   },
