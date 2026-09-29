@@ -97,7 +97,7 @@ AMD NPU 与 Intel NPU 是**两条不同性质的路线**，不能把 Intel 方�
 
 1. **量化（CPU 上可做）**：AMD Quark 或 Vitis AI Quantizer（官方 Docker 镜像），输入上游 FP32 ONNX，输出 INT8 或 BF16 ONNX。需要：
    - 校准集：复用 14-fixture locked corpus 的代表性样本；
-   - INT8 需要精度预算与逐层审查（D113 未覆盖的 新维度：量化误差审计）。
+   - INT8 需要精度预算与逐层审查（D113 未覆盖的新维度：量化误差审计）。
 2. **NPU 编译（Windows 步骤）**：在 Windows 环境（本地或 CI runner）用 Ryzen AI 工具链把量化模型编译为 NPU 微码产物；产物锁定哈希后随包分发，运行时不再编译。
    - 这直接消除"首次编译数分钟"的运行时成本，比 Intel 路线（运行时编译 + 磁盘缓存）更可控；
    - 代价是派生物流程新增一个 Windows 构建环节，需要 CI 化与 provenance 记录。

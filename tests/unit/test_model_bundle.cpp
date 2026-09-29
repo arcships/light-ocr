@@ -587,11 +587,21 @@ internal::RuntimePolicy amdnpu_test_policy() {
 }  // namespace
 
 LIGHT_OCR_TEST(amdnpu_accepts_only_automatic_precision) {
-  auto bundle = ModelBundle::create(valid_bundle_files());
-  EXPECT_TRUE(bundle);
   EngineOptions options;
   options.execution.provider = ExecutionProvider::amdnpu;
+  options.execution.precision = Precision::fp32;
+  {
+    auto bundle = ModelBundle::create(valid_bundle_files());
+    EXPECT_TRUE(bundle);
+    auto engine = internal::EngineFactory::create(
+        std::move(bundle).value(), options, amdnpu_test_policy());
+    EXPECT_FALSE(engine);
+    EXPECT_EQ(engine.error().code, ErrorCode::invalid_argument);
+    EXPECT_FALSE(engine.error().creation_trace.has_value());
+  }
   options.execution.precision = Precision::fp16;
+  auto bundle = ModelBundle::create(valid_bundle_files());
+  EXPECT_TRUE(bundle);
   auto engine = internal::EngineFactory::create(
       std::move(bundle).value(), options, amdnpu_test_policy());
   EXPECT_FALSE(engine);
