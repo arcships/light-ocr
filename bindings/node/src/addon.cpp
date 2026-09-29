@@ -500,9 +500,10 @@ ExecutionProvider parse_execution_provider(napi_env env, napi_value value) {
   if (provider == "apple") return ExecutionProvider::apple;
   if (provider == "webgpu") return ExecutionProvider::webgpu;
   if (provider == "openvino") return ExecutionProvider::openvino;
+  if (provider == "amdnpu") return ExecutionProvider::amdnpu;
   throw AddonFailure(
       "invalid_argument",
-      "execution.provider must be auto, cpu, apple, webgpu, or openvino");
+      "execution.provider must be auto, cpu, apple, webgpu, openvino, or amdnpu");
 }
 
 SessionFallback parse_session_fallback(napi_env env, napi_value value) {
@@ -1623,6 +1624,7 @@ const char* execution_provider_string(ExecutionProvider provider) {
     case ExecutionProvider::apple: return "apple";
     case ExecutionProvider::webgpu: return "webgpu";
     case ExecutionProvider::openvino: return "openvino";
+    case ExecutionProvider::amdnpu: return "amdnpu";
   }
   return "auto";
 }

@@ -203,7 +203,7 @@ WebGPU 成功不自动淘汰厂商 EP；失败也不代表 Linux 无法加速。
 | Intel iGPU/dGPU | OpenVINO GPU | FP16 或 accuracy profile | graph coverage、driver、model cache、dynamic shape、CPU partition、包体 |
 | Intel Core Ultra NPU | OpenVINO NPU | FP16；INT8/QDQ 后续 | NPU driver、固定/bounded shape、recognition buckets、detector 路由、compiled cache；不能隐藏 CPU fallback ；设计与真机 Spike 见 [Intel NPU 加速技术方案](intel-npu-acceleration.md) |
 | AMD GPU | MIGraphX | provider 资格审查后选择 FP32/FP16 | ROCm/MIGraphX 兼容矩阵、编译/cache、算子与动态 shape；旧 ORT ROCm EP 不作为新路线 |
-| AMD Ryzen AI NPU | Vitis AI，若 Linux 目标与分发可行 | INT8/BF16 provider-specific | 厂商模型派生、校准、编译/context、硬件与 OS 范围；与 MIGraphX 分开决策 |
+| AMD Ryzen AI NPU | Vitis AI，若 Linux 目标与分发可行 | INT8/BF16 provider-specific | 厂商模型派生、校准、编译/context、硬件与 OS 范围；与 MIGraphX 分开决策；无硬件预研见 [AMD NPU 加速技术方案](amd-npu-acceleration.md) |
 | Qualcomm/Rockchip/华为等 NPU | QNN/RKNPU/CANN 等 | 厂商专用 QDQ/context/IR | 通常依赖 Linux arm64 或特定设备；当前无 Tier 1 交集，等待 D110 与真实需求 |
 
 官方参考：

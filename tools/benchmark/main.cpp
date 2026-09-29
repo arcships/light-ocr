@@ -65,6 +65,7 @@ const char* provider_name(light_ocr::ExecutionProvider provider) {
     case light_ocr::ExecutionProvider::apple: return "apple";
     case light_ocr::ExecutionProvider::webgpu: return "webgpu";
     case light_ocr::ExecutionProvider::openvino: return "openvino";
+    case light_ocr::ExecutionProvider::amdnpu: return "amdnpu";
   }
   return "auto";
 }

@@ -14,6 +14,13 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
   `adapter_unavailable`. Published npm packages do not include OpenVINO yet, so
   `provider: "openvino"` returns `unsupported_capability` there. See
   [Intel NPU 加速技术方案](docs/intel-npu-acceleration.md).
+- Reserved the AMD NPU execution provider name (`provider: "amdnpu"`) across the
+  C++ enum, Node addon, TypeScript types, CLI flags, and the server
+  `EXECUTION_MODE`. No build ships an AMD NPU backend yet, so any runtime that
+  lists it fails fast with `provider_abi_mismatch` and explicit requests on
+  current packages return `unsupported_capability`; the contract keeps only the
+  default precision (`precision: "auto"`) until the INT8/BF16 route is chosen.
+  See [AMD NPU 加速技术方案（预研）](docs/amd-npu-acceleration.md).
 
 ## [0.5.8] - 2026-09-24
 
