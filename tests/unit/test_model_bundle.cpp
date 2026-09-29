@@ -570,6 +570,86 @@ LIGHT_OCR_TEST(openvino_policy_without_core_support_is_an_abi_mismatch) {
 }
 #endif
 
+namespace {
+
+internal::RuntimePolicy amdnpu_test_policy() {
+  internal::RuntimePolicy policy;
+  policy.id = "test-amdnpu-v1";
+  policy.version = 1;
+  policy.qualification_only = true;
+  policy.released = false;
+  policy.ordered_candidates = {"amdnpu", "cpu"};
+  policy.available_providers = {"amdnpu", "cpu"};
+  policy.provider_qualification_ids = {"test-amdnpu-v1", "test-cpu-v1"};
+  return policy;
+}
+
+}  // namespace
+
+LIGHT_OCR_TEST(amdnpu_accepts_only_automatic_precision) {
+  auto bundle = ModelBundle::create(valid_bundle_files());
+  EXPECT_TRUE(bundle);
+  EngineOptions options;
+  options.execution.provider = ExecutionProvider::amdnpu;
+  options.execution.precision = Precision::fp16;
+  auto engine = internal::EngineFactory::create(
+      std::move(bundle).value(), options, amdnpu_test_policy());
+  EXPECT_FALSE(engine);
+  EXPECT_EQ(engine.error().code, ErrorCode::invalid_argument);
+  EXPECT_FALSE(engine.error().creation_trace.has_value());
+}
+
+LIGHT_OCR_TEST(explicit_amdnpu_requires_a_bundled_provider) {
+  auto bundle = ModelBundle::create(valid_bundle_files());
+  EXPECT_TRUE(bundle);
+  EngineOptions options;
+  options.execution.provider = ExecutionProvider::amdnpu;
+  internal::RuntimePolicy policy;
+  policy.id = "test-cpu-v1";
+  policy.version = 1;
+  policy.ordered_candidates = {"cpu"};
+  policy.available_providers = {"cpu"};
+  auto engine = internal::EngineFactory::create(
+      std::move(bundle).value(), options, std::move(policy));
+  EXPECT_FALSE(engine);
+  EXPECT_EQ(engine.error().code, ErrorCode::unsupported_capability);
+  EXPECT_EQ(engine.error().detail, std::string("amdnpu"));
+}
+
+LIGHT_OCR_TEST(amdnpu_candidate_is_an_abi_mismatch_until_a_backend_ships) {
+  auto bundle = ModelBundle::create(valid_bundle_files());
+  EXPECT_TRUE(bundle);
+  EngineOptions options;
+  options.execution.provider = ExecutionProvider::amdnpu;
+  auto engine = internal::EngineFactory::create(
+      std::move(bundle).value(), options, amdnpu_test_policy());
+  EXPECT_FALSE(engine);
+  EXPECT_EQ(engine.error().code, ErrorCode::unsupported_capability);
+  EXPECT_TRUE(engine.error().creation_trace.has_value());
+  const auto& attempts = engine.error().creation_trace->attempts;
+  EXPECT_EQ(attempts.size(), 1u);
+  EXPECT_EQ(attempts[0].provider, std::string("amdnpu"));
+  EXPECT_EQ(attempts[0].status, CreationAttemptStatus::fatal);
+  EXPECT_EQ(*attempts[0].creation_reason, CreationReason::provider_abi_mismatch);
+}
+
+LIGHT_OCR_TEST(auto_policy_with_amdnpu_fails_fast_instead_of_silently_skipping) {
+  auto bundle = ModelBundle::create(valid_bundle_files());
+  EXPECT_TRUE(bundle);
+  EngineOptions options;
+  options.execution.provider = ExecutionProvider::automatic;
+  auto engine = internal::EngineFactory::create(
+      std::move(bundle).value(), options, amdnpu_test_policy());
+  EXPECT_FALSE(engine);
+  EXPECT_EQ(engine.error().code, ErrorCode::unsupported_capability);
+  EXPECT_TRUE(engine.error().creation_trace.has_value());
+  const auto& attempts = engine.error().creation_trace->attempts;
+  EXPECT_EQ(attempts.size(), 1u);
+  EXPECT_EQ(attempts[0].provider, std::string("amdnpu"));
+  EXPECT_EQ(attempts[0].status, CreationAttemptStatus::fatal);
+  EXPECT_EQ(*attempts[0].creation_reason, CreationReason::provider_abi_mismatch);
+}
+
 LIGHT_OCR_TEST(model_bundle_rejects_schema_1_1_without_apple_provider) {
   auto files = valid_bundle_files(true);
   for (auto& file : files) {

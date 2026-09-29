@@ -107,6 +107,14 @@ bool valid_execution_options(const ExecutionOptions& options) {
            (options.precision == Precision::automatic ||
             options.precision == Precision::fp16);
   }
+  if (options.provider == ExecutionProvider::amdnpu) {
+    // The AMD NPU route has not chosen between INT8 and BF16 derived models
+    // yet, so only the default precision is part of the contract.
+    return !options.device_id.has_value() &&
+           (options.cpu_partition == CpuPartition::allow ||
+            options.cpu_partition == CpuPartition::forbid) &&
+           options.precision == Precision::automatic;
+  }
   return options.provider == ExecutionProvider::apple &&
          !options.device_id.has_value() &&
          (options.cpu_partition == CpuPartition::allow ||
@@ -122,13 +130,14 @@ const char* provider_name(ExecutionProvider provider) {
     case ExecutionProvider::apple: return "apple";
     case ExecutionProvider::webgpu: return "webgpu";
     case ExecutionProvider::openvino: return "openvino";
+    case ExecutionProvider::amdnpu: return "amdnpu";
   }
   return "auto";
 }
 
 bool known_provider(const std::string& provider) {
   return provider == "cpu" || provider == "apple" || provider == "webgpu" ||
-         provider == "openvino";
+         provider == "openvino" || provider == "amdnpu";
 }
 
 bool policy_includes_provider(const internal::RuntimePolicy& policy,
@@ -1271,6 +1280,16 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
                 CreationReason::provider_abi_mismatch);
 #endif
           }
+          if (candidate == "amdnpu") {
+            // No build ships the AMD NPU backend yet; a policy or descriptor
+            // that lists it can never be honored by this Core.
+            created.provider = ExecutionProvider::amdnpu;
+            return fail(
+                Error{ErrorCode::unsupported_capability,
+                      "The runtime descriptor and Core AMD NPU capabilities disagree",
+                      {}},
+                CreationReason::provider_abi_mismatch);
+          }
           if (candidate != "apple") {
             return fail(Error{ErrorCode::internal_error,
                               "Runtime policy contains an unknown provider", {}},
@@ -1403,6 +1422,10 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
           "openvino", true, selected_provider == ExecutionProvider::openvino,
           selected_provider == ExecutionProvider::openvino &&
               runtime_policy.released && !runtime_policy.qualification_only});
+    }
+    if (policy_includes_provider(runtime_policy, "amdnpu")) {
+      info.execution.provider_capabilities.push_back(ProviderCapabilityInfo{
+          "amdnpu", false, false, false});
     }
     info.execution.selection_trace = std::move(selection.trace);
     if (policy_includes_provider(runtime_policy, "apple") &&

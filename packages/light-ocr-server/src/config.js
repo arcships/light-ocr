@@ -1,6 +1,6 @@
 'use strict';
 
-const EXECUTION_MODES = new Set(['auto', 'cpu', 'apple', 'webgpu', 'openvino']);
+const EXECUTION_MODES = new Set(['auto', 'cpu', 'apple', 'webgpu', 'openvino', 'amdnpu']);
 
 function readInteger(name, value, fallback, minimum, maximum) {
   const raw = value ?? String(fallback);
@@ -17,7 +17,7 @@ function readInteger(name, value, fallback, minimum, maximum) {
 function readConfig(env = process.env) {
   const executionMode = env.EXECUTION_MODE ?? 'cpu';
   if (!EXECUTION_MODES.has(executionMode)) {
-    throw new Error('EXECUTION_MODE must be one of: auto, cpu, apple, webgpu, openvino');
+    throw new Error('EXECUTION_MODE must be one of: auto, cpu, apple, webgpu, openvino, amdnpu');
   }
   return Object.freeze({
     port: readInteger('PORT', env.PORT, 3000, 1, 65535),

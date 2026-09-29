@@ -15,7 +15,7 @@ enum class PixelFormat { gray8, rgb8, bgr8, rgba8 };
 
 enum class DetectionStrategy { bounded, tiled, upstream_exact };
 
-enum class ExecutionProvider { automatic, cpu, apple, webgpu, openvino };
+enum class ExecutionProvider { automatic, cpu, apple, webgpu, openvino, amdnpu };
 
 enum class SessionFallback { error, cpu };
 
