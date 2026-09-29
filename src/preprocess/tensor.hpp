@@ -47,12 +47,14 @@ Result<std::vector<RecognitionBatchPlan>> plan_recognition_batches(
     const std::vector<Quad>& boxes, const GeometryConfig& geometry,
     const RecognitionConfig& config, std::uint32_t batch_size,
     const ResourceLimits& limits, std::uint32_t tensor_width_multiple = 1,
-    const std::vector<std::uint32_t>& tensor_width_buckets = {});
+    const std::vector<std::uint32_t>& tensor_width_buckets = {},
+    bool natural_content_width = false);
 
 Result<RecognitionBatch> make_recognition_batch(
     const std::vector<cv::Mat>& crops, const RecognitionBatchPlan& plan,
     const RecognitionConfig& config, const ResourceLimits& limits,
     std::uint32_t tensor_width_multiple = 1,
-    const std::vector<std::uint32_t>& tensor_width_buckets = {});
+    const std::vector<std::uint32_t>& tensor_width_buckets = {},
+    bool natural_content_width = false);
 
 }  // namespace light_ocr::internal

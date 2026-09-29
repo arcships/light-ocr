@@ -22,7 +22,7 @@ Options:
   --max-page-pixels <n>       Maximum rendered pixels per page
   --max-total-pixels <n>      Maximum rendered pixels for the request
   --max-file-bytes <n>        Maximum bytes per input
-  --provider <auto|cpu|apple|webgpu>
+  --provider <auto|cpu|apple|webgpu|openvino>
   --quiet                     Suppress progress output
   -h, --help                  Show help
   -v, --version               Show version`;
@@ -111,8 +111,8 @@ function parseArgs(argv) {
     } else if (arg === '--provider') {
       provider = takeValue(args, index, arg);
       index++;
-      if (!['auto', 'cpu', 'apple', 'webgpu'].includes(provider)) {
-        throw argumentError('--provider must be auto, cpu, apple, or webgpu');
+      if (!['auto', 'cpu', 'apple', 'webgpu', 'openvino'].includes(provider)) {
+        throw argumentError('--provider must be auto, cpu, apple, webgpu, or openvino');
       }
     } else if (arg.startsWith('-')) {
       throw argumentError(`unknown option: ${arg}`);

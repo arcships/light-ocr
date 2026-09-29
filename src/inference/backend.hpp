@@ -55,6 +55,14 @@ struct InferenceSessionConfig {
   std::uint64_t webgpu_provider_bytes = 0;
   std::string webgpu_provider_sha256;
   bool webgpu_device_validated = false;
+  // Empty only for direct C++ callers, where the backend loads the OpenVINO C
+  // runtime configured at build time. Package adapters pass the
+  // descriptor-verified absolute path.
+  std::string openvino_runtime_library;
+  std::uint64_t openvino_runtime_bytes = 0;
+  std::string openvino_runtime_sha256;
+  // Empty selects the per-user cache directory.
+  std::string openvino_cache_directory;
   std::optional<AppleModelPackage> apple_package;
   std::string requested_provider_override;
   bool session_fallback_used = false;

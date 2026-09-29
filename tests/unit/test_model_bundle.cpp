@@ -452,6 +452,124 @@ LIGHT_OCR_TEST(webgpu_fp16_is_not_a_public_execution_profile) {
   EXPECT_FALSE(engine.error().creation_trace.has_value());
 }
 
+namespace {
+
+internal::RuntimePolicy openvino_test_policy() {
+  internal::RuntimePolicy policy;
+  policy.id = "test-openvino-v1";
+  policy.version = 1;
+  policy.qualification_only = true;
+  policy.released = false;
+  policy.ordered_candidates = {"openvino", "cpu"};
+  policy.available_providers = {"openvino", "cpu"};
+  policy.provider_qualification_ids = {"test-openvino-v1", "test-cpu-v1"};
+  return policy;
+}
+
+}  // namespace
+
+LIGHT_OCR_TEST(openvino_accepts_only_fp16_precision) {
+  auto bundle = ModelBundle::create(valid_bundle_files());
+  EXPECT_TRUE(bundle);
+  EngineOptions options;
+  options.execution.provider = ExecutionProvider::openvino;
+  options.execution.precision = Precision::fp32;
+  auto engine = internal::EngineFactory::create(
+      std::move(bundle).value(), options, openvino_test_policy());
+  EXPECT_FALSE(engine);
+  EXPECT_EQ(engine.error().code, ErrorCode::invalid_argument);
+  EXPECT_FALSE(engine.error().creation_trace.has_value());
+}
+
+LIGHT_OCR_TEST(explicit_openvino_requires_a_bundled_provider) {
+  auto bundle = ModelBundle::create(valid_bundle_files());
+  EXPECT_TRUE(bundle);
+  EngineOptions options;
+  options.execution.provider = ExecutionProvider::openvino;
+  internal::RuntimePolicy policy;
+  policy.id = "test-cpu-v1";
+  policy.version = 1;
+  policy.ordered_candidates = {"cpu"};
+  policy.available_providers = {"cpu"};
+  auto engine = internal::EngineFactory::create(
+      std::move(bundle).value(), options, std::move(policy));
+  EXPECT_FALSE(engine);
+  EXPECT_EQ(engine.error().code, ErrorCode::unsupported_capability);
+  EXPECT_EQ(engine.error().detail, std::string("openvino"));
+}
+
+LIGHT_OCR_TEST(openvino_rejects_batched_recognition_before_loading_the_runtime) {
+  auto bundle = ModelBundle::create(valid_bundle_files());
+  EXPECT_TRUE(bundle);
+  EngineOptions options;
+  options.execution.provider = ExecutionProvider::openvino;
+  options.recognition_batch_size = 2;
+  auto engine = internal::EngineFactory::create(
+      std::move(bundle).value(), options, openvino_test_policy());
+  EXPECT_FALSE(engine);
+  EXPECT_TRUE(engine.error().creation_trace.has_value());
+  const auto& attempts = engine.error().creation_trace->attempts;
+  EXPECT_EQ(attempts.size(), 1u);
+  EXPECT_EQ(attempts[0].provider, std::string("openvino"));
+  EXPECT_EQ(attempts[0].status, CreationAttemptStatus::fatal);
+  EXPECT_EQ(*attempts[0].creation_reason, CreationReason::model_compute_unsupported);
+}
+
+LIGHT_OCR_TEST(openvino_cpu_detector_route_rejects_strict_partition) {
+  auto bundle = ModelBundle::create(valid_bundle_files());
+  EXPECT_TRUE(bundle);
+  EngineOptions options;
+  options.execution.provider = ExecutionProvider::openvino;
+  options.execution.cpu_partition = CpuPartition::forbid;
+  auto policy = openvino_test_policy();
+  policy.openvino_detector_route = "cpu";
+  auto engine = internal::EngineFactory::create(
+      std::move(bundle).value(), options, std::move(policy));
+  EXPECT_FALSE(engine);
+  EXPECT_EQ(engine.error().code, ErrorCode::unsupported_capability);
+  EXPECT_EQ(*engine.error().creation_trace->attempts[0].creation_reason,
+            CreationReason::model_compute_unsupported);
+}
+
+LIGHT_OCR_TEST(runtime_policy_rejects_incomplete_openvino_artifacts) {
+  const auto create = [](internal::RuntimePolicy policy) {
+    auto bundle = ModelBundle::create(valid_bundle_files());
+    EXPECT_TRUE(bundle);
+    return internal::EngineFactory::create(std::move(bundle).value(), EngineOptions{},
+                                           std::move(policy));
+  };
+  auto missing_hash = openvino_test_policy();
+  missing_hash.openvino_runtime_library = "/opt/light-ocr/openvino/libopenvino_c.so";
+  missing_hash.openvino_runtime_bytes = 1;
+  auto unlisted = openvino_test_policy();
+  unlisted.available_providers = {"cpu"};
+  unlisted.ordered_candidates = {"cpu"};
+  unlisted.provider_qualification_ids = {"test-cpu-v1"};
+  unlisted.openvino_runtime_library = "/opt/light-ocr/openvino/libopenvino_c.so";
+  auto unknown_route = openvino_test_policy();
+  unknown_route.openvino_detector_route = "gpu";
+  for (auto policy : {missing_hash, unlisted, unknown_route}) {
+    auto engine = create(std::move(policy));
+    EXPECT_FALSE(engine);
+    EXPECT_EQ(engine.error().code, ErrorCode::internal_error);
+    EXPECT_EQ(engine.error().message, std::string("The package runtime policy is invalid"));
+  }
+}
+
+#if !defined(LIGHT_OCR_HAS_OPENVINO)
+LIGHT_OCR_TEST(openvino_policy_without_core_support_is_an_abi_mismatch) {
+  auto bundle = ModelBundle::create(valid_bundle_files());
+  EXPECT_TRUE(bundle);
+  EngineOptions options;
+  options.execution.provider = ExecutionProvider::openvino;
+  auto engine = internal::EngineFactory::create(
+      std::move(bundle).value(), options, openvino_test_policy());
+  EXPECT_FALSE(engine);
+  EXPECT_EQ(*engine.error().creation_trace->attempts[0].creation_reason,
+            CreationReason::provider_abi_mismatch);
+}
+#endif
+
 LIGHT_OCR_TEST(model_bundle_rejects_schema_1_1_without_apple_provider) {
   auto files = valid_bundle_files(true);
   for (auto& file : files) {

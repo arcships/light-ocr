@@ -114,14 +114,19 @@ int main() {
       return 1;
     }
     const auto builtin_policy = light_ocr::internal::builtin_runtime_policy();
-    const bool webgpu_runtime =
-        std::find(builtin_policy.available_providers.begin(),
-                  builtin_policy.available_providers.end(), "webgpu") !=
-        builtin_policy.available_providers.end();
+    std::vector<std::string> accelerators;
+    for (const auto* provider : {"webgpu", "openvino"}) {
+      if (std::find(builtin_policy.available_providers.begin(),
+                    builtin_policy.available_providers.end(), provider) !=
+          builtin_policy.available_providers.end()) {
+        accelerators.push_back(provider);
+      }
+    }
+    const bool webgpu_runtime = !accelerators.empty();
     light_ocr::EngineOptions integration_options;
     if (webgpu_runtime) {
       // The ordinary integration suite is hardware-independent. Direct C++
-      // Auto is exercised by the real-device WebGPU qualification runner.
+      // Auto is exercised by the real-device qualification runners.
       integration_options.execution.provider = light_ocr::ExecutionProvider::cpu;
     }
     auto engine = light_ocr::Engine::create(std::move(bundle).value(),
@@ -145,15 +150,17 @@ int main() {
         execution.provider_capabilities[0].package_included &&
         execution.provider_capabilities[0].device_available &&
         execution.provider_capabilities[0].device_validated;
-    const bool provider_capabilities_valid =
+    bool provider_capabilities_valid =
         cpu_capability_valid &&
-        (webgpu_runtime
-             ? execution.provider_capabilities.size() == 2 &&
-                   execution.provider_capabilities[1].provider == "webgpu" &&
-                   execution.provider_capabilities[1].package_included &&
-                   !execution.provider_capabilities[1].device_available &&
-                   !execution.provider_capabilities[1].device_validated
-             : execution.provider_capabilities.size() == 1);
+        execution.provider_capabilities.size() == 1 + accelerators.size();
+    for (std::size_t index = 0;
+         provider_capabilities_valid && index < accelerators.size(); ++index) {
+      const auto& capability = execution.provider_capabilities[index + 1];
+      provider_capabilities_valid = capability.provider == accelerators[index] &&
+                                    capability.package_included &&
+                                    !capability.device_available &&
+                                    !capability.device_validated;
+    }
     const auto expected_requested =
         webgpu_runtime ? light_ocr::ExecutionProvider::cpu
                        : light_ocr::ExecutionProvider::automatic;

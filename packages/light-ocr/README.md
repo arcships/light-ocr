@@ -227,7 +227,7 @@ index, source metadata, dimensions, applied PDF transforms, and timing.
 | `light-ocr doctor --json` | Print voluntary system/provider diagnostics |
 
 Image OCR supports `--format json|jsonl|text`, `--region x,y,w,h`,
-`--provider auto|cpu|apple|webgpu`, `--stdin`, and automatic EXIF correction.
+`--provider auto|cpu|apple|webgpu|openvino`, `--stdin`, and automatic EXIF correction.
 Document OCR adds `--pages N-M`, `--dpi`, and the page/file/pixel limit flags.
 
 `detect` always emits structured JSON and does not accept `--format`.

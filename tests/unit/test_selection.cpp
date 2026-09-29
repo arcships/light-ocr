@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "core/engine_factory.hpp"
+#include "inference/openvino/backend.hpp"
 #include "inference/selection.hpp"
 
 namespace light_ocr::test {
@@ -125,10 +126,41 @@ LIGHT_OCR_TEST(auto_final_candidate_failure_is_fatal) {
             ErrorCode::runtime_initialization_failed);
 }
 
+LIGHT_OCR_TEST(builtin_openvino_policy_prefers_the_npu_and_stays_qualification_only) {
+  const auto policy = internal::builtin_runtime_policy();
+  const bool openvino =
+      std::find(policy.available_providers.begin(), policy.available_providers.end(),
+                "openvino") != policy.available_providers.end();
+#if defined(LIGHT_OCR_HAS_OPENVINO)
+  EXPECT_TRUE(openvino);
+  EXPECT_EQ(policy.id, std::string("builtin-openvino-v1"));
+  EXPECT_EQ(policy.ordered_candidates.front(), std::string("openvino"));
+  EXPECT_EQ(policy.ordered_candidates.back(), std::string("cpu"));
+  EXPECT_TRUE(policy.qualification_only);
+  EXPECT_TRUE(!policy.released);
+#else
+  EXPECT_FALSE(openvino);
+#endif
+}
+
+LIGHT_OCR_TEST(openvino_recognition_buckets_match_the_locked_width_contract) {
+  const auto& buckets = internal::openvino_recognition_width_buckets();
+  EXPECT_EQ(buckets.size(), 20u);
+  EXPECT_EQ(buckets.front(), 320u);
+  EXPECT_EQ(buckets.back(), 3200u);
+  EXPECT_TRUE(std::is_sorted(buckets.begin(), buckets.end()));
+  EXPECT_TRUE(std::adjacent_find(buckets.begin(), buckets.end()) == buckets.end());
+  EXPECT_TRUE(std::all_of(buckets.begin(), buckets.end(),
+                          [](std::uint32_t width) { return width % 32 == 0; }));
+}
+
 LIGHT_OCR_TEST(builtin_webgpu_policy_places_webgpu_before_cpu_when_bundled) {
   const auto policy = internal::builtin_runtime_policy();
   const auto webgpu = std::find(policy.available_providers.begin(),
                                 policy.available_providers.end(), "webgpu");
+#if defined(LIGHT_OCR_HAS_OPENVINO)
+  return;  // Covered by the OpenVINO policy test above.
+#endif
   if (webgpu == policy.available_providers.end()) {
     EXPECT_EQ(policy.id, std::string("builtin-cpu-v1"));
     EXPECT_EQ(policy.ordered_candidates, std::vector<std::string>{"cpu"});

@@ -34,6 +34,10 @@ set(LIGHT_OCR_ORACLE_PYTHON "" CACHE FILEPATH "Pinned Python interpreter for par
 set(LIGHT_OCR_NODE_INCLUDE_DIR "" CACHE PATH "Directory containing node_api.h")
 set(LIGHT_OCR_NODE_LIBRARY "" CACHE FILEPATH "Windows Node import library")
 set(LIGHT_OCR_NODE_EXECUTABLE "" CACHE FILEPATH "Node.js executable used for adapter tests")
+set(LIGHT_OCR_OPENVINO_SDK_DIR "" CACHE PATH
+  "OpenVINO SDK root with include/openvino/c; enables the Intel NPU backend on Linux x64")
+set(LIGHT_OCR_OPENVINO_C_LIBRARY "" CACHE FILEPATH
+  "OpenVINO C runtime loaded by direct C++ callers; defaults to <SDK>/lib/libopenvino_c.so")
 
 if(LIGHT_OCR_ENABLE_SANITIZERS AND LIGHT_OCR_ENABLE_THREAD_SANITIZER)
   message(FATAL_ERROR "Address/Undefined sanitizers and ThreadSanitizer require separate builds")
@@ -138,6 +142,34 @@ if(LIGHT_OCR_HAS_WEBGPU)
   endif()
 endif()
 
+set(LIGHT_OCR_HAS_OPENVINO OFF)
+if(LIGHT_OCR_OPENVINO_SDK_DIR)
+  if(NOT (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
+          CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64)$"))
+    message(FATAL_ERROR "The OpenVINO NPU backend currently targets Linux x64 only")
+  endif()
+  set(_light_ocr_openvino_include "${LIGHT_OCR_OPENVINO_SDK_DIR}/include")
+  if(NOT EXISTS "${_light_ocr_openvino_include}/openvino/c/openvino.h")
+    message(FATAL_ERROR
+      "LIGHT_OCR_OPENVINO_SDK_DIR has no include/openvino/c/openvino.h: ${LIGHT_OCR_OPENVINO_SDK_DIR}")
+  endif()
+  if(NOT LIGHT_OCR_OPENVINO_C_LIBRARY)
+    set(LIGHT_OCR_OPENVINO_C_LIBRARY "${LIGHT_OCR_OPENVINO_SDK_DIR}/lib/libopenvino_c.so")
+  endif()
+  if(NOT EXISTS "${LIGHT_OCR_OPENVINO_C_LIBRARY}")
+    message(FATAL_ERROR "OpenVINO C runtime not found: ${LIGHT_OCR_OPENVINO_C_LIBRARY}")
+  endif()
+  set(LIGHT_OCR_HAS_OPENVINO ON)
+  # Headers only: the runtime is loaded with dlopen so the library never
+  # becomes a link-time dependency of the Core or the Node addon.
+  target_sources(light_ocr_core PRIVATE src/inference/openvino/backend.cpp)
+  target_include_directories(light_ocr_core SYSTEM PRIVATE "${_light_ocr_openvino_include}")
+  target_compile_definitions(light_ocr_core PRIVATE
+    LIGHT_OCR_HAS_OPENVINO=1
+    LIGHT_OCR_OPENVINO_DEFAULT_LIBRARY="${LIGHT_OCR_OPENVINO_C_LIBRARY}")
+  target_link_libraries(light_ocr_core PRIVATE ${CMAKE_DL_LIBS})
+endif()
+
 if(MSVC)
   target_compile_options(light_ocr_core PRIVATE /W4 /WX /permissive- /EHsc /fp:strict)
 else()
@@ -209,6 +241,9 @@ if(LIGHT_OCR_BUILD_TESTS)
   if(LIGHT_OCR_HAS_WEBGPU AND LIGHT_OCR_WEBGPU_QUALIFICATION_BUILD)
     target_compile_definitions(light_ocr_unit_tests PRIVATE
       LIGHT_OCR_WEBGPU_QUALIFICATION_BUILD=1)
+  endif()
+  if(LIGHT_OCR_HAS_OPENVINO)
+    target_compile_definitions(light_ocr_unit_tests PRIVATE LIGHT_OCR_HAS_OPENVINO=1)
   endif()
   light_ocr_stage_onnxruntime(light_ocr_unit_tests)
   add_test(NAME light_ocr_unit_tests COMMAND light_ocr_unit_tests)

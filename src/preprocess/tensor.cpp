@@ -43,7 +43,8 @@ Result<RecognitionSample> make_recognition_sample(
     std::size_t input_index, std::uint32_t crop_width,
     std::uint32_t crop_height, const RecognitionConfig& config,
     const ResourceLimits& limits, std::uint32_t tensor_width_multiple,
-    const std::vector<std::uint32_t>& tensor_width_buckets) {
+    const std::vector<std::uint32_t>& tensor_width_buckets,
+    bool natural_content_width) {
   if (crop_width == 0 || crop_height == 0) {
     return failure<RecognitionSample>(ErrorCode::postprocess_failed,
                                       "Recognition crop is empty");
@@ -54,6 +55,9 @@ Result<RecognitionSample> make_recognition_sample(
       static_cast<double>(config.height) * std::max(base_ratio, ratio));
   tensor_width = std::max(config.minimum_tensor_width,
                           std::min(config.maximum_tensor_width, tensor_width));
+  // Rounding and buckets only add right padding when content keeps the width
+  // it would have in an unpadded tensor; otherwise it grows to the ceiling.
+  const auto natural_width = tensor_width;
   if (tensor_width_multiple == 0 ||
       tensor_width_multiple > config.maximum_tensor_width ||
       config.maximum_tensor_width % tensor_width_multiple != 0) {
@@ -91,7 +95,8 @@ Result<RecognitionSample> make_recognition_sample(
     tensor_width = *bucket;
   }
   const auto content_width = std::min(
-      tensor_width, static_cast<std::uint32_t>(std::ceil(config.height * ratio)));
+      natural_content_width ? natural_width : tensor_width,
+      static_cast<std::uint32_t>(std::ceil(config.height * ratio)));
   if (tensor_width > limits.max_recognition_width || content_width == 0) {
     return failure<RecognitionSample>(ErrorCode::resource_limit_exceeded,
                                       "Recognition tensor width exceeds limits");
@@ -240,7 +245,8 @@ Result<std::vector<RecognitionBatchPlan>> plan_recognition_batches(
     const std::vector<Quad>& boxes, const GeometryConfig& geometry,
     const RecognitionConfig& config, std::uint32_t batch_size,
     const ResourceLimits& limits, std::uint32_t tensor_width_multiple,
-    const std::vector<std::uint32_t>& tensor_width_buckets) {
+    const std::vector<std::uint32_t>& tensor_width_buckets,
+    bool natural_content_width) {
   try {
     if (batch_size == 0 || batch_size > config.maximum_batch_size ||
         batch_size > limits.max_recognition_batch_size) {
@@ -259,7 +265,7 @@ Result<std::vector<RecognitionBatchPlan>> plan_recognition_batches(
       const auto shape = std::move(shape_result).value();
       auto sample_result = make_recognition_sample(
           index, shape.output_width(), shape.output_height(), config, limits,
-          tensor_width_multiple, tensor_width_buckets);
+          tensor_width_multiple, tensor_width_buckets, natural_content_width);
       if (!sample_result) {
         return Result<std::vector<RecognitionBatchPlan>>::failure(
             sample_result.error());
@@ -294,7 +300,8 @@ Result<RecognitionBatch> make_recognition_batch(
     const std::vector<cv::Mat>& crops, const RecognitionBatchPlan& plan,
     const RecognitionConfig& config, const ResourceLimits& limits,
     std::uint32_t tensor_width_multiple,
-    const std::vector<std::uint32_t>& tensor_width_buckets) {
+    const std::vector<std::uint32_t>& tensor_width_buckets,
+    bool natural_content_width) {
   try {
     const auto count = plan.samples.size();
     if (count == 0 || count != crops.size() ||
@@ -317,7 +324,7 @@ Result<RecognitionBatch> make_recognition_batch(
           plan.samples[index].input_index,
           static_cast<std::uint32_t>(crop.cols),
           static_cast<std::uint32_t>(crop.rows), config, limits,
-          tensor_width_multiple, tensor_width_buckets);
+          tensor_width_multiple, tensor_width_buckets, natural_content_width);
       if (!actual_result) {
         return Result<RecognitionBatch>::failure(actual_result.error());
       }

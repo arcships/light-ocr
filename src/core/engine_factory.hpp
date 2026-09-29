@@ -24,6 +24,14 @@ struct RuntimePolicy {
   std::string webgpu_provider_library;
   std::uint64_t webgpu_provider_bytes = 0;
   std::string webgpu_provider_sha256;
+  // Empty only for direct C++ callers, where the backend loads the OpenVINO C
+  // runtime configured at build time.
+  std::string openvino_runtime_library;
+  std::uint64_t openvino_runtime_bytes = 0;
+  std::string openvino_runtime_sha256;
+  // "npu" runs both models on the NPU; "cpu" keeps the detector on the CPU
+  // backend and sends only recognition to the NPU.
+  std::string openvino_detector_route = "npu";
   std::vector<std::string> ordered_candidates;
   std::vector<std::string> available_providers;
   // Entries are aligned with available_providers.
