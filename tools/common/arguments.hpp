@@ -74,6 +74,13 @@ inline EngineOptions engine_options_for_profile(const std::string& profile) {
     options.execution.precision = Precision::fp16;
     options.detection.strategy = DetectionStrategy::bounded;
     options.recognition_batch_size = 1;
+  } else if (profile == "openvino_allow" || profile == "openvino_strict") {
+    options.execution.provider = ExecutionProvider::openvino;
+    options.execution.cpu_partition =
+        profile == "openvino_strict" ? CpuPartition::forbid
+                                      : CpuPartition::allow;
+    options.detection.strategy = DetectionStrategy::bounded;
+    options.recognition_batch_size = 1;
   } else if (profile == "webgpu_allow" || profile == "webgpu_strict") {
     options.execution.provider = ExecutionProvider::webgpu;
     options.execution.cpu_partition =
@@ -132,11 +139,13 @@ inline Arguments parse_arguments(int argc, char** argv, bool benchmark) {
       result.profile != "apple_strict" &&
       result.profile != "apple_cpu_fallback" &&
       result.profile != "webgpu_allow" &&
-      result.profile != "webgpu_strict") {
+      result.profile != "webgpu_strict" &&
+      result.profile != "openvino_allow" &&
+      result.profile != "openvino_strict") {
     throw std::runtime_error(
         "profile must be upstream_exact, cpu_fast, bounded_default, runtime_default, "
         "tiled_v1, apple_interactive, apple_strict, apple_cpu_fallback, "
-        "webgpu_allow, or webgpu_strict");
+        "webgpu_allow, webgpu_strict, openvino_allow, or openvino_strict");
   }
   if (result.diagnostics_mode != "on" && result.diagnostics_mode != "off") {
     throw std::runtime_error("diagnostics-mode must be on or off");

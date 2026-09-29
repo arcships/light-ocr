@@ -5,6 +5,7 @@
 #include <cmath>
 #include <condition_variable>
 #include <cstdint>
+#include <cstdlib>
 #include <exception>
 #include <limits>
 #include <memory>
@@ -22,6 +23,7 @@
 #include "inference/coreml/backend.hpp"
 #endif
 #include "inference/onnxruntime/backend.hpp"
+#include "inference/openvino/backend.hpp"
 #include "inference/selection.hpp"
 #include "model/bundle_data.hpp"
 #include "preprocess/image.hpp"
@@ -98,6 +100,13 @@ bool valid_execution_options(const ExecutionOptions& options) {
            (options.precision == Precision::automatic ||
             options.precision == Precision::fp32);
   }
+  if (options.provider == ExecutionProvider::openvino) {
+    return !options.device_id.has_value() &&
+           (options.cpu_partition == CpuPartition::allow ||
+            options.cpu_partition == CpuPartition::forbid) &&
+           (options.precision == Precision::automatic ||
+            options.precision == Precision::fp16);
+  }
   return options.provider == ExecutionProvider::apple &&
          !options.device_id.has_value() &&
          (options.cpu_partition == CpuPartition::allow ||
@@ -112,12 +121,14 @@ const char* provider_name(ExecutionProvider provider) {
     case ExecutionProvider::cpu: return "cpu";
     case ExecutionProvider::apple: return "apple";
     case ExecutionProvider::webgpu: return "webgpu";
+    case ExecutionProvider::openvino: return "openvino";
   }
   return "auto";
 }
 
 bool known_provider(const std::string& provider) {
-  return provider == "cpu" || provider == "apple" || provider == "webgpu";
+  return provider == "cpu" || provider == "apple" || provider == "webgpu" ||
+         provider == "openvino";
 }
 
 bool policy_includes_provider(const internal::RuntimePolicy& policy,
@@ -140,14 +151,33 @@ std::string policy_qualification_id(const internal::RuntimePolicy& policy,
   return policy.provider_qualification_ids[index];
 }
 
+bool valid_sha256_or_empty(const std::string& value) {
+  return value.empty() ||
+         (value.size() == 64 &&
+          std::all_of(value.begin(), value.end(), [](char character) {
+            return (character >= '0' && character <= '9') ||
+                   (character >= 'a' && character <= 'f');
+          }));
+}
+
 bool valid_runtime_policy(const internal::RuntimePolicy& policy) {
-  const bool valid_provider_hash = policy.webgpu_provider_sha256.empty() ||
-      (policy.webgpu_provider_sha256.size() == 64 &&
-       std::all_of(policy.webgpu_provider_sha256.begin(),
-                   policy.webgpu_provider_sha256.end(), [](char value) {
-                     return (value >= '0' && value <= '9') ||
-                            (value >= 'a' && value <= 'f');
-                   }));
+  const bool valid_provider_hash =
+      valid_sha256_or_empty(policy.webgpu_provider_sha256);
+  const bool openvino_artifact_declared =
+      policy.openvino_runtime_bytes != 0 ||
+      !policy.openvino_runtime_sha256.empty();
+  if ((!policy.openvino_runtime_library.empty() &&
+       !policy_includes_provider(policy, "openvino")) ||
+      (openvino_artifact_declared &&
+       (!policy_includes_provider(policy, "openvino") ||
+        policy.openvino_runtime_library.empty() ||
+        policy.openvino_runtime_bytes == 0 ||
+        policy.openvino_runtime_sha256.empty() ||
+        !valid_sha256_or_empty(policy.openvino_runtime_sha256))) ||
+      (policy.openvino_detector_route != "npu" &&
+       policy.openvino_detector_route != "cpu")) {
+    return false;
+  }
   if (policy.id.empty() || policy.version == 0 ||
       policy.ordered_candidates.empty() ||
       policy.ordered_candidates.back() != "cpu" ||
@@ -233,6 +263,7 @@ struct CreatedSessions {
   std::unique_ptr<internal::InferenceSession> recognition;
   std::uint32_t recognition_width_multiple = 1;
   std::vector<std::uint32_t> recognition_width_buckets;
+  bool recognition_natural_content_width = false;
   std::uint32_t maximum_backend_batch_size = 1;
 };
 
@@ -243,6 +274,7 @@ class EngineImpl final : public Engine {
              std::unique_ptr<internal::InferenceSession> recognition,
              EngineInfo info, std::uint32_t recognition_width_multiple,
              std::vector<std::uint32_t> recognition_width_buckets,
+             bool recognition_natural_content_width,
              std::uint32_t maximum_backend_batch_size)
       : bundle_(std::move(bundle)),
         detection_(std::move(detection)),
@@ -250,6 +282,7 @@ class EngineImpl final : public Engine {
         info_(std::move(info)),
         recognition_width_multiple_(recognition_width_multiple),
         recognition_width_buckets_(std::move(recognition_width_buckets)),
+        recognition_natural_content_width_(recognition_natural_content_width),
         maximum_backend_batch_size_(maximum_backend_batch_size) {}
 
   ~EngineImpl() noexcept override { close(); }
@@ -514,7 +547,7 @@ class EngineImpl final : public Engine {
       auto plans_result = internal::plan_recognition_batches(
           sorted_boxes, bundle_->geometry, bundle_->recognition, batch_size,
           info_.limits, recognition_width_multiple_,
-          recognition_width_buckets_);
+          recognition_width_buckets_, recognition_natural_content_width_);
       stage_end = Clock::now();
       timing.crop_and_sort_us = elapsed_us(stage_begin, stage_end);
       if (!plans_result) {
@@ -565,7 +598,8 @@ class EngineImpl final : public Engine {
         stage_begin = Clock::now();
         auto batch_result = internal::make_recognition_batch(
             crops, plan, bundle_->recognition, recognition_limits,
-            recognition_width_multiple_, recognition_width_buckets_);
+            recognition_width_multiple_, recognition_width_buckets_,
+            recognition_natural_content_width_);
         stage_end = Clock::now();
         timing.recognition_preprocess_us += elapsed_us(stage_begin, stage_end);
         if (!batch_result) {
@@ -838,6 +872,7 @@ class EngineImpl final : public Engine {
   EngineInfo info_;
   std::uint32_t recognition_width_multiple_ = 1;
   std::vector<std::uint32_t> recognition_width_buckets_;
+  bool recognition_natural_content_width_ = false;
   std::uint32_t maximum_backend_batch_size_ = 1;
   mutable std::mutex state_mutex_;
   std::condition_variable state_changed_;
@@ -851,7 +886,22 @@ Engine::~Engine() noexcept = default;
 
 internal::RuntimePolicy internal::builtin_runtime_policy() {
   RuntimePolicy policy;
+#if defined(LIGHT_OCR_HAS_OPENVINO)
+  // The OpenVINO NPU backend has not passed a platform Gate, so builds that
+  // include it are qualification-only regardless of the other providers.
+  policy.id = "builtin-openvino-v1";
 #if defined(LIGHT_OCR_HAS_WEBGPU)
+  policy.ordered_candidates = {"openvino", "webgpu", "cpu"};
+#else
+  policy.ordered_candidates = {"openvino", "cpu"};
+#endif
+  policy.qualification_only = true;
+  policy.released = false;
+  if (const char* route = std::getenv("LIGHT_OCR_QUALIFICATION_OPENVINO_DETECTOR");
+      route != nullptr && std::string(route) == "cpu") {
+    policy.openvino_detector_route = "cpu";
+  }
+#elif defined(LIGHT_OCR_HAS_WEBGPU)
   policy.id = "builtin-webgpu-v1";
   policy.ordered_candidates = {"webgpu", "cpu"};
 #if defined(LIGHT_OCR_WEBGPU_QUALIFICATION_BUILD)
@@ -872,6 +922,10 @@ internal::RuntimePolicy internal::builtin_runtime_policy() {
 #if defined(LIGHT_OCR_HAS_WEBGPU)
   policy.available_providers.push_back("webgpu");
   policy.provider_qualification_ids.push_back("builtin-webgpu-v1");
+#endif
+#if defined(LIGHT_OCR_HAS_OPENVINO)
+  policy.available_providers.push_back("openvino");
+  policy.provider_qualification_ids.push_back("builtin-openvino-v1");
 #endif
   return policy;
 }
@@ -1115,6 +1169,108 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
             return internal::CandidateResult<CreatedSessions>::success(
                 std::move(created));
           }
+          if (candidate == "openvino") {
+            created.provider = ExecutionProvider::openvino;
+            const auto& recognition = bundle.data_->recognition;
+            const auto& buckets = openvino_recognition_width_buckets();
+            if (batch_size != 1 ||
+                detection_strategy != DetectionStrategy::bounded ||
+                detection_max_side > 960 || recognition.height != 48 ||
+                recognition.minimum_tensor_width > buckets.front() ||
+                recognition.maximum_tensor_width != buckets.back()) {
+              return fail(
+                  Error{ErrorCode::unsupported_capability,
+                        "The OpenVINO NPU provider cannot create the requested model profile",
+                        "requires batch 1, bounded detection up to 960, and 48-pixel "
+                        "recognition up to width 3200"},
+                  CreationReason::model_compute_unsupported);
+            }
+            const bool detector_on_cpu =
+                runtime_policy.openvino_detector_route == "cpu";
+            if (detector_on_cpu &&
+                options.execution.cpu_partition == CpuPartition::forbid) {
+              return fail(
+                  Error{ErrorCode::unsupported_capability,
+                        "The OpenVINO detector route runs on the CPU",
+                        "cpuPartition=forbid requires the NPU detector route"},
+                  CreationReason::model_compute_unsupported);
+            }
+#if defined(LIGHT_OCR_HAS_OPENVINO)
+            auto openvino_detection_config = detection_config;
+            openvino_detection_config.provider = ExecutionProvider::openvino;
+            openvino_detection_config.qualification_id =
+                policy_qualification_id(runtime_policy, candidate);
+            openvino_detection_config.shape_policy = "nchw-static-exact-32-960-v1";
+            openvino_detection_config.openvino_runtime_library =
+                runtime_policy.openvino_runtime_library;
+            openvino_detection_config.openvino_runtime_bytes =
+                runtime_policy.openvino_runtime_bytes;
+            openvino_detection_config.openvino_runtime_sha256 =
+                runtime_policy.openvino_runtime_sha256;
+            auto openvino_recognition_config = recognition_config;
+            openvino_recognition_config.provider = ExecutionProvider::openvino;
+            openvino_recognition_config.qualification_id =
+                openvino_detection_config.qualification_id;
+            openvino_recognition_config.shape_policy =
+                "nchw-static-width-buckets-20-v1";
+            openvino_recognition_config.openvino_runtime_library =
+                openvino_detection_config.openvino_runtime_library;
+            openvino_recognition_config.openvino_runtime_bytes =
+                openvino_detection_config.openvino_runtime_bytes;
+            openvino_recognition_config.openvino_runtime_sha256 =
+                openvino_detection_config.openvino_runtime_sha256;
+            std::optional<CreationReason> creation_reason;
+            auto openvino_recognition = internal::OpenVinoSession::create(
+                recognition_bytes, openvino_recognition_config,
+                internal::ModelKind::recognition,
+                {1, 3, static_cast<std::int64_t>(recognition.height),
+                 static_cast<std::int64_t>(buckets.front())},
+                &creation_reason);
+            if (!openvino_recognition) {
+              return fail_from_error(openvino_recognition.error(),
+                                     creation_reason);
+            }
+            if (detector_on_cpu) {
+              auto cpu_detection_config = detection_config;
+              cpu_detection_config.provider = ExecutionProvider::cpu;
+              cpu_detection_config.qualification_id =
+                  openvino_detection_config.qualification_id;
+              auto cpu_detection = internal::OnnxSession::create(
+                  detection_bytes, cpu_detection_config,
+                  internal::ModelKind::detection, 0, &creation_reason);
+              if (!cpu_detection) {
+                return fail_from_error(cpu_detection.error(), creation_reason);
+              }
+              created.detection = std::move(cpu_detection).value();
+            } else {
+              const auto minimum_detection_side = static_cast<std::int64_t>(
+                  bundle.data_->detection.minimum_dimension);
+              auto openvino_detection = internal::OpenVinoSession::create(
+                  detection_bytes, openvino_detection_config,
+                  internal::ModelKind::detection,
+                  {1, 3, minimum_detection_side, minimum_detection_side},
+                  &creation_reason);
+              if (!openvino_detection) {
+                return fail_from_error(openvino_detection.error(),
+                                       creation_reason);
+              }
+              created.detection = std::move(openvino_detection).value();
+            }
+            created.recognition = std::move(openvino_recognition).value();
+            created.recognition_width_multiple = 32;
+            created.recognition_width_buckets = buckets;
+            created.recognition_natural_content_width = true;
+            created.maximum_backend_batch_size = 1;
+            return internal::CandidateResult<CreatedSessions>::success(
+                std::move(created));
+#else
+            return fail(
+                Error{ErrorCode::unsupported_capability,
+                      "The runtime descriptor and Core OpenVINO capabilities disagree",
+                      {}},
+                CreationReason::provider_abi_mismatch);
+#endif
+          }
           if (candidate != "apple") {
             return fail(Error{ErrorCode::internal_error,
                               "Runtime policy contains an unknown provider", {}},
@@ -1205,6 +1361,8 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
         created.recognition_width_multiple;
     auto recognition_width_buckets =
         std::move(created.recognition_width_buckets);
+    const auto recognition_natural_content_width =
+        created.recognition_natural_content_width;
     const auto maximum_backend_batch_size =
         created.maximum_backend_batch_size;
 
@@ -1219,6 +1377,8 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
     info.execution_provider =
         detection->execution_info().runtime == "Core ML"
             ? "CoreML"
+            : selected_provider == ExecutionProvider::openvino
+                  ? "OpenVINO"
             : selected_provider == ExecutionProvider::webgpu
                   ? "WebGpuExecutionProvider"
                   : "CPUExecutionProvider";
@@ -1237,6 +1397,12 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
                                  selected_provider == ExecutionProvider::webgpu &&
                                      runtime_policy.released &&
                                      !runtime_policy.qualification_only});
+    }
+    if (policy_includes_provider(runtime_policy, "openvino")) {
+      info.execution.provider_capabilities.push_back(ProviderCapabilityInfo{
+          "openvino", true, selected_provider == ExecutionProvider::openvino,
+          selected_provider == ExecutionProvider::openvino &&
+              runtime_policy.released && !runtime_policy.qualification_only});
     }
     info.execution.selection_trace = std::move(selection.trace);
     if (policy_includes_provider(runtime_policy, "apple") &&
@@ -1272,7 +1438,7 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
         std::move(runtime_bundle), std::move(detection), std::move(recognition),
         std::move(info), recognition_width_multiple,
         std::move(recognition_width_buckets),
-        maximum_backend_batch_size)));
+        recognition_natural_content_width, maximum_backend_batch_size)));
   } catch (const std::exception& exception) {
     return failure<std::unique_ptr<Engine>>(ErrorCode::runtime_initialization_failed,
                                             "Unexpected engine initialization failure",

@@ -233,6 +233,40 @@ LIGHT_OCR_TEST(recognition_batches_apply_and_validate_runtime_width_buckets) {
   EXPECT_EQ(invalid.error().code, ErrorCode::invalid_argument);
 }
 
+LIGHT_OCR_TEST(recognition_buckets_can_keep_the_unpadded_content_width) {
+  const auto config = recognition_config();
+  internal::GeometryConfig geometry;
+  geometry.tall_line_ratio = 1.5f;
+  // 48 * 400 / 47 = 408.5: an unpadded tensor truncates to 408, while the
+  // padded default grows the content to the 409-pixel ceiling.
+  const std::vector<Quad> boxes{rectangle(400, 47)};
+  const std::vector<std::uint32_t> buckets{320, 480, 3200};
+  auto padded = internal::plan_recognition_batches(
+      boxes, geometry, config, 1, ResourceLimits{}, 32, buckets);
+  auto natural = internal::plan_recognition_batches(
+      boxes, geometry, config, 1, ResourceLimits{}, 32, buckets, true);
+  auto unpadded = internal::plan_recognition_batches(
+      boxes, geometry, config, 1, ResourceLimits{});
+  EXPECT_TRUE(padded);
+  EXPECT_TRUE(natural);
+  EXPECT_TRUE(unpadded);
+  EXPECT_EQ(padded.value()[0].samples[0].tensor_width, 480u);
+  EXPECT_EQ(natural.value()[0].samples[0].tensor_width, 480u);
+  EXPECT_EQ(padded.value()[0].samples[0].content_width, 409u);
+  EXPECT_EQ(natural.value()[0].samples[0].content_width,
+            unpadded.value()[0].samples[0].content_width);
+  EXPECT_EQ(natural.value()[0].samples[0].content_width, 408u);
+
+  std::vector<cv::Mat> crops{cv::Mat(47, 400, CV_8UC3, cv::Scalar(0, 0, 0))};
+  auto batch = internal::make_recognition_batch(
+      crops, natural.value()[0], config, ResourceLimits{}, 32, buckets, true);
+  EXPECT_TRUE(batch);
+  EXPECT_EQ(batch.value().shape[3], 480);
+  auto mismatched = internal::make_recognition_batch(
+      crops, natural.value()[0], config, ResourceLimits{}, 32, buckets);
+  EXPECT_FALSE(mismatched);
+}
+
 LIGHT_OCR_TEST(recognition_batches_reject_invalid_batch_and_memory_limit) {
   std::vector<cv::Mat> crops{cv::Mat(48, 320, CV_8UC3, cv::Scalar(0, 0, 0))};
   const auto config = recognition_config();

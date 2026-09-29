@@ -201,7 +201,7 @@ WebGPU 成功不自动淘汰厂商 EP；失败也不代表 Linux 无法加速。
 | NVIDIA GPU | ORT CUDA EP | 当前 FP32；记录 TF32 行为 | CUDA/cuDNN/driver 矩阵、runtime 体积、stream、copy、质量；收益通过后再做 FP16 |
 | NVIDIA GPU 高吞吐 | ORT TensorRT EP | FP16 派生物 | detector min/opt/max profile、recognition width/batch profile、engine/context cache、首次编译；必须同时处理未支持节点 |
 | Intel iGPU/dGPU | OpenVINO GPU | FP16 或 accuracy profile | graph coverage、driver、model cache、dynamic shape、CPU partition、包体 |
-| Intel Core Ultra NPU | OpenVINO NPU | FP16；INT8/QDQ 后续 | NPU driver、固定/bounded shape、recognition buckets、detector 路由、compiled cache；不能隐藏 CPU fallback |
+| Intel Core Ultra NPU | OpenVINO NPU | FP16；INT8/QDQ 后续 | NPU driver、固定/bounded shape、recognition buckets、detector 路由、compiled cache；不能隐藏 CPU fallback ；设计与真机 Spike 见 [Intel NPU 加速技术方案](intel-npu-acceleration.md) |
 | AMD GPU | MIGraphX | provider 资格审查后选择 FP32/FP16 | ROCm/MIGraphX 兼容矩阵、编译/cache、算子与动态 shape；旧 ORT ROCm EP 不作为新路线 |
 | AMD Ryzen AI NPU | Vitis AI，若 Linux 目标与分发可行 | INT8/BF16 provider-specific | 厂商模型派生、校准、编译/context、硬件与 OS 范围；与 MIGraphX 分开决策 |
 | Qualcomm/Rockchip/华为等 NPU | QNN/RKNPU/CANN 等 | 厂商专用 QDQ/context/IR | 通常依赖 Linux arm64 或特定设备；当前无 Tier 1 交集，等待 D110 与真实需求 |

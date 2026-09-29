@@ -114,7 +114,7 @@ light-ocr detect image.png --provider webgpu
 | `--format` | json \| jsonl \| text | 默认 `json` |
 | `--region` | `x,y,w,h` | pageSpace 轴对齐矩形，整数像素；详见 §7 |
 | `--no-exif` | flag | 关闭默认 EXIF orientation 修正；详见 §6 |
-| `--provider` | auto \| cpu \| apple \| webgpu | 映射 `execution.provider` |
+| `--provider` | auto \| cpu \| apple \| webgpu \| openvino | 映射 `execution.provider`；`openvino` 仅在包含 OpenVINO NPU runtime 的构建中可用 |
 | `--schema-version` | 1 | 请求精确输出 schema；不支持则稳定失败 |
 
 `--help` 第二层（高级）：

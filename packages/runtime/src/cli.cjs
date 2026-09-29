@@ -53,7 +53,7 @@ const OCR_ERROR_EXIT = {
   package_load_failed: EXIT.env_package,
 };
 
-const ALLOWED_PROVIDERS = new Set(['auto', 'cpu', 'apple', 'webgpu']);
+const ALLOWED_PROVIDERS = new Set(['auto', 'cpu', 'apple', 'webgpu', 'openvino']);
 const ALLOWED_FORMATS = new Set(['json', 'jsonl', 'text']);
 
 function die(stderr, commandName, message) {
@@ -185,7 +185,7 @@ function resolveProvider(flags) {
   if (flags.provider === undefined) return undefined;
   const provider = flags.provider;
   if (!ALLOWED_PROVIDERS.has(provider)) {
-    throw { code: EXIT.invalid_argument, message: `unsupported --provider ${provider}; use auto, cpu, apple, or webgpu` };
+    throw { code: EXIT.invalid_argument, message: `unsupported --provider ${provider}; use auto, cpu, apple, webgpu, or openvino` };
   }
   return provider;
 }
@@ -575,7 +575,7 @@ function printSubcommandHelp(stdout, subcommand, config) {
     stdout.write('Flags:\n');
     stdout.write('  --format json|jsonl|text   Output format (default: json)\n');
     stdout.write('  --region x,y,w,h           Restrict recognition to a pageSpace rectangle\n');
-    stdout.write('  --provider auto|cpu|apple|webgpu  Execution provider (default: auto)\n');
+    stdout.write('  --provider auto|cpu|apple|webgpu|openvino  Execution provider (default: auto)\n');
     stdout.write('  --no-exif                   Disable EXIF orientation correction\n');
     stdout.write('  --schema-version 1          Request exact output schema\n');
     stdout.write('  --quiet                      Suppress non-error stderr\n');
@@ -589,7 +589,7 @@ function printSubcommandHelp(stdout, subcommand, config) {
     stdout.write('Flags:\n');
     stdout.write('  --region x,y,w,h           Restrict detection to a pageSpace rectangle\n');
     stdout.write('  --crop                      Reserved; currently fails as unsupported\n');
-    stdout.write('  --provider auto|cpu|apple|webgpu  Execution provider (default: auto)\n');
+    stdout.write('  --provider auto|cpu|apple|webgpu|openvino  Execution provider (default: auto)\n');
     stdout.write('  --no-exif                   Disable EXIF orientation correction\n');
     stdout.write('  --schema-version 1          Request exact output schema\n');
     stdout.write('  --quiet                      Suppress non-error stderr\n');

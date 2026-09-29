@@ -2,6 +2,19 @@
 
 This file records user-visible changes to `light-ocr`. Published artifact details and immutable hashes remain in [`docs/releases/`](docs/releases/).
 
+## [Unreleased]
+
+### Added
+
+- Added a source-level Intel NPU backend (`provider: "openvino"`) for Linux x64.
+  Builds configured with `LIGHT_OCR_OPENVINO_SDK_DIR` load the OpenVINO C
+  runtime at run time, run detection and 20-bucket recognition on the NPU, and
+  place `openvino` first in a qualification-only Auto policy
+  (`openvino → webgpu → cpu`); hosts without an NPU skip it with
+  `adapter_unavailable`. Published npm packages do not include OpenVINO yet, so
+  `provider: "openvino"` returns `unsupported_capability` there. See
+  [Intel NPU 加速技术方案](docs/intel-npu-acceleration.md).
+
 ## [0.5.8] - 2026-09-24
 
 ### Added

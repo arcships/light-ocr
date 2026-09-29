@@ -2,7 +2,7 @@
 
 export type PixelFormat = 'gray8' | 'rgb8' | 'bgr8' | 'rgba8';
 export type DetectionStrategy = 'bounded' | 'tiled' | 'upstreamExact';
-export type ExecutionProvider = 'auto' | 'cpu' | 'apple' | 'webgpu';
+export type ExecutionProvider = 'auto' | 'cpu' | 'apple' | 'webgpu' | 'openvino';
 export type SessionFallback = 'error' | 'cpu';
 export type CpuPartition = 'allow' | 'forbid';
 export type PerformanceHint = 'latency' | 'throughput';
