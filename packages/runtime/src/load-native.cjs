@@ -285,7 +285,7 @@ function validateRuntimeDescriptor(descriptorPath) {
       'autoPolicy', 'providers', 'addon'],
     'runtime descriptor',
   );
-  if (descriptor.schemaVersion !== '2.0') {
+  if (!['2.0', '2.1'].includes(descriptor.schemaVersion)) {
     throw adapterError('package_load_failed', 'Unsupported native runtime descriptor schema');
   }
   const root = path.dirname(path.dirname(absoluteDescriptor));
@@ -317,7 +317,7 @@ function validateRuntimeDescriptor(descriptorPath) {
     typeof policy.id !== 'string' || policy.id === '' ||
     !Number.isSafeInteger(policy.version) || policy.version < 1 || policy.version > 0xffffffff ||
     !Array.isArray(policy.providers) || policy.providers.length === 0 ||
-    policy.providers.length > 3 || policy.providers.at(-1) !== 'cpu' ||
+    policy.providers.length > 5 || policy.providers.at(-1) !== 'cpu' ||
     new Set(policy.providers).size !== policy.providers.length
   ) {
     throw adapterError('package_load_failed', 'Native runtime descriptor Auto policy is invalid');
@@ -344,7 +344,8 @@ function validateRuntimeDescriptor(descriptorPath) {
   if (runtime.flavor === 'webgpu' && !['linux', 'win32'].includes(actual.os)) {
     throw adapterError('package_load_failed', 'WebGPU runtime is not supported on this platform');
   }
-  if (runtime.flavor !== 'webgpu' && descriptor.qualificationOnly) {
+  if (runtime.flavor !== 'webgpu' && descriptor.qualificationOnly &&
+      !descriptor.providers.openvino && !descriptor.providers.amdnpu) {
     throw adapterError('package_load_failed', 'CPU runtime cannot be qualification-only');
   }
 
@@ -365,7 +366,7 @@ function validateRuntimeDescriptor(descriptorPath) {
   if (
     availableProviders.length === 0 ||
     new Set(availableProviders).size !== availableProviders.length ||
-    availableProviders.some((provider) => !['cpu', 'apple', 'webgpu'].includes(provider)) ||
+    availableProviders.some((provider) => !['cpu', 'apple', 'webgpu', 'openvino', 'amdnpu'].includes(provider)) ||
     !descriptor.providers.cpu
   ) {
     throw adapterError('package_load_failed', 'Native runtime descriptor provider policy is invalid');
@@ -373,7 +374,10 @@ function validateRuntimeDescriptor(descriptorPath) {
   let webgpuLibrary = '';
   let webgpuProviderBytes = 0;
   let webgpuProviderSha256 = '';
+  const npu = require('./npu-descriptor.cjs').validateNpuProviders(descriptor, root,
+    { exactKeys, verifyArtifact, sameArtifact, adapterError });
   for (const [providerId, provider] of Object.entries(descriptor.providers)) {
+    if (['openvino', 'amdnpu'].includes(providerId)) continue;
     const expectedKeys = providerId === 'webgpu'
       ? ['runtimeProvider', 'providerVersion', 'qualificationId', 'providerLibrary', 'artifacts']
       : ['runtimeProvider', 'qualificationId', 'artifacts'];
@@ -433,7 +437,8 @@ function validateRuntimeDescriptor(descriptorPath) {
     : actual.os === 'darwin'
       ? 'libonnxruntime.1.22.0.dylib'
       : 'libonnxruntime.so.1';
-  const runtimeNames = [...verifiedRuntime.values()].map((filename) => path.basename(filename)).sort();
+  const runtimeNames = [...verifiedRuntime.entries()].filter(([name]) => !npu.paths.has(name))
+    .map(([, filename]) => path.basename(filename)).sort();
   const expectedRuntimeNames = runtime.flavor === 'webgpu'
     ? actual.os === 'win32'
       ? ['dxcompiler.dll', 'dxil.dll', 'onnxruntime.dll', 'onnxruntime_providers_webgpu.dll']
@@ -490,6 +495,9 @@ function validateRuntimeDescriptor(descriptorPath) {
       ? ['apple', 'cpu']
       : ['cpu'];
   const sortedAvailable = [...availableProviders].sort();
+  expectedPolicy.unshift(...npu.names);
+  expectedAvailable.push(...npu.names);
+  expectedAvailable.sort();
   if (
     policy.providers.length !== expectedPolicy.length ||
     policy.providers.some((provider, index) => provider !== expectedPolicy[index]) ||
@@ -520,6 +528,7 @@ function validateRuntimeDescriptor(descriptorPath) {
     webgpuProviderLibrary: webgpuLibrary,
     webgpuProviderBytes,
     webgpuProviderSha256,
+    ...(npu.names.length ? { npuProviders: npu.providers } : {}),
   });
   return {
     addon,

@@ -11,16 +11,19 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
   runtime at run time, run detection and 20-bucket recognition on the NPU, and
   place `openvino` first in a qualification-only Auto policy
   (`openvino → webgpu → cpu`); hosts without an NPU skip it with
-  `adapter_unavailable`. Published npm packages do not include OpenVINO yet, so
+  `adapter_unavailable`. Added a pinned native SDK extractor, package-local
+  runtime descriptor 2.1, numeric driver/compiler checks, and reviewed-evidence
+  release staging. Published npm packages do not include OpenVINO yet, so
   `provider: "openvino"` returns `unsupported_capability` there. See
   [Intel NPU 加速技术方案](docs/intel-npu-acceleration.md).
-- Reserved the AMD NPU execution provider name (`provider: "amdnpu"`) across the
-  C++ enum, Node addon, TypeScript types, CLI flags, and the server
-  `EXECUTION_MODE`. No build ships an AMD NPU backend yet, so any runtime that
-  lists it fails fast with `provider_abi_mismatch` and explicit requests on
-  current packages return `unsupported_capability`; the contract keeps only the
-  default precision (`precision: "auto"`) until the INT8/BF16 route is chosen.
-  See [AMD NPU 加速技术方案（预研）](docs/amd-npu-acceleration.md).
+- Added a source-level AMD NPU backend (`provider: "amdnpu"`) for Linux x64
+  glibc and Ryzen AI STX/KRK devices. It isolates the vendor ORT runtime,
+  loads 20 immutable BF16 recognition contexts, and runs detection on CPU.
+  Added model compilation and SDK import tools, descriptor validation,
+  license/SBOM staging, and candidate/release workflows. AMD hardware and
+  model quality qualification remain pending; current published packages
+  return `unsupported_capability`. See [AMD NPU 加速技术方案](docs/amd-npu-acceleration.md)
+  and [NPU SDK 构建与发布](docs/npu-runtime-release.md).
 
 ## [0.5.8] - 2026-09-24
 

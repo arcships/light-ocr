@@ -38,6 +38,8 @@ set(LIGHT_OCR_OPENVINO_SDK_DIR "" CACHE PATH
   "OpenVINO SDK root with include/openvino/c; enables the Intel NPU backend on Linux x64")
 set(LIGHT_OCR_OPENVINO_C_LIBRARY "" CACHE FILEPATH
   "OpenVINO C runtime loaded by direct C++ callers; defaults to <SDK>/lib/libopenvino_c.so")
+set(LIGHT_OCR_AMDNPU_SDK_DIR "" CACHE PATH
+  "Verified Ryzen AI runtime SDK with precompiled BF16 recognition buckets (Linux x64 glibc)")
 
 if(LIGHT_OCR_ENABLE_SANITIZERS AND LIGHT_OCR_ENABLE_THREAD_SANITIZER)
   message(FATAL_ERROR "Address/Undefined sanitizers and ThreadSanitizer require separate builds")
@@ -143,6 +145,9 @@ if(LIGHT_OCR_HAS_WEBGPU)
 endif()
 
 set(LIGHT_OCR_HAS_OPENVINO OFF)
+include(NpuRuntime)
+set(LIGHT_OCR_OPENVINO_QUALIFICATION_BUILD ON)
+set(LIGHT_OCR_OPENVINO_QUALIFICATION_ID "builtin-openvino-v1")
 if(LIGHT_OCR_OPENVINO_SDK_DIR)
   if(NOT (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
           CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64)$"))
@@ -154,7 +159,19 @@ if(LIGHT_OCR_OPENVINO_SDK_DIR)
       "LIGHT_OCR_OPENVINO_SDK_DIR has no include/openvino/c/openvino.h: ${LIGHT_OCR_OPENVINO_SDK_DIR}")
   endif()
   if(NOT LIGHT_OCR_OPENVINO_C_LIBRARY)
-    set(LIGHT_OCR_OPENVINO_C_LIBRARY "${LIGHT_OCR_OPENVINO_SDK_DIR}/lib/libopenvino_c.so")
+    if(EXISTS "${LIGHT_OCR_OPENVINO_SDK_DIR}/sdk-manifest.json")
+      light_ocr_validate_npu_sdk(openvino "${LIGHT_OCR_OPENVINO_SDK_DIR}")
+      set(LIGHT_OCR_OPENVINO_C_LIBRARY "${LIGHT_OCR_OPENVINO_VERIFIED_LIBRARY}")
+    elseif(LIGHT_OCR_BUILD_NODE)
+      message(FATAL_ERROR "Node NPU builds require a verified SDK manifest")
+    else()
+      set(LIGHT_OCR_OPENVINO_C_LIBRARY "${LIGHT_OCR_OPENVINO_SDK_DIR}/lib/libopenvino_c.so")
+    endif()
+  elseif(LIGHT_OCR_BUILD_NODE)
+    light_ocr_validate_npu_sdk(openvino "${LIGHT_OCR_OPENVINO_SDK_DIR}")
+    if(NOT LIGHT_OCR_OPENVINO_C_LIBRARY STREQUAL LIGHT_OCR_OPENVINO_VERIFIED_LIBRARY)
+      message(FATAL_ERROR "The OpenVINO runtime must match the verified SDK")
+    endif()
   endif()
   if(NOT EXISTS "${LIGHT_OCR_OPENVINO_C_LIBRARY}")
     message(FATAL_ERROR "OpenVINO C runtime not found: ${LIGHT_OCR_OPENVINO_C_LIBRARY}")
@@ -166,7 +183,18 @@ if(LIGHT_OCR_OPENVINO_SDK_DIR)
   target_include_directories(light_ocr_core SYSTEM PRIVATE "${_light_ocr_openvino_include}")
   target_compile_definitions(light_ocr_core PRIVATE
     LIGHT_OCR_HAS_OPENVINO=1
+    LIGHT_OCR_OPENVINO_QUALIFICATION_BUILD=$<BOOL:${LIGHT_OCR_OPENVINO_QUALIFICATION_BUILD}>
     LIGHT_OCR_OPENVINO_DEFAULT_LIBRARY="${LIGHT_OCR_OPENVINO_C_LIBRARY}")
+  target_link_libraries(light_ocr_core PRIVATE ${CMAKE_DL_LIBS})
+endif()
+
+set(LIGHT_OCR_HAS_AMDNPU OFF)
+if(LIGHT_OCR_AMDNPU_SDK_DIR)
+  light_ocr_validate_npu_sdk(amdnpu "${LIGHT_OCR_AMDNPU_SDK_DIR}")
+  set(LIGHT_OCR_HAS_AMDNPU ON)
+  target_sources(light_ocr_core PRIVATE src/inference/amdnpu/backend.cpp)
+  target_compile_definitions(light_ocr_core PRIVATE LIGHT_OCR_HAS_AMDNPU=1
+    LIGHT_OCR_AMDNPU_QUALIFICATION_BUILD=$<BOOL:${LIGHT_OCR_AMDNPU_QUALIFICATION_BUILD}>)
   target_link_libraries(light_ocr_core PRIVATE ${CMAKE_DL_LIBS})
 endif()
 

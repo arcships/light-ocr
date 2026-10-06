@@ -18,8 +18,10 @@ from typing import Any
 
 try:
     from tools.webgpu import build_runtime as webgpu_runtime
+    from tools.npu import sdk as npu_sdk
 except ModuleNotFoundError:  # Direct execution sets sys.path to tools/.
     from webgpu import build_runtime as webgpu_runtime
+    from npu import sdk as npu_sdk
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -322,8 +324,8 @@ def validate_runtime_descriptor(
         "addon",
     }:
         raise RuntimeError("runtime descriptor fields are invalid")
-    if descriptor.get("schemaVersion") != "2.0":
-        raise RuntimeError("runtime descriptor schemaVersion must be 2.0")
+    if descriptor.get("schemaVersion") not in {"2.0", "2.1"}:
+        raise RuntimeError("runtime descriptor schemaVersion must be 2.0 or 2.1")
     platform = descriptor.get("platform")
     if not isinstance(platform, dict) or not isinstance(platform.get("id"), str):
         raise RuntimeError("runtime descriptor platform is invalid")
@@ -385,7 +387,8 @@ def validate_runtime_descriptor(
         raise RuntimeError("runtime descriptor ABI identity is invalid")
     if runtime["flavor"] == "webgpu" and platform.get("os") not in {"linux", "win32"}:
         raise RuntimeError("WebGPU runtime platform is invalid")
-    if runtime["flavor"] != "webgpu" and qualification_only:
+    if (runtime["flavor"] != "webgpu" and qualification_only and
+            not any(name in provider_records for name in ("openvino", "amdnpu"))):
         raise RuntimeError("CPU runtime cannot be qualification-only")
 
     addon = descriptor.get("addon")
@@ -402,7 +405,13 @@ def validate_runtime_descriptor(
         "cpu": "CPUExecutionProvider",
         "apple": "CoreML",
         "webgpu": "WebGpuExecutionProvider",
+        "openvino": "OpenVINO",
+        "amdnpu": "VitisAIExecutionProvider",
     }
+    try:
+        npu_paths = npu_sdk.validate_descriptor_npu(descriptor, package_root)
+    except (ValueError, KeyError, TypeError) as exception:
+        raise RuntimeError(f"invalid NPU runtime descriptor: {exception}") from exception
     for provider_id, provider in provider_records.items():
         expected_fields = (
             {
@@ -412,7 +421,8 @@ def validate_runtime_descriptor(
                 "providerLibrary",
                 "artifacts",
             }
-            if provider_id == "webgpu"
+            | ({"configuration"} if provider_id in {"openvino", "amdnpu"} else set())
+            if provider_id in {"webgpu", "openvino", "amdnpu"}
             else {"runtimeProvider", "qualificationId", "artifacts"}
         )
         if (
@@ -470,7 +480,8 @@ def validate_runtime_descriptor(
         if platform.get("os") == "darwin"
         else "libonnxruntime.so.1"
     )
-    actual_names = sorted(PurePosixPath(value).name for value in runtime_records)
+    actual_names = sorted(PurePosixPath(value).name for value in runtime_records
+                          if value not in npu_paths)
     expected_names = (
         [
             "dxcompiler.dll",
@@ -509,6 +520,9 @@ def validate_runtime_descriptor(
         if platform.get("id") == "macos-arm64"
         else {"cpu"}
     )
+    npu_providers = [name for name in ["openvino", "amdnpu"] if name in provider_records]
+    expected_policy = npu_providers + expected_policy
+    expected_available.update(npu_providers)
     if providers != expected_policy or set(provider_records) != expected_available:
         raise RuntimeError(
             "runtime descriptor providers disagree with platform capabilities"
@@ -837,6 +851,39 @@ def stage_native(arguments: argparse.Namespace) -> None:
             "providers": provider_entries,
             "addon": file_record(addon, stage),
         }
+        for provider in ("openvino", "amdnpu"):
+            sdk_directory = getattr(arguments, f"{provider}_sdk_dir", None)
+            if sdk_directory is None:
+                continue
+            sdk_directory = Path(sdk_directory).resolve()
+            sdk_manifest = npu_sdk.validate_sdk(sdk_directory, provider)
+            if sdk_manifest["qualificationOnly"] and not qualification_build:
+                raise RuntimeError("NPU candidates require --qualification-build; accepted evidence is required for release")
+            sdk_manifest = npu_sdk.stage_sdk(sdk_directory, stage, descriptor)
+            evidence_directory = stage / "qualification" / provider
+            copy_file(sdk_directory / "sdk-manifest.json", evidence_directory / "sdk-manifest.json")
+            for item in sdk_manifest.get("acceptance", {}).get("reports", []):
+                copy_file(sdk_directory / item["path"], evidence_directory / Path(item["path"]).name)
+            license_inventory = read_json(stage / "license-inventory.json")
+            for item in sdk_manifest["licenses"]:
+                destination = stage / "licenses" / f"{provider}-{Path(item['path']).name}"
+                copy_file(sdk_directory / item["path"], destination)
+                license_inventory.setdefault("files", []).append({
+                    "component": provider, "file": destination.relative_to(stage).as_posix(),
+                    "sha256": sha256(destination)})
+            write_json(stage / "license-inventory.json", license_inventory)
+            sbom = read_json(stage / "sbom.spdx.json")
+            identifier = f"SPDXRef-Package-{provider}"
+            sbom.setdefault("packages", []).append({
+                "name": provider, "SPDXID": identifier,
+                "versionInfo": sdk_manifest["providerVersion"], "filesAnalyzed": False,
+                "downloadLocation": sdk_manifest.get("source", {}).get("url", "NOASSERTION"),
+                "licenseDeclared": "Apache-2.0" if provider == "openvino" else "NOASSERTION",
+                "licenseConcluded": "NOASSERTION"})
+            sbom.setdefault("relationships", []).append({
+                "spdxElementId": "SPDXRef-Package-light-ocr-core",
+                "relationshipType": "DEPENDS_ON", "relatedSpdxElement": identifier})
+            write_json(stage / "sbom.spdx.json", sbom)
         write_json(native / "runtime-descriptor.json", descriptor)
         validate_runtime_descriptor(
             descriptor, stage, platform_id=arguments.platform_id
@@ -853,7 +900,7 @@ def stage_native(arguments: argparse.Namespace) -> None:
                 "platformId": arguments.platform_id,
                 "package": platform["package"],
                 "runtimeFlavor": runtime_flavor,
-                "qualificationOnly": qualification_only,
+                "qualificationOnly": descriptor["qualificationOnly"],
                 "files": records,
             },
         )
@@ -1596,6 +1643,8 @@ def main() -> int:
     native.add_argument("--output-dir", type=Path, required=True)
     native.add_argument("--runtime-flavor", choices=["cpu", "webgpu"], default="cpu")
     native.add_argument("--webgpu-artifact-manifest", type=Path)
+    native.add_argument("--openvino-sdk-dir", type=Path)
+    native.add_argument("--amdnpu-sdk-dir", type=Path)
     native.add_argument("--qualification-build", action="store_true")
     native.set_defaults(handler=stage_native)
 

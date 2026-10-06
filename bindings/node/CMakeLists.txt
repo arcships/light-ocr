@@ -148,7 +148,9 @@ else()
   set(_light_ocr_node_runtime_version "1.22.0")
   set(_light_ocr_node_runtime_abi "onnxruntime-c-api-22")
 endif()
-if(LIGHT_OCR_HAS_WEBGPU AND LIGHT_OCR_WEBGPU_QUALIFICATION_BUILD)
+if((LIGHT_OCR_HAS_WEBGPU AND LIGHT_OCR_WEBGPU_QUALIFICATION_BUILD) OR
+   (LIGHT_OCR_HAS_OPENVINO AND LIGHT_OCR_OPENVINO_QUALIFICATION_BUILD) OR
+   (LIGHT_OCR_HAS_AMDNPU AND LIGHT_OCR_AMDNPU_QUALIFICATION_BUILD))
   set(_light_ocr_node_qualification_only 1)
   set(_light_ocr_node_released 0)
 else()
@@ -165,9 +167,13 @@ target_compile_definitions(light_ocr_node PRIVATE
   LIGHT_OCR_NODE_CPU_QUALIFICATION_ID="cpu-baseline-v1"
   LIGHT_OCR_NODE_APPLE_QUALIFICATION_ID="apple-open-macos-v1"
   LIGHT_OCR_NODE_WEBGPU_QUALIFICATION_ID="${LIGHT_OCR_WEBGPU_QUALIFICATION_ID}"
+  LIGHT_OCR_NODE_OPENVINO_QUALIFICATION_ID="${LIGHT_OCR_OPENVINO_QUALIFICATION_ID}"
+  LIGHT_OCR_NODE_AMDNPU_QUALIFICATION_ID="${LIGHT_OCR_AMDNPU_QUALIFICATION_ID}"
   LIGHT_OCR_NODE_QUALIFICATION_ONLY=${_light_ocr_node_qualification_only}
   LIGHT_OCR_NODE_RELEASED=${_light_ocr_node_released}
   LIGHT_OCR_NODE_HAS_APPLE=${_light_ocr_node_has_apple_provider}
+  LIGHT_OCR_NODE_HAS_OPENVINO=$<BOOL:${LIGHT_OCR_HAS_OPENVINO}>
+  LIGHT_OCR_NODE_HAS_AMDNPU=$<BOOL:${LIGHT_OCR_HAS_AMDNPU}>
   LIGHT_OCR_NODE_HAS_WEBGPU=$<BOOL:${LIGHT_OCR_HAS_WEBGPU}>)
 add_custom_command(TARGET light_ocr_node POST_BUILD
   COMMAND "${CMAKE_COMMAND}"
@@ -184,6 +190,17 @@ add_custom_command(TARGET light_ocr_node POST_BUILD
     "-DHAS_COREML=${_light_ocr_node_has_apple_provider}"
     -P "${PROJECT_SOURCE_DIR}/cmake/StageNodeRuntime.cmake"
   VERBATIM)
+
+foreach(_provider openvino amdnpu)
+  string(TOUPPER "${_provider}" _upper)
+  if(LIGHT_OCR_HAS_${_upper})
+    add_custom_command(TARGET light_ocr_node POST_BUILD
+      COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/npu/sdk.py"
+        --sdk-dir "${LIGHT_OCR_${_upper}_SDK_DIR}"
+        --provider "${_provider}" --stage-dir "${_light_ocr_node_stage_dir}"
+      VERBATIM)
+  endif()
+endforeach()
 
 if(LIGHT_OCR_BUILD_TESTS)
   if(NOT LIGHT_OCR_NODE_EXECUTABLE)

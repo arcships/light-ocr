@@ -24,6 +24,13 @@
 #endif
 #include "inference/onnxruntime/backend.hpp"
 #include "inference/openvino/backend.hpp"
+#if defined(LIGHT_OCR_HAS_AMDNPU)
+#include "inference/amdnpu/backend.hpp"
+#include "amdnpu_defaults.hpp"
+#endif
+#if defined(LIGHT_OCR_OPENVINO_PACKAGE_SDK)
+#include "openvino_defaults.hpp"
+#endif
 #include "inference/selection.hpp"
 #include "model/bundle_data.hpp"
 #include "preprocess/image.hpp"
@@ -896,16 +903,15 @@ Engine::~Engine() noexcept = default;
 internal::RuntimePolicy internal::builtin_runtime_policy() {
   RuntimePolicy policy;
 #if defined(LIGHT_OCR_HAS_OPENVINO)
-  // The OpenVINO NPU backend has not passed a platform Gate, so builds that
-  // include it are qualification-only regardless of the other providers.
+  // The SDK determines whether the exact runtime bytes have reviewed gates.
   policy.id = "builtin-openvino-v1";
 #if defined(LIGHT_OCR_HAS_WEBGPU)
   policy.ordered_candidates = {"openvino", "webgpu", "cpu"};
 #else
   policy.ordered_candidates = {"openvino", "cpu"};
 #endif
-  policy.qualification_only = true;
-  policy.released = false;
+  policy.qualification_only = LIGHT_OCR_OPENVINO_QUALIFICATION_BUILD != 0;
+  policy.released = !policy.qualification_only;
   if (const char* route = std::getenv("LIGHT_OCR_QUALIFICATION_OPENVINO_DETECTOR");
       route != nullptr && std::string(route) == "cpu") {
     policy.openvino_detector_route = "cpu";
@@ -934,7 +940,29 @@ internal::RuntimePolicy internal::builtin_runtime_policy() {
 #endif
 #if defined(LIGHT_OCR_HAS_OPENVINO)
   policy.available_providers.push_back("openvino");
+#if defined(LIGHT_OCR_OPENVINO_PACKAGE_SDK)
+  apply_openvino_sdk_defaults(policy);
+  policy.provider_qualification_ids.push_back(LIGHT_OCR_OPENVINO_QUALIFICATION_ID);
+#else
   policy.provider_qualification_ids.push_back("builtin-openvino-v1");
+#endif
+#endif
+#if defined(LIGHT_OCR_HAS_AMDNPU)
+  apply_amdnpu_sdk_defaults(policy);
+  policy.available_providers.push_back("amdnpu");
+  policy.provider_qualification_ids.push_back(LIGHT_OCR_AMDNPU_QUALIFICATION_ID);
+  const auto insertion = policy.ordered_candidates.front() == "openvino"
+                             ? policy.ordered_candidates.begin() + 1
+                             : policy.ordered_candidates.begin();
+  policy.ordered_candidates.insert(insertion, "amdnpu");
+  if (LIGHT_OCR_AMDNPU_QUALIFICATION_BUILD) {
+    policy.qualification_only = true;
+    policy.released = false;
+  }
+#endif
+#if defined(LIGHT_OCR_HAS_WEBGPU) && defined(LIGHT_OCR_WEBGPU_QUALIFICATION_BUILD)
+  policy.qualification_only = true;
+  policy.released = false;
 #endif
   return policy;
 }
@@ -1209,6 +1237,8 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
             openvino_detection_config.provider = ExecutionProvider::openvino;
             openvino_detection_config.qualification_id =
                 policy_qualification_id(runtime_policy, candidate);
+            openvino_detection_config.npu_device_validated =
+                runtime_policy.released && !runtime_policy.qualification_only;
             openvino_detection_config.shape_policy = "nchw-static-exact-32-960-v1";
             openvino_detection_config.openvino_runtime_library =
                 runtime_policy.openvino_runtime_library;
@@ -1216,10 +1246,18 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
                 runtime_policy.openvino_runtime_bytes;
             openvino_detection_config.openvino_runtime_sha256 =
                 runtime_policy.openvino_runtime_sha256;
+            openvino_detection_config.openvino_runtime_version_prefix =
+                runtime_policy.openvino_runtime_version_prefix;
+            openvino_detection_config.openvino_minimum_driver_version =
+                runtime_policy.openvino_minimum_driver_version;
+            openvino_detection_config.openvino_minimum_compiler_version =
+                runtime_policy.openvino_minimum_compiler_version;
             auto openvino_recognition_config = recognition_config;
             openvino_recognition_config.provider = ExecutionProvider::openvino;
             openvino_recognition_config.qualification_id =
                 openvino_detection_config.qualification_id;
+            openvino_recognition_config.npu_device_validated =
+                openvino_detection_config.npu_device_validated;
             openvino_recognition_config.shape_policy =
                 "nchw-static-width-buckets-20-v1";
             openvino_recognition_config.openvino_runtime_library =
@@ -1228,6 +1266,12 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
                 openvino_detection_config.openvino_runtime_bytes;
             openvino_recognition_config.openvino_runtime_sha256 =
                 openvino_detection_config.openvino_runtime_sha256;
+            openvino_recognition_config.openvino_runtime_version_prefix =
+                openvino_detection_config.openvino_runtime_version_prefix;
+            openvino_recognition_config.openvino_minimum_driver_version =
+                openvino_detection_config.openvino_minimum_driver_version;
+            openvino_recognition_config.openvino_minimum_compiler_version =
+                openvino_detection_config.openvino_minimum_compiler_version;
             std::optional<CreationReason> creation_reason;
             auto openvino_recognition = internal::OpenVinoSession::create(
                 recognition_bytes, openvino_recognition_config,
@@ -1281,14 +1325,53 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
 #endif
           }
           if (candidate == "amdnpu") {
-            // No build ships the AMD NPU backend yet; a policy or descriptor
-            // that lists it can never be honored by this Core.
             created.provider = ExecutionProvider::amdnpu;
+#if defined(LIGHT_OCR_HAS_AMDNPU)
+            if (runtime_policy.amdnpu_runtime.path.empty()) {
+              return fail(Error{ErrorCode::unsupported_capability,
+                                "AMD NPU runtime is missing from the runtime policy", {}},
+                          CreationReason::provider_abi_mismatch);
+            }
+            if (batch_size != 1 || detection_strategy != DetectionStrategy::bounded ||
+                detection_max_side > 960 || bundle.data_->recognition.height != 48 ||
+                bundle.data_->recognition.minimum_tensor_width > 320 ||
+                bundle.data_->recognition.maximum_tensor_width != 3200 ||
+                options.execution.cpu_partition == CpuPartition::forbid) {
+              return fail(Error{ErrorCode::unsupported_capability,
+                                "AMD NPU requires batch 1, bounded detection and a CPU detector partition", {}},
+                          CreationReason::model_compute_unsupported);
+            }
+            auto amd_config = recognition_config;
+            amd_config.provider = ExecutionProvider::amdnpu;
+            amd_config.qualification_id = policy_qualification_id(runtime_policy, candidate);
+            amd_config.npu_device_validated = runtime_policy.released && !runtime_policy.qualification_only;
+            amd_config.amdnpu_runtime = runtime_policy.amdnpu_runtime;
+            amd_config.amdnpu_compiler_configuration = runtime_policy.amdnpu_compiler_configuration;
+            amd_config.amdnpu_source_model_sha256 = runtime_policy.amdnpu_source_model_sha256;
+            amd_config.amdnpu_recognition_models = runtime_policy.amdnpu_recognition_models;
+            std::optional<CreationReason> reason;
+            auto recognition = AmdNpuSession::create(
+                amd_config, bundle.data_->recognition.characters.size() + 1, &reason);
+            if (!recognition) return fail_from_error(recognition.error(), reason);
+            auto cpu_config = detection_config;
+            cpu_config.provider = ExecutionProvider::cpu;
+            cpu_config.requested_provider_override = "amdnpu";
+            cpu_config.qualification_id = amd_config.qualification_id;
+            auto detection = internal::OnnxSession::create(detection_bytes, cpu_config, internal::ModelKind::detection, 0, &reason);
+            if (!detection) return fail_from_error(detection.error(), reason);
+            created.detection = std::move(detection).value();
+            created.recognition = std::move(recognition).value();
+            created.recognition_width_buckets = openvino_recognition_width_buckets();
+            created.recognition_natural_content_width = true;
+            created.maximum_backend_batch_size = 1;
+            return internal::CandidateResult<CreatedSessions>::success(std::move(created));
+#else
             return fail(
                 Error{ErrorCode::unsupported_capability,
                       "The runtime descriptor and Core AMD NPU capabilities disagree",
                       {}},
                 CreationReason::provider_abi_mismatch);
+#endif
           }
           if (candidate != "apple") {
             return fail(Error{ErrorCode::internal_error,
@@ -1398,6 +1481,8 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
             ? "CoreML"
             : selected_provider == ExecutionProvider::openvino
                   ? "OpenVINO"
+            : selected_provider == ExecutionProvider::amdnpu
+                  ? "VitisAIExecutionProvider"
             : selected_provider == ExecutionProvider::webgpu
                   ? "WebGpuExecutionProvider"
                   : "CPUExecutionProvider";
@@ -1425,7 +1510,9 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
     }
     if (policy_includes_provider(runtime_policy, "amdnpu")) {
       info.execution.provider_capabilities.push_back(ProviderCapabilityInfo{
-          "amdnpu", false, false, false});
+          "amdnpu", true, selected_provider == ExecutionProvider::amdnpu,
+          selected_provider == ExecutionProvider::amdnpu && runtime_policy.released &&
+              !runtime_policy.qualification_only});
     }
     info.execution.selection_trace = std::move(selection.trace);
     if (policy_includes_provider(runtime_policy, "apple") &&

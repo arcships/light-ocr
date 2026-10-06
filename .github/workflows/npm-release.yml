@@ -13,9 +13,15 @@ on:
         required: true
         default: false
         type: boolean
+      npu_sdk_run_id:
+        description: Optional run containing reviewed npu-release-sdks (Linux x64 only)
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: npm-release-${{ inputs.version }}
@@ -83,6 +89,17 @@ jobs:
       - name: Bootstrap pinned native dependencies
         shell: bash
         run: python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies
+      - name: Download accepted NPU SDKs
+        if: matrix.id == 'linux-x64' && inputs.npu_sdk_run_id != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: npu-release-sdks
+          path: dist/npu-sdk
+          run-id: ${{ inputs.npu_sdk_run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify accepted NPU evidence and runtime identities
+        if: matrix.id == 'linux-x64' && inputs.npu_sdk_run_id != ''
+        run: python tools/npu/prepare_release.py --sdk-root dist/npu-sdk --github-env "$GITHUB_ENV"
       - name: Fetch the pinned PDF renderer for npm bundling (Unix)
         if: runner.os != 'Windows'
         shell: bash
@@ -145,6 +162,8 @@ jobs:
           -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
           -DLIGHT_OCR_ONNXRUNTIME_FLAVOR=${{ matrix.runtime_flavor }}
           -DLIGHT_OCR_WEBGPU_SDK_DIR="$PWD/dist/webgpu-sdk/${{ matrix.id }}"
+          -DLIGHT_OCR_OPENVINO_SDK_DIR="$OPENVINO_SDK_DIR"
+          -DLIGHT_OCR_AMDNPU_SDK_DIR="$AMDNPU_SDK_DIR"
           -DLIGHT_OCR_BUILD_NODE=ON
           -DLIGHT_OCR_BUILD_TESTS=OFF
           -DLIGHT_OCR_BUILD_TOOLS=OFF
@@ -176,17 +195,24 @@ jobs:
             --model-free
       - name: Stage native package input
         shell: bash
-        run: >-
-          python tools/npm_release.py stage-native
-          --platform-id "${{ matrix.id }}"
-          --build-dir build-npm
-          --configuration Release
-          --metadata-dir "reports/npm/${{ matrix.id }}"
-          --pdfium-dir .cache/pdfium-package/node_modules/pdfium-native
-          --output-dir "dist/native-input/${{ matrix.id }}"
-          --runtime-flavor "${{ matrix.runtime_flavor }}"
-          --webgpu-artifact-manifest
-          "dist/webgpu-sdk/${{ matrix.id }}/artifact-manifest.json"
+        run: |
+          npu_arguments=()
+          if [[ -n "${OPENVINO_SDK_DIR:-}" ]]; then
+            npu_arguments+=(--openvino-sdk-dir "$OPENVINO_SDK_DIR")
+          fi
+          if [[ -n "${AMDNPU_SDK_DIR:-}" ]]; then
+            npu_arguments+=(--amdnpu-sdk-dir "$AMDNPU_SDK_DIR")
+          fi
+          python tools/npm_release.py stage-native \
+            --platform-id "${{ matrix.id }}" \
+            --build-dir build-npm \
+            --configuration Release \
+            --metadata-dir "reports/npm/${{ matrix.id }}" \
+            --pdfium-dir .cache/pdfium-package/node_modules/pdfium-native \
+            --output-dir "dist/native-input/${{ matrix.id }}" \
+            --runtime-flavor "${{ matrix.runtime_flavor }}" \
+            --webgpu-artifact-manifest "dist/webgpu-sdk/${{ matrix.id }}/artifact-manifest.json" \
+            "${npu_arguments[@]}"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: native-${{ matrix.id }}

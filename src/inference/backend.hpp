@@ -18,6 +18,17 @@ void shutdown_webgpu_runtime_if_idle() noexcept;
 
 enum class ModelKind { detection, recognition };
 
+struct RuntimeArtifact {
+  std::string path;
+  std::uint64_t bytes = 0;
+  std::string sha256;
+};
+
+struct AmdNpuRecognitionModel {
+  std::uint32_t width = 0;
+  RuntimeArtifact artifact;
+};
+
 struct ModelPackageFile {
   std::string path;
   SharedBytes bytes;
@@ -61,8 +72,16 @@ struct InferenceSessionConfig {
   std::string openvino_runtime_library;
   std::uint64_t openvino_runtime_bytes = 0;
   std::string openvino_runtime_sha256;
+  std::string openvino_runtime_version_prefix;
+  std::string openvino_minimum_driver_version;
+  std::string openvino_minimum_compiler_version;
+  bool npu_device_validated = false;
   // Empty selects the per-user cache directory.
   std::string openvino_cache_directory;
+  RuntimeArtifact amdnpu_runtime;
+  RuntimeArtifact amdnpu_compiler_configuration;
+  std::string amdnpu_source_model_sha256;
+  std::vector<AmdNpuRecognitionModel> amdnpu_recognition_models;
   std::optional<AppleModelPackage> apple_package;
   std::string requested_provider_override;
   bool session_fallback_used = false;
