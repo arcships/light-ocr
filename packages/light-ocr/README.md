@@ -308,3 +308,14 @@ console.log(modelProfile);
 
 Apache-2.0. The package also carries the applicable licenses and notices for
 the bundled PP-OCRv6 model, native runtimes, PDFium, and Noto Sans SC font.
+
+## Optional NPU support
+
+The default Small model bundle stays unchanged. AMD and OpenVINO are separate support packages and are never automatically installed with this package. On Linux x64 glibc, install one matching package explicitly:
+
+```bash
+npm install @arcships/light-ocr-openvino-linux-x64-gnu@0.5.9
+# Or: npm install @arcships/light-ocr-amdnpu-linux-x64-gnu@0.5.9
+```
+
+Then select `execution: { provider: 'openvino' }` or `execution: { provider: 'amdnpu' }` when creating the engine. Auto keeps the existing base policy. Vendor drivers are required; AMD contexts bind to Small 0.3.4. See the [NPU guide](https://github.com/arcships/light-ocr/blob/main/docs/npu-runtime-release.md).

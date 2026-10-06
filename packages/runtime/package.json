@@ -39,5 +39,17 @@
   },
   "scripts": {
     "test": "node --test test/*.test.cjs"
+  },
+  "peerDependencies": {
+    "@arcships/light-ocr-openvino-linux-x64-gnu": "0.5.9",
+    "@arcships/light-ocr-amdnpu-linux-x64-gnu": "0.5.9"
+  },
+  "peerDependenciesMeta": {
+    "@arcships/light-ocr-openvino-linux-x64-gnu": {
+      "optional": true
+    },
+    "@arcships/light-ocr-amdnpu-linux-x64-gnu": {
+      "optional": true
+    }
   }
 }

@@ -23,31 +23,39 @@
 
 ## 用户可见变化
 
-- Linux x64 glibc 平台包默认附带锁定的 OpenVINO 2026.4.0 原生运行时；Intel NPU 在 Auto 中位于 WebGPU/CPU 前。有可用 NPU 时运行检测和 20 桶识别；无设备、模型不支持或驱动过旧时按创建阶段策略继续选择后续 provider。
-- Linux x64 glibc 发布构建默认附带 Ryzen AI 1.8 原生部署库及 Small 0.3.4 的 20 个真实 BF16 识别 context。AMD 始终默认关闭，不进入 Auto；通过 `execution: { provider: "amdnpu" }` 或 `--provider amdnpu` 显式开启。检测使用 CPU，目标为 STX/KRK；Tiny/Medium 需另行编译，不能复用 Small context。
-- 发布工作流自动下载哈希锁定的 AMD 部署归档，不需要维护者另行提供 SDK。终端用户仍需系统厂商驱动，无需 SDK/Python 安装。
-- NPU 真机验收不作为发布前置；未验证的 NPU 会话保持 `deviceValidated: false`。库存、哈希、模型绑定、许可证和基础运行时的既有发布检查保留。
-- 包内 NPU 描述采用 schema 2.1；不含 NPU 的平台保持 2.0。新增模型配置、版本与产物信息，Node loader 在装载前完成验证。
-- 其他平台继续使用现有 Apple/WebGPU/CPU 路线；Windows、arm64 和 musl 没有本次 NPU 后端。模型包版本、Node 安装下限 `>=22.0.0` 及 public API 保持既有契约。
+- 主包保持原来的约 39 MB Small 模型承诺：模型包 `0.3.4` 及其锁定制品不变，不加入 AMD/OpenVINO 运行库或 AMD 编译模型。
+- 默认 runtime 的八个平台依赖均保持基础运行时，Auto 沿用 Apple/WebGPU/CPU 路线。
+- 两套 NPU 独立分发：`@arcships/light-ocr-openvino-linux-x64-gnu@0.5.9`、`@arcships/light-ocr-amdnpu-linux-x64-gnu@0.5.9`。用户单独安装后，配置 `execution.provider` 为 `openvino` 或 `amdnpu`。optional peer 不会自动安装；安装后也不进入默认 Auto。
+- 支持包各自包含匹配的 addon、原生依赖、哈希、许可证与 SBOM；AMD 包另外含 Small 0.3.4 的 20 个真实 BF16 context，体积较大。系统仍需厂商驱动，无需终端用户安装完整 SDK/Python。
+- 不要求 NPU 真机验收，`deviceValidated: false`；Windows、arm64、musl 不含这两套支持包。
 
 ## Release 操作
 
-1. 合并版本准备 PR，确认 main 中 Core 为 `0.5.9`。
-2. 运行 `npm release` workflow，输入 `version=0.5.9`、`publish_to_registry=false`。Linux x64 默认从锁文件取得 Intel 与 AMD SDK，无需填写 NPU run ID。
-3. 可选 `npu_sdk_run_id` 仅用于覆盖默认 SDK 输入；须同时包含 `openvino/` 与 `amdnpu/`。草稿附件下载使用 workflow 的 GitHub token；保持 Release 草稿及附件可用。
-4. 审阅八平台构建、离线安装/图片/PDF smoke 与 tarball manifest；将运行 ID、精确来源提交、13 个新 package identity 和制品哈希补录本文件。
-5. 用 `publish_to_registry=true` 发布到 `next`，记录发布 run，并确认 registry 回装结果。
-6. 运行 `npm promote`：`version=0.5.9`、`release_run_id=<正式发布run>`、`tag=latest`。仅晋升 stable Small/runtime/native；Document 与 Tiny/Medium 保留 `next`。
-7. 将 GitHub Release 草稿 target 更新为正式 main 来源提交，附上 release-manifest 和公开制品链接；确认发布结果后更新 Changelog 日期、两份发布记录和 Release 状态，再发布 `v0.5.9`。
+1. 合并拆包修正，确认 main 中 Core 为 `0.5.9`。
+2. 运行 `npm release`，输入 `version=0.5.9`、`publish_to_registry=false`，生成普通八平台候选包。基础打包禁止 NPU provider 或目录混入。
+3. 独立运行 `NPU support packages`（`npu-support-release.yml`），输入 `version=0.5.9`、`publish_to_registry=false`，生成两套单独安装的支持包。
+4. 记录最终 main 来源提交、两个构建 run、npm tarball 的精确大小/SHA-256；审阅基础安装闭包，不把支持包归档总量视为主包大小。
+5. 按既有正式流程发布基础包到 `next`，完成 registry 回装后晋升 stable Small/runtime/native。独立支持包通过其自身 workflow 发布到 `next`，Document/preview 继续保留 `next`。
+6. 将草稿 target 指向最终 main 提交，补录实际发布身份、日期和正式制品链接，再公开 `v0.5.9`。
 
-准备阶段不会主动调用 registry publish、晋升 dist-tag 或公开发布 GitHub Release。
+## 当前证据与废弃候选
 
-## 当前证据
+- 实现 PR #67、版本准备 PR #68 已合并；此次拆包修正仍待合并。
+- 旧候选 run `37480252872` 八平台构建及 smoke 虽通过，但 Linux x64 误含两套 NPU，单包 `577,384,672` bytes、解压 `1,455,176,275` bytes。**该候选不用于正式发布，须从拆包后的 main 重建。**
+- 双 NPU 源码构建 run `37469626258` 通过；AMD 官方 SDK 已取得，20 桶实际编译，无 AMD 设备推理证据。
+- 原始 AMD SDK 身份见 `tools/npu/amdnpu-source.lock.json`；部署输入见 `tools/npu/amdnpu.lock.json`。约 508 MiB 的部署归档仍作为独立 AMD 支持包的构建输入，不进入普通包。
+- 13 个基础新 package identity 的空位检查已通过；两个新 NPU 支持包须独立发布。最终拆包候选的 tarball 和 run 在生成后补录。
 
-- PR #67 的 Linux native 与 workspace CI 均通过；这属于实现来源，不是 0.5.9 八平台发布结果。
-- 13 个新 package identity 的 npm 空位检查通过；加上复用的两个 preview 模型，release manifest 仍包含 15 包。
-- Intel+AMD Core/Node addon 已按 `LIGHT_OCR_VERSION=0.5.9` 重新配置并构建通过；版本闭包、lockfile 和脚本语法检查通过，未运行新的本地测试。实际 tarball、发布/晋升 run 和 registry integrity 尚未生成。
-- AMD 20 桶已实际编译，20 个原生库与 56 个库存文件已导入；原始 SDK、打包后运行库及模型哈希均已记录。本次没有执行 AMD 推理，不安排 NPU 真机验收。
+## 本地拆包构建证据
+
+三个 addon（基础 CPU、独立 OpenVINO、独立 AMD）均已分别构建并完成 staging。基础库存仅含 CPU provider，无 NPU 目录，native 文件共 `33,091,890` bytes（此处不含正式 WebGPU/PDF 分发附件）。两个独立支持包已实际生成 tarball：
+
+| Package | Compressed bytes | Unpacked bytes |
+| --- | ---: | ---: |
+| `@arcships/light-ocr-amdnpu-linux-x64-gnu` | 548,609,874 | 1,390,267,314 |
+| `@arcships/light-ocr-openvino-linux-x64-gnu` | 26,363,501 | 72,478,453 |
+
+这是本地拆包证据，不是新的八平台正式候选结果。未运行新的本地测试或真机验收。
 
 ## 回滚
 

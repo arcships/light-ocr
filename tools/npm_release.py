@@ -610,6 +610,13 @@ def _webgpu_manifest(arguments: argparse.Namespace) -> dict[str, Any]:
 
 
 def stage_native(arguments: argparse.Namespace) -> None:
+    support_provider = getattr(arguments, 'npu_support_provider', None)
+    supplied_npu = [name for name in ('openvino', 'amdnpu')
+                    if getattr(arguments, f'{name}_sdk_dir', None) is not None]
+    if supplied_npu and (supplied_npu != [support_provider] or arguments.platform_id != 'linux-x64'):
+        raise RuntimeError('NPU payloads must be staged as a separate provider support package')
+    if support_provider and supplied_npu != [support_provider]:
+        raise RuntimeError('support package requires exactly its own NPU SDK')
     platform = PLATFORMS[arguments.platform_id]
     build = arguments.build_dir.resolve()
     metadata = arguments.metadata_dir.resolve()
@@ -1027,6 +1034,8 @@ def stage_workspace_package(workspace: str, output: Path) -> dict[str, Any]:
         "engines",
         "dependencies",
         "optionalDependencies",
+        "peerDependencies",
+        "peerDependenciesMeta",
     )
     for field in copied_fields:
         if field in source_json:
@@ -1217,6 +1226,9 @@ def assemble(arguments: argparse.Namespace) -> None:
         if not runtime_descriptor_path.is_file():
             raise RuntimeError(f"runtime descriptor is missing for {platform_id}")
         runtime_descriptor = read_json(runtime_descriptor_path)
+        if any(name in runtime_descriptor.get('providers', {}) or (source / 'native' / name).exists()
+               for name in ('openvino', 'amdnpu')):
+            raise RuntimeError('default native packages must not contain AMD or OpenVINO payloads')
         validate_runtime_descriptor(
             runtime_descriptor, source, platform_id=platform_id, require_released=True
         )

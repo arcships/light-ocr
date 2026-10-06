@@ -1,5 +1,7 @@
 # Intel NPU 加速技术方案
 
+> 2026-10-06 发布修正：npm 默认包不携带 OpenVINO。用户单独安装 `@arcships/light-ocr-openvino-linux-x64-gnu`，显式指定 `provider: "openvino"`。默认 npm Auto 保持原有路线；下文的自定义源码构建/历史 Auto 方案不代表普通安装会下载或选用 NPU。见 [独立支持包说明](npu-runtime-release.md)。
+
 状态：Phase B 后端和 Phase D 打包代码已实现；Linux x64 真机 14-fixture 已有验证记录；按维护者决定，真机 Gate 不再作为发布前置；当前 npm 包未包含 OpenVINO。构建和发布说明见 [NPU SDK 构建与发布](npu-runtime-release.md)。
 
 更新时间：2026-09-29

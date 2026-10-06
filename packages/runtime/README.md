@@ -14,13 +14,21 @@ Use `@arcships/light-ocr` for stable Small, `@arcships/light-ocr-tiny` for the s
 
 ## NPU configuration
 
-Starting with the prepared 0.5.9 native release, Linux x64 glibc packages include Intel OpenVINO in Auto ahead of WebGPU/CPU. The same Linux x64 release includes Ryzen AI 1.8 native libraries and 20 compiled BF16 contexts for Small 0.3.4. AMD is excluded from Auto; enable it explicitly:
+The default install contains no AMD or OpenVINO libraries or compiled NPU models. Small keeps its existing locked model bundle. Install the matching support package separately:
+
+```bash
+npm install @arcships/light-ocr-openvino-linux-x64-gnu@0.5.9
+# Or, for AMD STX/KRK and Small 0.3.4:
+npm install @arcships/light-ocr-amdnpu-linux-x64-gnu@0.5.9
+```
 
 ```js
 const engine = await createEngine({
   bundlePath: '/absolute/model/bundle',
-  execution: { provider: 'amdnpu' },
+  execution: { provider: 'amdnpu' }, // or 'openvino'
 });
 ```
 
-These AMD contexts require the Small 0.3.4 recognition model and an installed Ryzen AI 1.8 STX/KRK driver stack. Other tiers require separately compiled contexts. Platforms without AMD payload report `unsupported_capability`. Explicit selection does not silently fall back. NPU shipping does not assert hardware qualification; `deviceValidated` stays false.
+Both packages are optional peers, without automatic installation. Only an explicit provider selects their separate native addon. Auto uses the base package's existing WebGPU/Apple/CPU policy, even when support packages are installed. Explicit NPU selection never silently falls back if its package is absent.
+
+Vendor drivers are required on Linux x64 glibc. AMD contexts bind to Small 0.3.4; Tiny/Medium need separately compiled contexts. Hardware inference has not been qualified; `deviceValidated` stays false.

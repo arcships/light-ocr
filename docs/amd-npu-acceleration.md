@@ -1,6 +1,6 @@
 # AMD NPU 加速技术方案
 
-更新时间：2026-10-06。状态：Linux x64 glibc 后端与打包改造已实现，默认关闭、配置显式开启；0.5.9 发布输入已包含 Ryzen AI 1.8 的原生部署库与 Small 0.3.4 的 20 个真实 BF16 context。无需真机即可完成编译，尚未执行 AMD 设备推理。正式 npm 发布仍待完成。
+更新时间：2026-10-06。状态：Linux x64 glibc 后端与打包改造已实现，默认关闭、配置显式开启；0.5.9 独立支持包的构建输入已包含 Ryzen AI 1.8 的原生部署库与 Small 0.3.4 的 20 个真实 BF16 context。无需真机即可完成编译，尚未执行 AMD 设备推理。正式 npm 发布仍待完成。
 
 ## 范围与模型路线
 
@@ -22,7 +22,7 @@ BF16 路线由 VAIML 编译 FP32 ONNX，生成可嵌入权重与微码的 EPCont
 
 ## 默认关闭与发布策略
 
-AMD 始终排除在 Auto 候选列表之外；用户通过 `execution.provider: "amdnpu"`、CLI `--provider amdnpu` 或 C++ 的 `ExecutionProvider::amdnpu` 显式开启。0.5.9 Linux x64 发布构建默认附带 vendor SDK 与匹配的 Small 识别模型；运行时未配置 AMD 时不装载 vendor ORT。
+AMD 始终排除在 Auto 候选列表之外；用户通过 `execution.provider: "amdnpu"`、CLI `--provider amdnpu` 或 C++ 的 `ExecutionProvider::amdnpu` 显式开启。0.5.9 独立 AMD 支持包附带 vendor SDK 与匹配的 Small 识别模型，普通平台包不包含它们；运行时未配置 AMD 时不装载 vendor ORT。
 
 按维护者决定，NPU 真机验收不再阻塞发布。SDK 导入的 `qualificationOnly: true` 仅记录尚无设备证据，平台包可随其他已满足条件的运行时一起发布；`deviceValidated` 保持 `false`。库存、模型哈希、依赖闭包和许可证校验继续执行，设备报告可选。
 
