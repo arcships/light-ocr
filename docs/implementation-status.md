@@ -90,6 +90,10 @@
 | 高分辨率峰值内存 | Done | Release 原生独立进程本机参考：2048² 空白 `318.8 MiB ≤ 384 MiB`；xfund 密集表单 116 框 `400.5 MiB ≤ 640 MiB`。四平台 release jobs 的真实模型与 RSS gates 均通过。 |
 | Tiled 高分辨率准确模式 | Done / `0.2.0` published | 1280 tile、2048→4-pass row-major、全局 candidate ceiling、IoU/IOS greedy merge、原图 recognition、C++/Node contract、8-fixture/196-line corpus、独立 oracle、四平台 36-entry accepted baseline 与 package smoke 均已完成。 |
 
+## 0.5.9 NPU 发布准备（2026-10-06）
+
+Linux x64 glibc 双 NPU Core/Node 构建与 npm native staging 已完成。默认发布输入包含 OpenVINO 2026.4.0，以及 Ryzen AI 1.8 的 20 个原生部署库和绑定 Small 0.3.4 的 20 个真实 BF16 context。Intel 进入 Auto；AMD 始终默认关闭，由配置显式开启。未执行 AMD 设备推理，`deviceValidated` 保持 false；真机验收不作为发布前置。版本、归档哈希与后续发布步骤见 [0.5.9 发布记录](releases/npm-0.5.9.md)。
+
 ## 本机最终验证快照
 
 环境：macOS arm64 Apple M4 Max，macOS 26.5.1，Apple Clang 21.0.0，CMake 4.2.1，macOS deployment target 13.3；CPU 使用 ONNX Runtime，Apple 候选使用系统 Core ML。

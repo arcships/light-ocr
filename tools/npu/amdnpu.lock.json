@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0",
+  "version": "1.8.0",
+  "artifactSetSha256": "5df515842656974be5517ae40b408427f0ffdbb63473c1ced1b610f2a0afc8a4",
+  "sourceModelSha256": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634",
+  "package": {
+    "filename": "amdnpu-1.8.0-linux-x64-ppocrv6-small-0.3.4-opt-in-v1.tar.gz",
+    "bytes": 532631585,
+    "sha256": "bee70b00f3254943751b9460628295696d9901f22887f11b0c791191847fb016",
+    "url": "https://github.com/arcships/light-ocr/releases/download/v0.5.9/amdnpu-1.8.0-linux-x64-ppocrv6-small-0.3.4-opt-in-v1.tar.gz",
+    "releaseTag": "v0.5.9",
+    "repository": "arcships/light-ocr"
+  }
+}

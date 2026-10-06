@@ -14,7 +14,7 @@ on:
         default: false
         type: boolean
       npu_sdk_run_id:
-        description: Optional run containing npu-release-sdks (AMD requires explicit provider configuration)
+        description: Optional override containing both locked Intel and AMD deployment SDKs
         required: false
         default: ""
         type: string
@@ -47,6 +47,10 @@ jobs:
           python tools/npm_release.py ensure-unpublished --version "$RELEASE_VERSION"
 
   build-native:
+    # The locked AMD asset is attached to a draft until release publication.
+    permissions:
+      contents: write
+      actions: read
     needs: validate
     name: build ${{ matrix.id }}
     strategy:
@@ -97,15 +101,22 @@ jobs:
           path: dist/npu-sdk
           run-id: ${{ inputs.npu_sdk_run_id }}
           github-token: ${{ github.token }}
-      - name: Prepare Intel NPU runtime and verify optional AMD SDK
+      - name: Prepare packaged Intel and opt-in AMD NPU payloads
         if: matrix.id == 'linux-x64'
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [[ ! -d dist/npu-sdk/openvino ]]; then
             python tools/npu/build_openvino.py \
               --package-cache .cache/npu-packages --output-dir dist/npu-sdk/openvino
           fi
-          python tools/npu/prepare_release.py --sdk-root dist/npu-sdk --github-env "$GITHUB_ENV"
+          if [[ ! -d dist/npu-sdk/amdnpu ]]; then
+            python tools/npu/fetch_amdnpu.py \
+              --package-cache .cache/npu-packages --output-dir dist/npu-sdk/amdnpu
+          fi
+          python tools/npu/prepare_release.py --sdk-root dist/npu-sdk --github-env "$GITHUB_ENV" \
+            --require-provider openvino --require-provider amdnpu
       - name: Fetch the pinned PDF renderer for npm bundling (Unix)
         if: runner.os != 'Windows'
         shell: bash
