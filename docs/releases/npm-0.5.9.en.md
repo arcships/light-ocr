@@ -20,22 +20,38 @@ NPU implementation: [PR #67](https://github.com/arcships/light-ocr/pull/67), mer
 
 ## Changes
 
-- Linux x64 glibc release builds include pinned OpenVINO 2026.4.0 by default. Auto tries Intel NPU before WebGPU and CPU, running detection and 20-bucket recognition when supported. Creation-time device/model/driver exclusions advance to the next provider.
-- Linux x64 glibc builds include Ryzen AI 1.8 native deployment libraries and 20 real BF16 recognition contexts bound to Small 0.3.4. AMD stays outside Auto; explicitly select `execution: { provider: "amdnpu" }` or `--provider amdnpu`. Detection uses CPU; STX/KRK devices are the target. Tiny/Medium require separately compiled contexts.
-- The workflow fetches the immutable AMD deployment archive automatically. End users need vendor drivers, without installing the full SDK or Python.
-- Hardware qualification reports are optional for NPU shipping. Unvalidated devices remain `deviceValidated: false`; inventory, hashes, model binding, licenses and existing base-runtime checks remain enforced.
-- NPU packages use runtime descriptor 2.1; other packages retain 2.0. Windows, arm64 and musl retain their existing provider routes. Model versions, the `>=22.0.0` Node floor and public API contracts are unchanged.
+- The default Small package retains its existing approximately 39 MB model promise and immutable model package 0.3.4. No AMD/OpenVINO libraries or compiled NPU contexts enter the default dependency closure.
+- Eight base native packages retain Apple/WebGPU/CPU policies. NPU support is separately installed as `@arcships/light-ocr-openvino-linux-x64-gnu@0.5.9` or `@arcships/light-ocr-amdnpu-linux-x64-gnu@0.5.9`.
+- These are optional peers, without automatic installation. Explicit `execution.provider` selects the matching separate addon; Auto does not select either NPU. Vendor drivers are required; device inference remains unqualified.
+- AMD includes 20 actual BF16 contexts bound to Small 0.3.4 and is substantially larger. Other tiers need their own compiled contexts.
 
 ## Release sequence
 
-1. Merge preparation and select main with Core `0.5.9`.
-2. Run `npm release` with `version=0.5.9` and `publish_to_registry=false`. Both SDKs are prepared automatically on Linux x64. An optional `npu_sdk_run_id` overrides both SDKs and must contain `openvino/` and `amdnpu/`. Draft asset downloads use the workflow GitHub token. AMD stays opt-in.
-3. Review eight-platform builds, offline image/PDF smoke and the tarball manifest. Record the source SHA, run ID, 13 new package identities and artifact hashes.
-4. Publish to `next` with `publish_to_registry=true` and record registry reinstall results.
-5. Run `npm promote` with the publication run ID and `tag=latest`; promote only Small/runtime/native. Document and preview facades stay on `next`.
-6. Update the draft release target to the final source commit, attach the manifest/artifact links, and fill publication dates and both release records before publishing `v0.5.9`.
+1. Merge the split-package correction into main.
+2. Run `npm release` with version 0.5.9 and publication disabled for the ordinary eight-platform closure.
+3. Run `NPU support packages` separately, also with publication disabled, to build the two independent NPU packages.
+4. Record final source commits, both runs, exact package sizes and hashes. Base assembly rejects NPU providers and directories.
+5. Publish the base closure through its existing next/latest sequence; publish independent support packages through their own workflow under next. Document and previews remain on next.
+6. Update the draft target, publication identities and dates before publishing v0.5.9.
 
-Preparation does not publish npm packages, promote tags or publish the GitHub draft. PR #67 CI is implementation evidence, not the eight-platform 0.5.9 release result. All 13 new package identities are vacant (the complete manifest also reuses two preview model packages). Intel+AMD Core/Node were reconfigured and built with version 0.5.9; version closure, lockfile and script syntax checks passed. No new local tests were run; artifact integrity and publication runs remain pending. All 20 AMD recognition contexts were actually compiled; 20 native libraries and 56 inventory files were imported. No AMD inference or NPU hardware qualification was performed.
+## Evidence and rejected candidate
+
+The previous candidate run `37480252872` passed eight-platform build/smoke, but incorrectly bundled both NPUs into Linux x64: 577,384,672 compressed bytes and 1,455,176,275 unpacked bytes. **Do not publish this candidate; rebuild from corrected main.**
+
+Source NPU build run `37469626258` succeeded. All 20 AMD contexts were actually compiled without device inference. Original SDK provenance and deployment archive identity remain locked in `amdnpu-source.lock.json` and `amdnpu.lock.json`; the approximately 508 MiB archive supplies only the independently installed AMD support package.
+
+The 13 new base identities were vacant. Final corrected tarball identities and both support-package builds are recorded after generation.
+
+## Local split-package build evidence
+
+All three addons (base CPU, independent OpenVINO and independent AMD) built and staged separately. Base inventory contains CPU only, no NPU directories, with 33,091,890 native bytes; this local baseline excludes the production WebGPU/PDF attachments. Both independent support tarballs were generated:
+
+| Package | Compressed bytes | Unpacked bytes |
+| --- | ---: | ---: |
+| `@arcships/light-ocr-amdnpu-linux-x64-gnu` | 548,609,874 | 1,390,267,314 |
+| `@arcships/light-ocr-openvino-linux-x64-gnu` | 26,363,501 | 72,478,453 |
+
+These are local packaging artifacts, not the corrected eight-platform release run. No new local tests or device inference were performed.
 
 ## Rollback
 

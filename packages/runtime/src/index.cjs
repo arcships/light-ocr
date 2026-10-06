@@ -158,12 +158,15 @@ class OcrEngineImpl {
   }
 }
 
-let nativeRuntime;
+const nativeRuntimes = new Map();
 
 async function createEngine(options) {
   try {
     const resolvedOptions = resolveCreateOptions(options);
-    if (!nativeRuntime) nativeRuntime = loadNative();
+    const requested = resolvedOptions.execution?.provider;
+    const runtimeKey = ['openvino', 'amdnpu'].includes(requested) ? requested : 'default';
+    if (!nativeRuntimes.has(runtimeKey)) nativeRuntimes.set(runtimeKey, loadNative(requested));
+    const nativeRuntime = nativeRuntimes.get(runtimeKey);
     const nativeEngine = await nativeRuntime.binding.createEngine(
       resolvedOptions,
       nativeRuntime.runtimePolicy,

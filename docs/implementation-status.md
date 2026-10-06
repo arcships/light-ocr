@@ -92,7 +92,7 @@
 
 ## 0.5.9 NPU 发布准备（2026-10-06）
 
-Linux x64 glibc 双 NPU Core/Node 构建与 npm native staging 已完成。默认发布输入包含 OpenVINO 2026.4.0，以及 Ryzen AI 1.8 的 20 个原生部署库和绑定 Small 0.3.4 的 20 个真实 BF16 context。Intel 进入 Auto；AMD 始终默认关闭，由配置显式开启。未执行 AMD 设备推理，`deviceValidated` 保持 false；真机验收不作为发布前置。版本、归档哈希与后续发布步骤见 [0.5.9 发布记录](releases/npm-0.5.9.md)。
+Linux x64 glibc 双 NPU 实现与实际 AMD 模型编译已完成。旧 0.5.9 候选把两套 NPU 混入基础包，已明确废弃。拆包修正将 OpenVINO/AMD 放入单独安装的支持包，普通包保留既有模型制品与 Apple/WebGPU/CPU 路线。两套 NPU 均需安装后显式配置；不做真机验收，`deviceValidated` 保持 false。见 [0.5.9 发布记录](releases/npm-0.5.9.md)。
 
 ## 本机最终验证快照
 

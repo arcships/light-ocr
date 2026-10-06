@@ -10,26 +10,27 @@ Release preparation; npm publication and GitHub Release are pending.
 
 ### Added
 
-- Added a bundled Intel NPU backend (`provider: "openvino"`) for Linux x64.
+- Added a separately installed Intel NPU backend (`provider: "openvino"`) for Linux x64.
   Builds configured with `LIGHT_OCR_OPENVINO_SDK_DIR` load the OpenVINO C
   runtime at run time, run detection and 20-bucket recognition on the NPU, and
-  place `openvino` first in the package Auto policy
-  (`openvino → webgpu → cpu`); hosts without an NPU skip it with
+  support explicit OpenVINO selection; default packages retain their existing
+  Auto policy; explicit requests on hosts without an NPU fail with
   `adapter_unavailable`. Added a pinned native SDK extractor, package-local
   runtime descriptor 2.1, numeric driver/compiler checks, and reviewed-evidence
-  release staging with optional device reports. The 0.5.9 Linux x64 build includes
-  pinned OpenVINO 2026.4.0 libraries. See
+  release staging with optional device reports. The optional OpenVINO support package includes
+  pinned OpenVINO 2026.4.0 libraries; default platform packages do not. See
   [Intel NPU 加速技术方案](docs/intel-npu-acceleration.md).
-- Added a bundled AMD NPU backend (`provider: "amdnpu"`) for Linux x64
+- Added a separately installed AMD NPU backend (`provider: "amdnpu"`) for Linux x64
   glibc and Ryzen AI STX/KRK devices. It isolates the vendor ORT runtime,
   loads 20 immutable BF16 recognition contexts, and runs detection on CPU.
   Added model compilation and SDK import tools, descriptor validation,
   license/SBOM staging, and candidate/release workflows. AMD is excluded
   from Auto and enabled only through `execution.provider: "amdnpu"` (or
   `--provider amdnpu`). NPU device reports are optional for release;
-  `deviceValidated` remains false. The 0.5.9 Linux x64 build includes Ryzen AI 1.8
+  `deviceValidated` remains false. The optional AMD support package includes Ryzen AI 1.8
   deployment libraries and real compiled contexts bound to Small 0.3.4.
-  Other platforms retain their existing providers. See [AMD NPU 加速技术方案](docs/amd-npu-acceleration.md)
+  Neither support package is automatically installed or selected by Auto.
+  The existing Small model bundle remains unchanged. See [AMD NPU 加速技术方案](docs/amd-npu-acceleration.md)
   and [NPU SDK 构建与发布](docs/npu-runtime-release.md).
 
 ## [0.5.8] - 2026-09-24

@@ -607,23 +607,41 @@ function validateNativeContract(binding, runtimePolicy) {
   }
 }
 
-function loadNative() {
+function loadNative(provider) {
   const development = resolveDevelopmentInput();
   let input;
   if (development) {
     input = development;
   } else {
-    const packageName = platformPackage();
+    const support = ['openvino', 'amdnpu'].includes(provider);
+    if (support && platformIdentity().id !== 'linux-x64') {
+      throw adapterError('unsupported_capability', `${provider} support requires Linux x64 glibc`);
+    }
+    const packageName = support
+      ? `@arcships/light-ocr-${provider}-linux-x64-gnu`
+      : platformPackage();
     try {
       const binary = require.resolve(packageName);
       input = { binary, descriptor: path.join(path.dirname(binary), 'runtime-descriptor.json') };
     } catch (cause) {
       throw adapterError(
-        'package_load_failed',
+        support ? 'unsupported_capability' : 'package_load_failed',
         `Unable to locate ${packageName}`,
-        'Reinstall @arcships/light-ocr without --omit=optional and verify that the current platform is supported.',
+        support ? `Install ${packageName} explicitly to enable ${provider}.`
+          : 'Reinstall @arcships/light-ocr without --omit=optional and verify that the current platform is supported.',
         cause,
       );
+    }
+  }
+
+  if (!development && ['openvino', 'amdnpu'].includes(provider)) {
+    const manifestPath = path.resolve(path.dirname(input.binary), '../package.json');
+    let manifest;
+    try { manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')); }
+    catch (cause) { throw adapterError('package_load_failed', 'Invalid NPU support package manifest', manifestPath, cause); }
+    if (manifest.name !== `@arcships/light-ocr-${provider}-linux-x64-gnu` ||
+        manifest.version !== require('./metadata.cjs').coreVersion) {
+      throw adapterError('package_load_failed', 'NPU support package must match the light-ocr core version', manifestPath);
     }
   }
 

@@ -13,11 +13,6 @@ on:
         required: true
         default: false
         type: boolean
-      npu_sdk_run_id:
-        description: Optional override containing both locked Intel and AMD deployment SDKs
-        required: false
-        default: ""
-        type: string
 
 permissions:
   contents: read
@@ -47,10 +42,6 @@ jobs:
           python tools/npm_release.py ensure-unpublished --version "$RELEASE_VERSION"
 
   build-native:
-    # The locked AMD asset is attached to a draft until release publication.
-    permissions:
-      contents: write
-      actions: read
     needs: validate
     name: build ${{ matrix.id }}
     strategy:
@@ -93,30 +84,6 @@ jobs:
       - name: Bootstrap pinned native dependencies
         shell: bash
         run: python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies
-      - name: Download distributable NPU SDKs
-        if: matrix.id == 'linux-x64' && inputs.npu_sdk_run_id != ''
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: npu-release-sdks
-          path: dist/npu-sdk
-          run-id: ${{ inputs.npu_sdk_run_id }}
-          github-token: ${{ github.token }}
-      - name: Prepare packaged Intel and opt-in AMD NPU payloads
-        if: matrix.id == 'linux-x64'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [[ ! -d dist/npu-sdk/openvino ]]; then
-            python tools/npu/build_openvino.py \
-              --package-cache .cache/npu-packages --output-dir dist/npu-sdk/openvino
-          fi
-          if [[ ! -d dist/npu-sdk/amdnpu ]]; then
-            python tools/npu/fetch_amdnpu.py \
-              --package-cache .cache/npu-packages --output-dir dist/npu-sdk/amdnpu
-          fi
-          python tools/npu/prepare_release.py --sdk-root dist/npu-sdk --github-env "$GITHUB_ENV" \
-            --require-provider openvino --require-provider amdnpu
       - name: Fetch the pinned PDF renderer for npm bundling (Unix)
         if: runner.os != 'Windows'
         shell: bash
@@ -179,8 +146,6 @@ jobs:
           -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies"
           -DLIGHT_OCR_ONNXRUNTIME_FLAVOR=${{ matrix.runtime_flavor }}
           -DLIGHT_OCR_WEBGPU_SDK_DIR="$PWD/dist/webgpu-sdk/${{ matrix.id }}"
-          -DLIGHT_OCR_OPENVINO_SDK_DIR="$OPENVINO_SDK_DIR"
-          -DLIGHT_OCR_AMDNPU_SDK_DIR="$AMDNPU_SDK_DIR"
           -DLIGHT_OCR_BUILD_NODE=ON
           -DLIGHT_OCR_BUILD_TESTS=OFF
           -DLIGHT_OCR_BUILD_TOOLS=OFF
@@ -213,13 +178,6 @@ jobs:
       - name: Stage native package input
         shell: bash
         run: |
-          npu_arguments=()
-          if [[ -n "${OPENVINO_SDK_DIR:-}" ]]; then
-            npu_arguments+=(--openvino-sdk-dir "$OPENVINO_SDK_DIR")
-          fi
-          if [[ -n "${AMDNPU_SDK_DIR:-}" ]]; then
-            npu_arguments+=(--amdnpu-sdk-dir "$AMDNPU_SDK_DIR")
-          fi
           python tools/npm_release.py stage-native \
             --platform-id "${{ matrix.id }}" \
             --build-dir build-npm \
@@ -228,8 +186,7 @@ jobs:
             --pdfium-dir .cache/pdfium-package/node_modules/pdfium-native \
             --output-dir "dist/native-input/${{ matrix.id }}" \
             --runtime-flavor "${{ matrix.runtime_flavor }}" \
-            --webgpu-artifact-manifest "dist/webgpu-sdk/${{ matrix.id }}/artifact-manifest.json" \
-            "${npu_arguments[@]}"
+            --webgpu-artifact-manifest "dist/webgpu-sdk/${{ matrix.id }}/artifact-manifest.json"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: native-${{ matrix.id }}

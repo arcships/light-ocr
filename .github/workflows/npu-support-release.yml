@@ -1,0 +1,106 @@
+name: NPU support packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Patch version of the matching light-ocr release
+        default: '0.5.9'
+        required: true
+        type: string
+      publish_to_registry:
+        description: Publish both independent support packages under next
+        default: false
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # The AMD deployment archive remains a draft asset until v0.5.9 ships.
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [openvino, amdnpu]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+      - name: Prepare the selected provider only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROVIDER: ${{ matrix.provider }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          test "$RELEASE_VERSION" = "$(cat VERSION)"
+          python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies
+          if [[ "$PROVIDER" == openvino ]]; then
+            python tools/npu/build_openvino.py --package-cache .cache/npu --output-dir dist/sdk
+          else
+            python tools/npu/fetch_amdnpu.py --package-cache .cache/npu --output-dir dist/sdk
+          fi
+      - name: Build a separate CPU and NPU addon
+        env:
+          PROVIDER: ${{ matrix.provider }}
+        run: |
+          node_version="$(node -p process.versions.node)"
+          npx --yes node-gyp@11.4.2 install "$node_version" --devdir "$PWD/.cache/node-gyp"
+          sdk_option="LIGHT_OCR_${PROVIDER^^}_SDK_DIR"
+          cmake -S . -B build-support -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies" \
+            "-D$sdk_option=$PWD/dist/sdk" \
+            -DLIGHT_OCR_BUILD_NODE=ON -DLIGHT_OCR_BUILD_TESTS=OFF -DLIGHT_OCR_BUILD_TOOLS=OFF \
+            -DLIGHT_OCR_NODE_INCLUDE_DIR="$PWD/.cache/node-gyp/$node_version/include/node"
+          cmake --build build-support --parallel 2
+      - name: Package the independent support addon
+        env:
+          PROVIDER: ${{ matrix.provider }}
+        run: |
+          python tools/generate_release_metadata.py --build-dir build-support \
+            --output-dir reports/support --platform-id linux-x64 --model-free
+          python tools/npu/package_support.py --provider "$PROVIDER" \
+            --build-dir build-support --metadata-dir reports/support \
+            --sdk-dir dist/sdk --output-dir dist/package
+          mkdir -p dist/tarballs
+          npm pack ./dist/package --ignore-scripts --json --pack-destination dist/tarballs > dist/tarballs/pack-manifest.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: npu-support-${{ matrix.provider }}-${{ inputs.version }}
+          path: dist/tarballs/
+          retention-days: 90
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: inputs.publish_to_registry
+    runs-on: ubuntu-24.04
+    environment: npm-release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: npu-support-*-${{ inputs.version }}
+          path: dist/support
+      - name: Publish the explicitly installed support packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for archive in dist/support/*/*.tgz; do
+            npm publish "$archive" --tag next --access public --provenance
+          done

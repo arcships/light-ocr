@@ -1,6 +1,6 @@
 # NPU SDK 构建与发布
 
-当前实现覆盖 Linux x64 glibc。Intel 使用 OpenVINO C API；AMD 使用独立装载的 Ryzen AI ORT 与预编译 BF16 识别模型。安装后的 OCR 进程无需 Python，系统仍需厂商 NPU 驱动，AMD 路线使用 Ryzen AI 1.8 支持的 Ubuntu 24.04/glibc 环境。0.5.9 的 Linux x64 发布构建默认附带两套运行时，AMD 默认关闭。
+当前实现覆盖 Linux x64 glibc。Intel 使用 OpenVINO C API；AMD 使用独立装载的 Ryzen AI ORT 与预编译 BF16 识别模型。安装后的 OCR 进程无需 Python，系统仍需厂商 NPU 驱动，AMD 路线使用 Ryzen AI 1.8 支持的 Ubuntu 24.04/glibc 环境。0.5.9 将两套 NPU 分别放入用户单独安装的支持包；普通平台包不包含这些库和 context，默认模型制品不变。
 
 ## Intel 候选 SDK
 
@@ -67,19 +67,24 @@ cmake --build build-npu --parallel 2
 
 AMD 默认需要 CPU detector，且其模型绑定具体识别模型哈希；换用其他 tier 时需重新编译对应 SDK。Windows、arm64 和 musl 不接受当前 NPU SDK。
 
-## 用户显式开启 AMD
+## 用户安装与显式开启
 
-含 AMD SDK 与模型的构建默认不会选择或装载 AMD runtime。Node.js 用户在创建引擎时指定：
+```bash
+npm install @arcships/light-ocr
+# 按设备单独选择一个支持包
+npm install @arcships/light-ocr-amdnpu-linux-x64-gnu@0.5.9
+# 或 npm install @arcships/light-ocr-openvino-linux-x64-gnu@0.5.9
+```
 
 ```js
 const engine = await createEngine({
-  execution: { provider: "amdnpu" }
+  execution: { provider: "amdnpu" } // Intel 使用 "openvino"
 });
 ```
 
-模型无关的 `@arcships/light-ocr-runtime` 还需传入 `bundlePath`；模型 facade 自动提供 bundle。CLI 使用 `--provider amdnpu`；C++ 使用 `options.execution.provider = ExecutionProvider::amdnpu`。省略该配置或指定 `auto` 会走默认候选列表。显式 AMD 请求不静默回退；缺少包内 AMD SDK/模型、设备或驱动时报告对应错误。
+模型无关 runtime 还需 `bundlePath`。两套支持包都是 optional peer，不随普通安装自动下载；显式 provider 才选择对应独立 addon，Auto 保持基础包策略。缺少包时报告 `unsupported_capability`，没有静默回退。AMD 的 20 个 context 绑定 Small 0.3.4。
 
-发布不要求 NPU 真机报告；`deviceValidated` 保持 `false`。SDK 和真实编译模型通过锁定的部署包自动随构建交付。
+支持包内包含原生依赖和产物身份；终端用户无需完整 SDK/Python，仍需系统 NPU 驱动。真机报告不作为发布前置，`deviceValidated` 保持 false。
 
 ## 可选设备报告
 
@@ -119,10 +124,18 @@ python tools/npu/accept_qualification.py \
 
 ## CI 与 npm staging
 
-`NPU native candidates` workflow 默认取得 Intel 与 AMD SDK 并生成双 NPU Node 候选构建。可输入另一个 run 的 `amdnpu-candidate-sdk` artifact，内容应为 AMD SDK 目录。始终上传可分发的 `npu-release-sdks`，无需设备报告。可选的 `npu-reviewed-reports` artifact 按 `openvino/*.json`、`amdnpu/*.json` 放置；仅在主动提供报告时才检查其绑定关系。
+`npm release` 只生成普通八平台闭包，完全移除两套 NPU SDK 输入。`assemble` 拒绝含 NPU provider/目录的默认平台输入，防止旧的大包再次发布。
 
-从 0.5.9 发布准备起，`npm release` 默认为 Linux x64 准备锁定的 Intel 与 AMD SDK，缺少任一套均阻止发布构建。可选 `npu_sdk_run_id` 读取同仓库的 `npu-release-sdks`（根目录下为 `openvino/`、`amdnpu/`），仅 Linux x64 构建使用。CI 在配置 CMake 前验证 SDK 库存、模型、配置和哈希；已附带的接受报告仍会校验，但不要求提供报告。
+`NPU support packages` workflow 分别构建 CPU+OpenVINO、CPU+AMD addon，通过 `tools/npu/package_support.py` 生成两个独立 npm 包，再分别上传其 tarball 与 pack manifest。两个包不依赖模型包，也不进入基础包的 dependencies/optionalDependencies；runtime 仅声明 optional peer。发布输入默认关闭。
 
-本地 `tools/npm_release.py stage-native` 接受 `--openvino-sdk-dir` 和 `--amdnpu-sdk-dir`；SDK 需与构建 addon 使用的版本、资格 ID 和包含的 provider 一致。NPU SDK 的 `qualificationOnly` 记录其设备证据状态，不再使整个平台包变成 qualification build；无需真机报告即可 staging。WebGPU 自身的既有资格门槛仍适用，正式 `assemble` 仍拒绝基础运行时的 qualification build。许可证、SBOM、SDK manifest 和可选报告随平台包保存。
+本地单独打包示例：
 
-正式发布仍沿用项目补丁版本策略；当前候选尚未发布到 npm。
+```bash
+python tools/generate_release_metadata.py --build-dir build-support \
+  --output-dir reports/support --platform-id linux-x64 --model-free
+python tools/npu/package_support.py --provider amdnpu --build-dir build-support \
+  --metadata-dir reports/support --sdk-dir dist/npu-sdk/amdnpu --output-dir dist/support-package
+npm pack ./dist/support-package --ignore-scripts
+```
+
+每个 support addon 必须只编译所选 SDK，保证 descriptor 与原生 policy 一致；版本必须匹配 Core。SDK 库存、模型、哈希、许可证与 SBOM 均保留，设备报告仍可选。WebGPU 基础运行时的既有发布规则不变。

@@ -189,6 +189,8 @@ error model, while each install contains only its selected model.
 | Tiny | `@arcships/light-ocr-tiny@next` / `light-ocr-tiny` | ~6.3 MB | preview; 49 languages, no Japanese |
 | Medium | `@arcships/light-ocr-medium@next` / `light-ocr-medium` | ~139 MB | preview; quality-first |
 
+NPU support is installed separately through `@arcships/light-ocr-openvino-linux-x64-gnu` or `@arcships/light-ocr-amdnpu-linux-x64-gnu` and requires explicit provider selection. The default install contains neither provider's libraries nor compiled models; the existing Small model bundle stays unchanged. See the [NPU installation guide](docs/npu-runtime-release.md#用户安装与显式开启).
+
 Tiny and Medium stay on `next`; they do not change what
 `npm install @arcships/light-ocr` installs.
 

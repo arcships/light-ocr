@@ -181,6 +181,8 @@ Small 继续作为稳定默认。Tiny 和 Medium 是 `next` tag 下的可选 pre
 | Tiny | `@arcships/light-ocr-tiny@next` / `light-ocr-tiny` | 约 6.3 MB | Preview；49 种语言，不含日语 |
 | Medium | `@arcships/light-ocr-medium@next` / `light-ocr-medium` | 约 139 MB | Preview；精度优先 |
 
+NPU 支持通过单独安装的 `@arcships/light-ocr-openvino-linux-x64-gnu` / `@arcships/light-ocr-amdnpu-linux-x64-gnu` 提供，均需显式配置 provider。普通安装不含它们的运行库或编译模型，Small 模型制品保持不变。见 [NPU 安装说明](docs/npu-runtime-release.md#用户安装与显式开启)。
+
 Tiny/Medium 保持在 `next`；它们不会改变
 `npm install @arcships/light-ocr` 的安装内容。
 
