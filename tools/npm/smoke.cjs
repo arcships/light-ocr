@@ -112,8 +112,7 @@ async function main() {
         'cpu',
       );
     } else {
-      const candidates = process.platform === 'linux'
-        ? ['openvino', 'webgpu', 'cpu'] : ['webgpu', 'cpu'];
+      const candidates = ['webgpu', 'cpu'];
       assert.deepEqual(
         engine.info.execution.selectionTrace.orderedCandidates,
         candidates,
