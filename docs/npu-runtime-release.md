@@ -110,7 +110,7 @@ python tools/npu/accept_qualification.py \
 
 `NPU native candidates` workflow 生成 Intel SDK 与 Node 候选构建。可输入另一个 run 的 `amdnpu-candidate-sdk` artifact，内容应为 AMD SDK 目录。始终上传可分发的 `npu-release-sdks`，无需设备报告。可选的 `npu-reviewed-reports` artifact 按 `openvino/*.json`、`amdnpu/*.json` 放置；仅在主动提供报告时才检查其绑定关系。
 
-`npm release` workflow 的可选 `npu_sdk_run_id` 读取同仓库的 `npu-release-sdks`（根目录下为 `openvino/`、`amdnpu/`），仅 Linux x64 构建使用。CI 在配置 CMake 前验证 SDK 库存、模型、配置和哈希；已附带的接受报告仍会校验，但不要求提供报告。
+从 0.5.9 发布准备起，`npm release` 默认为 Linux x64 构建锁定的 Intel SDK。可选 `npu_sdk_run_id` 读取同仓库的 `npu-release-sdks`（根目录下为 `openvino/`、`amdnpu/`），仅 Linux x64 构建使用。CI 在配置 CMake 前验证 SDK 库存、模型、配置和哈希；已附带的接受报告仍会校验，但不要求提供报告。
 
 本地 `tools/npm_release.py stage-native` 接受 `--openvino-sdk-dir` 和 `--amdnpu-sdk-dir`；SDK 需与构建 addon 使用的版本、资格 ID 和包含的 provider 一致。NPU SDK 的 `qualificationOnly` 记录其设备证据状态，不再使整个平台包变成 qualification build；无需真机报告即可 staging。WebGPU 自身的既有资格门槛仍适用，正式 `assemble` 仍拒绝基础运行时的 qualification build。许可证、SBOM、SDK manifest 和可选报告随平台包保存。
 

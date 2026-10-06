@@ -112,15 +112,17 @@ async function main() {
         'cpu',
       );
     } else {
+      const candidates = process.platform === 'linux'
+        ? ['openvino', 'webgpu', 'cpu'] : ['webgpu', 'cpu'];
       assert.deepEqual(
         engine.info.execution.selectionTrace.orderedCandidates,
-        ['webgpu', 'cpu'],
+        candidates,
       );
       assert.ok(engine.info.execution.providerCapabilities.some(
         (capability) => capability.provider === 'webgpu'
           && capability.packageIncluded,
       ));
-      assert.ok(['webgpu', 'cpu'].includes(
+      assert.ok(candidates.includes(
         engine.info.execution.selectionTrace.selectedProvider,
       ));
     }

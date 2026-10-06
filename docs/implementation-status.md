@@ -1,7 +1,9 @@
 # C++ Core 与 Node-API 实施状态
 
-更新时间：2026-09-24<br>
+更新时间：2026-10-06<br>
 结论：npm `0.5.8` 已发布并晋升 `latest`。本版新增 musl（Alpine）Linux 的 CPU-only 预编译平台包（`@arcships/light-ocr-linux-x64-musl`/`-arm64-musl`，平台包总数八），其 onnxruntime 1.22.0 musl 产物从源码构建、由 `models/deps.lock.json` 以 SHA-256 锁定于 [`musl-runtime-1.22.0`](https://github.com/arcships/light-ocr/releases/tag/musl-runtime-1.22.0)；同时所有包的 `engines.node` 放宽为下限式 `>=22.0.0`（Node-API 稳定 ABI，Tier 1 仍为 22/24 LTS）。实现经 [PR #63](https://github.com/arcships/light-ocr/pull/63) 两轮独立 review；[发布 run 36013862673](https://github.com/arcships/light-ocr/actions/runs/36013862673) 完成八平台构建、离线 smoke、registry 发布与回装，[晋升 run 36018294655](https://github.com/arcships/light-ocr/actions/runs/36018294655) 只提升稳定闭包。完整证据见 [npm 0.5.8 发布记录](releases/npm-0.5.8.md)（[English](releases/npm-0.5.8.en.md)）与 [`v0.5.8` GitHub Release](https://github.com/arcships/light-ocr/releases/tag/v0.5.8)。上一版 `0.5.7`（macOS 下游重签名兼容）的证据链见 [npm 0.5.7 发布记录](releases/npm-0.5.7.md)（[English](releases/npm-0.5.7.en.md)）与 [`v0.5.7` GitHub Release](https://github.com/arcships/light-ocr/releases/tag/v0.5.7)。
+
+发布准备：`0.5.9` 已同步 Core/native、runtime `0.1.9`、Document `0.1.5`、Tiny/Medium `0.1.8`。Linux x64 默认带 Intel NPU SDK；AMD 默认关闭且需要真实 SDK/模型输入。NPU 真机报告不作为发布前置；npm 和公开 GitHub Release 尚未发布。见 [0.5.9 发布准备](releases/npm-0.5.9.md)（[English](releases/npm-0.5.9.en.md)）。
 
 状态含义：
 

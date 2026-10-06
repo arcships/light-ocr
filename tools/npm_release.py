@@ -63,12 +63,12 @@ FACADE_PACKAGES = {
     },
     "tiny": {
         "name": "@arcships/light-ocr-tiny",
-        "version": "0.1.7",
+        "version": "0.1.8",
         "workspace": "light-ocr-tiny",
     },
     "medium": {
         "name": "@arcships/light-ocr-medium",
-        "version": "0.1.7",
+        "version": "0.1.8",
         "workspace": "light-ocr-medium",
     },
 }
@@ -1229,6 +1229,8 @@ def assemble(arguments: argparse.Namespace) -> None:
         copy_tree(source / "native", package / "native")
         copy_tree(source / "pdfium", package / "pdfium")
         copy_tree(source / "licenses", package / "licenses")
+        if (source / "qualification").is_dir():
+            copy_tree(source / "qualification", package / "qualification")
         copy_file(source / "license-inventory.json", package / "license-inventory.json")
         copy_file(source / "sbom.spdx.json", package / "sbom.spdx.json")
         package_json = common_package(
@@ -1249,6 +1251,7 @@ def assemble(arguments: argparse.Namespace) -> None:
                     "native/",
                     "pdfium/",
                     "licenses/",
+                    "qualification/",
                     "license-inventory.json",
                     "sbom.spdx.json",
                     "artifact-hashes.json",

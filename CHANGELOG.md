@@ -4,6 +4,10 @@ This file records user-visible changes to `light-ocr`. Published artifact detail
 
 ## [Unreleased]
 
+## [0.5.9] - Unreleased
+
+Release preparation; npm publication and GitHub Release are pending.
+
 ### Added
 
 - Added a source-level Intel NPU backend (`provider: "openvino"`) for Linux x64.
