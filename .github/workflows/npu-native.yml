@@ -1,0 +1,99 @@
+name: NPU native candidates
+
+on:
+  workflow_dispatch:
+    inputs:
+      amd_sdk_run_id:
+        description: Optional run containing amdnpu-candidate-sdk imported from Ryzen AI 1.8
+        required: false
+        default: ""
+        type: string
+      reviewed_reports_run_id:
+        description: Optional device reports for metadata; not required to ship NPU support
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+      - name: Assemble pinned Intel native SDK
+        run: python tools/npu/build_openvino.py --package-cache .cache/npu --output-dir dist/npu-sdk/openvino
+      - name: Import acquired AMD candidate
+        if: inputs.amd_sdk_run_id != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: amdnpu-candidate-sdk
+          path: dist/npu-sdk/amdnpu
+          run-id: ${{ inputs.amd_sdk_run_id }}
+          github-token: ${{ github.token }}
+      - name: Build the native addon with packaged NPU SDKs
+        shell: bash
+        run: |
+          python tools/bootstrap_dependencies.py --cache-dir .cache/dependencies
+          node_version="$(node -p process.versions.node)"
+          npx --yes node-gyp@11.4.2 install "$node_version" --devdir "$PWD/.cache/node-gyp"
+          amd_arguments=()
+          if [[ -d dist/npu-sdk/amdnpu ]]; then
+            amd_arguments+=(-DLIGHT_OCR_AMDNPU_SDK_DIR="$PWD/dist/npu-sdk/amdnpu")
+          fi
+          cmake -S . -B build-npu -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies" \
+            -DLIGHT_OCR_OPENVINO_SDK_DIR="$PWD/dist/npu-sdk/openvino" \
+            -DLIGHT_OCR_BUILD_NODE=ON -DLIGHT_OCR_BUILD_TESTS=OFF -DLIGHT_OCR_BUILD_TOOLS=OFF \
+            -DLIGHT_OCR_NODE_INCLUDE_DIR="$PWD/.cache/node-gyp/$node_version/include/node" \
+            -DLIGHT_OCR_NODE_EXECUTABLE="$(command -v node)" "${amd_arguments[@]}"
+          cmake --build build-npu --parallel 2
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: npu-candidates
+          path: |
+            dist/npu-sdk/
+            build-npu/node-runtime/
+          if-no-files-found: error
+      - name: Fetch reviewed device reports
+        if: inputs.reviewed_reports_run_id != ''
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: npu-reviewed-reports
+          path: reports/npu-reviewed
+          run-id: ${{ inputs.reviewed_reports_run_id }}
+          github-token: ${{ github.token }}
+      - name: Prepare distributable NPU SDKs
+        shell: bash
+        run: |
+          for provider in openvino amdnpu; do
+            [[ -d "dist/npu-sdk/$provider" ]] || continue
+            reports=()
+            for report in "reports/npu-reviewed/$provider/"*.json; do
+              [[ -f "$report" ]] || continue
+              reports+=(--report "$report")
+            done
+            if [[ ${#reports[@]} -gt 0 ]]; then
+              python tools/npu/accept_qualification.py \
+                --sdk-dir "dist/npu-sdk/$provider" "${reports[@]}" \
+                --qualification-id "$provider-linux-x64-reviewed-v1" \
+                --output-dir "dist/npu-release/$provider"
+            else
+              mkdir -p dist/npu-release
+              cp -R "dist/npu-sdk/$provider" "dist/npu-release/$provider"
+            fi
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: npu-release-sdks
+          path: dist/npu-release/
+          if-no-files-found: error

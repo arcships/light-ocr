@@ -1,6 +1,7 @@
 #include "inference/openvino/backend.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
@@ -64,6 +65,7 @@ struct Api {
   decltype(&::ov_partial_shape_free) partial_shape_free = nullptr;
   decltype(&::ov_compiled_model_create_infer_request) compiled_model_create_infer_request = nullptr;
   decltype(&::ov_compiled_model_free) compiled_model_free = nullptr;
+  decltype(&::ov_compiled_model_get_property) compiled_model_get_property = nullptr;
   decltype(&::ov_infer_request_set_input_tensor_by_index) infer_request_set_input_tensor_by_index = nullptr;
   decltype(&::ov_infer_request_infer) infer_request_infer = nullptr;
   decltype(&::ov_infer_request_get_output_tensor_by_index) infer_request_get_output_tensor_by_index = nullptr;
@@ -180,6 +182,7 @@ Api load_api(void* handle) {
   bind(handle, "ov_partial_shape_free", &api.partial_shape_free);
   bind(handle, "ov_compiled_model_create_infer_request", &api.compiled_model_create_infer_request);
   bind(handle, "ov_compiled_model_free", &api.compiled_model_free);
+  bind(handle, "ov_compiled_model_get_property", &api.compiled_model_get_property);
   bind(handle, "ov_infer_request_set_input_tensor_by_index",
        &api.infer_request_set_input_tensor_by_index);
   bind(handle, "ov_infer_request_infer", &api.infer_request_infer);
@@ -270,6 +273,26 @@ Runtime& require_npu(const InferenceSessionConfig& config) {
   if (!runtime.device_available) {
     throw OpenVinoSetupError(CreationReason::adapter_unavailable,
                              "OpenVINO reports no usable Intel NPU on this host");
+  }
+  if (!config.openvino_runtime_version_prefix.empty() &&
+      runtime.device.runtime_version.rfind(config.openvino_runtime_version_prefix, 0) != 0) {
+    throw OpenVinoSetupError(CreationReason::provider_abi_mismatch,
+                             "OpenVINO version does not match the verified SDK");
+  }
+  auto at_least = [](const std::string& actual, const std::string& minimum) {
+    if (minimum.empty()) return true;
+    std::uint64_t a = 0;
+    std::uint64_t b = 0;
+    const auto left = std::from_chars(actual.data(), actual.data() + actual.size(), a);
+    const auto right = std::from_chars(minimum.data(), minimum.data() + minimum.size(), b);
+    return left.ec == std::errc{} && left.ptr == actual.data() + actual.size() &&
+           right.ec == std::errc{} && right.ptr == minimum.data() + minimum.size() && a >= b;
+  };
+  // OpenVINO returns numeric driver/compiler identities, not OS package SemVer.
+  if (!at_least(runtime.device.driver_version, config.openvino_minimum_driver_version) ||
+      !at_least(runtime.device.compiler_version, config.openvino_minimum_compiler_version)) {
+    throw OpenVinoSetupError(CreationReason::driver_version_unsupported,
+                             "Intel NPU driver or compiler is below the SDK's qualified floor");
   }
   return runtime;
 }
@@ -374,7 +397,7 @@ struct OpenVinoSession::State {
   std::map<std::vector<std::int64_t>, Compiled> compiled;
   std::size_t maximum_shapes = 0;
   std::uint64_t clock = 0;
-  bool last_compile_cached = false;
+  std::string last_cache_status = "disabled";
 
   ~State() {
     for (auto& entry : compiled) release(entry.second);
@@ -435,11 +458,19 @@ struct OpenVinoSession::State {
             "PERFORMANCE_HINT", "LATENCY", "INFERENCE_PRECISION_HINT", "f16",
             "NPU_COMPILER_TYPE", "DRIVER");
       }
-      last_compile_cached = cached;
+      last_cache_status = cached ? "miss" : "disabled";
     }
     if (status != OK || entry.model == nullptr) {
+      release(entry);
       throw std::runtime_error("OpenVINO cannot compile shape " + shape_text(shape) +
                                " for the NPU: " + last_error(api));
+    }
+    char* loaded = nullptr;
+    if (last_cache_status != "disabled" &&
+        api.compiled_model_get_property(entry.model, "LOADED_FROM_CACHE", &loaded) == OK &&
+        loaded != nullptr) {
+      last_cache_status = std::string(loaded) == "YES" ? "hit" : "miss";
+      api.free(loaded);
     }
     if (api.compiled_model_create_infer_request(entry.model, &entry.request) != OK) {
       const auto message = last_error(api);
@@ -542,9 +573,9 @@ Result<std::unique_ptr<OpenVinoSession>> OpenVinoSession::create(
     info.runtime = "OpenVINO";
     info.runtime_version = runtime.device.runtime_version;
     info.provider_version = runtime.device.driver_version;
-    info.model_cache_status = state->last_compile_cached ? "compiled_cache" : "disabled";
+    info.device_validated = config.npu_device_validated;
+    info.model_cache_status = state->last_cache_status;
     info.qualification_id = config.qualification_id;
-    info.device_validated = false;
     return CreateResult::success(std::unique_ptr<OpenVinoSession>(
         new OpenVinoSession(std::move(state), std::move(info))));
   } catch (const OpenVinoSetupError& error) {

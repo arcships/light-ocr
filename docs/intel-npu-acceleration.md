@@ -1,6 +1,6 @@
 # Intel NPU 加速技术方案
 
-状态：Phase B 核心已在源码实现（qualification build）；Linux x64 真机 14-fixture 验证通过；未进入 released policy，npm 包未包含 OpenVINO，不代表已经发布；目标是 Intel NPU 主机上 Auto 优先使用 NPU
+状态：Phase B 后端和 Phase D 打包代码已实现；Linux x64 真机 14-fixture 已有验证记录；按维护者决定，真机 Gate 不再作为发布前置；当前 npm 包未包含 OpenVINO。构建和发布说明见 [NPU SDK 构建与发布](npu-runtime-release.md)。
 
 更新时间：2026-09-29
 
@@ -251,7 +251,9 @@ Spike 以临时 `InferenceSession` 实现替换 CPU 会话，由环境变量启�
 
 ## 11. Gate
 
-沿用 Linux WebGPU Gate 的结构，增加 NPU 特有项：
+2026-10-06 发布策略更新：以下设备实验作为可选后续证据，不再作为 NPU 发布前置。历史分阶段 Gate 规划由这一决定覆盖；发布仍检查包内库存、哈希、模型和许可证。AMD 始终不进入 Auto，Intel 保留默认候选位置，诊断不声称设备已经验收。
+
+原实验清单沿用 Linux WebGPU Gate 的结构，增加 NPU 特有项：
 
 - **质量**：14-fixture locked corpus 与 CPU FP32 goldens 对比；文本不一致行数不超过审阅后的 parity exceptions，框最大偏差与置信度差设上限；FP16 边界差异须逐条审阅。
 - **性能**：每个 case 3 次独立 cold start × (2 warmup + 10 次测量)；报告 P50、P95、各阶段时间、进程 CPU-s 与 RSS。
@@ -300,7 +302,7 @@ Spike 数据见 §3；临时代码不合入主干。
 | 无 NPU（bwrap 隐藏 `/dev/accel`）Auto | `openvino skipped(adapter_unavailable) → webgpu selected` |
 | 显式 `webgpu` | 进程不加载 OpenVINO |
 
-尚未实现（留在 Phase B/C）：后台预热其余 recognition 桶、按 descriptor 的驱动/compiler 最低版本检查（`driver_version_unsupported`）、LRU 中优先保留 recognition 桶、`model_cache_status` 的 hit/miss 区分、Node runtime descriptor 中的 OpenVINO 条目（Phase D）。
+2026-10-06 补齐：锁定 OpenVINO 2026.4.0 官方 wheel，提取 C headers 和五个原生运行时库；Node descriptor 2.1 声明包内路径、完整哈希和驱动/compiler 最低版本；最低版本使用 OpenVINO 属性的十进制数值，避免误用发行版包版本。会话通过 `LOADED_FROM_CACHE` 报告 hit/miss。发布工具附带许可证、SBOM 和审阅报告，设备报告可选，不再拒绝缺少真机报告的 SDK；包已发布不等同于设备已验收，`deviceValidated` 保持 `false`。尚未实现的性能优化：后台预热其余 recognition 桶、LRU 中优先保留 recognition 桶。
 
 ### Phase C — Linux x64 真机 Gate
 

@@ -142,35 +142,48 @@ napi_value string_array(napi_env env, const std::vector<std::string>& values) {
 }
 
 std::vector<std::string> compiled_available_providers() {
+  std::vector<std::string> result;
 #if LIGHT_OCR_NODE_HAS_APPLE
-  return {"apple", "cpu"};
+  result = {"apple", "cpu"};
 #elif LIGHT_OCR_NODE_HAS_WEBGPU
-  return {"cpu", "webgpu"};
+  result = {"cpu", "webgpu"};
 #else
-  return {"cpu"};
+  result = {"cpu"};
 #endif
+#if LIGHT_OCR_NODE_HAS_OPENVINO
+  result.push_back("openvino");
+#endif
+#if LIGHT_OCR_NODE_HAS_AMDNPU
+  result.push_back("amdnpu");
+#endif
+  std::sort(result.begin(), result.end());
+  return result;
 }
 
 std::vector<std::string> compiled_provider_qualification_ids() {
-#if LIGHT_OCR_NODE_HAS_APPLE
-  return {LIGHT_OCR_NODE_APPLE_QUALIFICATION_ID,
-          LIGHT_OCR_NODE_CPU_QUALIFICATION_ID};
-#elif LIGHT_OCR_NODE_HAS_WEBGPU
-  return {LIGHT_OCR_NODE_CPU_QUALIFICATION_ID,
-          LIGHT_OCR_NODE_WEBGPU_QUALIFICATION_ID};
-#else
-  return {LIGHT_OCR_NODE_CPU_QUALIFICATION_ID};
-#endif
+  std::vector<std::string> result;
+  for (const auto& provider : compiled_available_providers()) {
+    if (provider == "cpu") result.push_back(LIGHT_OCR_NODE_CPU_QUALIFICATION_ID);
+    if (provider == "apple") result.push_back(LIGHT_OCR_NODE_APPLE_QUALIFICATION_ID);
+    if (provider == "webgpu") result.push_back(LIGHT_OCR_NODE_WEBGPU_QUALIFICATION_ID);
+    if (provider == "openvino") result.push_back(LIGHT_OCR_NODE_OPENVINO_QUALIFICATION_ID);
+    if (provider == "amdnpu") result.push_back(LIGHT_OCR_NODE_AMDNPU_QUALIFICATION_ID);
+  }
+  return result;
 }
 
 std::vector<std::string> compiled_ordered_candidates() {
-#if LIGHT_OCR_NODE_HAS_APPLE
-  return {"apple", "cpu"};
-#elif LIGHT_OCR_NODE_HAS_WEBGPU
-  return {"webgpu", "cpu"};
-#else
-  return {"cpu"};
+  std::vector<std::string> result;
+#if LIGHT_OCR_NODE_HAS_OPENVINO
+  result.push_back("openvino");
 #endif
+#if LIGHT_OCR_NODE_HAS_APPLE
+  result.push_back("apple");
+#elif LIGHT_OCR_NODE_HAS_WEBGPU
+  result.push_back("webgpu");
+#endif
+  result.push_back("cpu");
+  return result;
 }
 
 napi_value create_runtime_contract(napi_env env) {
@@ -546,9 +559,10 @@ internal::RuntimePolicy parse_runtime_policy(napi_env env, napi_value value) {
       "runtimeAbi", "qualificationOnly", "released", "orderedCandidates",
       "availableProviders", "providerQualificationIds",
       "webgpuProviderLibrary", "webgpuProviderBytes",
-      "webgpuProviderSha256"};
+      "webgpuProviderSha256", "npuProviders"};
   reject_unknown_properties(env, value, allowed, "runtime policy");
   for (const auto& name : allowed) {
+    if (name == "npuProviders") continue;
     if (!has_own(env, value, name.c_str())) {
       throw AddonFailure("package_load_failed",
                          "runtime policy is missing required field: " + name);
@@ -566,7 +580,7 @@ internal::RuntimePolicy parse_runtime_policy(napi_env env, napi_value value) {
     std::uint32_t length = 0;
     check(env, napi_get_array_length(env, input, &length),
           "get runtime policy array length");
-    if (length == 0 || length > 3) {
+    if (length == 0 || length > 5) {
       throw AddonFailure("package_load_failed",
                          std::string("runtime policy ") + name + " has invalid length");
     }
@@ -621,6 +635,76 @@ internal::RuntimePolicy parse_runtime_policy(napi_env env, napi_value value) {
   policy.provider_qualification_ids =
       read_strings("providerQualificationIds", false);
 
+  if (has_own(env, value, "npuProviders")) {
+    const auto npu = get_named(env, value, "npuProviders");
+    require_object(env, npu, "NPU providers");
+    reject_unknown_properties(env, npu, {"openvino", "amdnpu"}, "NPU providers");
+    for (const auto& name : {"openvino", "amdnpu"}) {
+      if (!has_own(env, npu, name)) continue;
+      const auto provider = get_named(env, npu, name);
+      require_object(env, provider, "NPU provider");
+      reject_unknown_properties(env, provider,
+          {"providerLibrary", "providerBytes", "providerSha256", "configuration"}, "NPU provider");
+      internal::RuntimeArtifact artifact;
+      artifact.path = get_string(env, get_named(env, provider, "providerLibrary"), "NPU provider library");
+      artifact.bytes = get_safe_u64(env, get_named(env, provider, "providerBytes"), "NPU provider bytes");
+      artifact.sha256 = get_string(env, get_named(env, provider, "providerSha256"), "NPU provider hash");
+      const auto configuration = get_named(env, provider, "configuration");
+      require_object(env, configuration, "NPU configuration");
+      if (std::string(name) == "openvino") {
+        policy.openvino_runtime_library = artifact.path;
+        policy.openvino_runtime_bytes = artifact.bytes;
+        policy.openvino_runtime_sha256 = artifact.sha256;
+        reject_unknown_properties(env, configuration,
+            {"runtimeVersionPrefix", "minimumDriverVersion", "minimumCompilerVersion"}, "OpenVINO configuration");
+        policy.openvino_runtime_version_prefix = get_string(env,
+            get_named(env, configuration, "runtimeVersionPrefix"), "OpenVINO runtime version");
+        policy.openvino_minimum_driver_version = get_string(env,
+            get_named(env, configuration, "minimumDriverVersion"), "OpenVINO minimum driver");
+        policy.openvino_minimum_compiler_version = get_string(env,
+            get_named(env, configuration, "minimumCompilerVersion"), "OpenVINO minimum compiler");
+      } else {
+        policy.amdnpu_runtime = artifact;
+        reject_unknown_properties(env, configuration,
+            {"sourceModelSha256", "recognitionModels", "compilerConfiguration"}, "AMD NPU configuration");
+        const auto compiler_configuration = get_named(env, configuration, "compilerConfiguration");
+        require_object(env, compiler_configuration, "AMD NPU compiler configuration");
+        reject_unknown_properties(env, compiler_configuration, {"path", "bytes", "sha256"},
+                                  "AMD NPU compiler configuration");
+        policy.amdnpu_compiler_configuration.path = get_string(env,
+            get_named(env, compiler_configuration, "path"), "AMD NPU compiler configuration path");
+        policy.amdnpu_compiler_configuration.bytes = get_safe_u64(env,
+            get_named(env, compiler_configuration, "bytes"), "AMD NPU compiler configuration bytes");
+        policy.amdnpu_compiler_configuration.sha256 = get_string(env,
+            get_named(env, compiler_configuration, "sha256"), "AMD NPU compiler configuration hash");
+        policy.amdnpu_source_model_sha256 = get_string(env,
+            get_named(env, configuration, "sourceModelSha256"), "AMD NPU source model hash");
+        const auto models = get_named(env, configuration, "recognitionModels");
+        bool array = false;
+        check(env, napi_is_array(env, models, &array), "check AMD NPU model array");
+        std::uint32_t length = 0;
+        if (!array) throw AddonFailure("package_load_failed", "AMD NPU models must be an array");
+        check(env, napi_get_array_length(env, models, &length), "get AMD NPU model count");
+        if (length != 20) throw AddonFailure("package_load_failed", "AMD NPU requires 20 width buckets");
+        for (std::uint32_t i = 0; i < length; ++i) {
+          napi_value entry = nullptr;
+          check(env, napi_get_element(env, models, i, &entry), "get AMD NPU model");
+          require_object(env, entry, "AMD NPU model");
+          reject_unknown_properties(env, entry, {"width", "artifact"}, "AMD NPU model");
+          internal::AmdNpuRecognitionModel model;
+          model.width = get_u32(env, get_named(env, entry, "width"), "AMD NPU model width", 1);
+          const auto file = get_named(env, entry, "artifact");
+          require_object(env, file, "AMD NPU model artifact");
+          reject_unknown_properties(env, file, {"path", "bytes", "sha256"}, "AMD NPU model artifact");
+          model.artifact.path = get_string(env, get_named(env, file, "path"), "AMD NPU model path");
+          model.artifact.bytes = get_safe_u64(env, get_named(env, file, "bytes"), "AMD NPU model bytes");
+          model.artifact.sha256 = get_string(env, get_named(env, file, "sha256"), "AMD NPU model hash");
+          policy.amdnpu_recognition_models.push_back(std::move(model));
+        }
+      }
+    }
+  }
+
   auto available = policy.available_providers;
   std::sort(available.begin(), available.end());
 #if LIGHT_OCR_NODE_HAS_WEBGPU
@@ -665,6 +749,22 @@ internal::RuntimePolicy parse_runtime_policy(napi_env env, napi_value value) {
     throw AddonFailure(
         "package_load_failed",
         "Runtime descriptor is incompatible with the native addon ABI or capabilities");
+  }
+  for (const auto& name : {"openvino", "amdnpu"}) {
+    const bool present = std::find(available.begin(), available.end(), name) != available.end();
+    const auto library = std::string(name) == "openvino" ? policy.openvino_runtime_library
+                                                        : policy.amdnpu_runtime.path;
+    const auto hash = std::string(name) == "openvino" ? policy.openvino_runtime_sha256
+                                                     : policy.amdnpu_runtime.sha256;
+    const auto bytes = std::string(name) == "openvino" ? policy.openvino_runtime_bytes
+                                                      : policy.amdnpu_runtime.bytes;
+    if (present != !library.empty() || (present &&
+        (!std::filesystem::u8path(library).is_absolute() || bytes == 0 || hash.size() != 64 ||
+         !std::all_of(hash.begin(), hash.end(), [](char c) {
+           return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+         })))) {
+      throw AddonFailure("package_load_failed", "NPU runtime artifact contract is invalid");
+    }
   }
   return policy;
 }

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1.0",
+  "version": "2026.4.0",
+  "qualificationId": "openvino-2026.4.0-linux-x64-candidate-v1",
+  "package": {
+    "filename": "openvino-2026.4.0-linux-x64.whl",
+    "url": "https://files.pythonhosted.org/packages/3f/93/a24476fbf4e96b034adba461d3cc8df5e62c92dcb153a07d9656f9da77aa/openvino-2026.4.0-22959-cp311-cp311-manylinux_2_28_x86_64.whl",
+    "bytes": 59116483,
+    "sha256": "71ee4e65a914044a510af43da16f3279c8f9dae22cbc8eac63d4a785c4a9c03f",
+    "license": "Apache-2.0",
+    "metadata": "https://pypi.org/pypi/openvino/2026.4.0/json"
+  },
+  "runtimeLibrary": "lib/libopenvino_c.so.2640",
+  "libraries": [
+    "libopenvino.so.2640",
+    "libopenvino_c.so.2640",
+    "libopenvino_intel_npu_plugin.so",
+    "libopenvino_onnx_frontend.so.2640",
+    "libtbb.so.12"
+  ],
+  "configuration": {
+    "runtimeVersionPrefix": "2026.4.0",
+    "minimumDriverVersion": "1789315676",
+    "minimumCompilerVersion": "524291"
+  }
+}

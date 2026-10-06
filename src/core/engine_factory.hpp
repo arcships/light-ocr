@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "light_ocr/core.hpp"
+#include "inference/backend.hpp"
 
 namespace light_ocr::internal {
 
@@ -29,6 +30,13 @@ struct RuntimePolicy {
   std::string openvino_runtime_library;
   std::uint64_t openvino_runtime_bytes = 0;
   std::string openvino_runtime_sha256;
+  std::string openvino_runtime_version_prefix;
+  std::string openvino_minimum_driver_version;
+  std::string openvino_minimum_compiler_version;
+  RuntimeArtifact amdnpu_runtime;
+  RuntimeArtifact amdnpu_compiler_configuration;
+  std::string amdnpu_source_model_sha256;
+  std::vector<AmdNpuRecognitionModel> amdnpu_recognition_models;
   // "npu" runs both models on the NPU; "cpu" keeps the detector on the CPU
   // backend and sends only recognition to the NPU.
   std::string openvino_detector_route = "npu";

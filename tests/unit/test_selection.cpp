@@ -126,7 +126,7 @@ LIGHT_OCR_TEST(auto_final_candidate_failure_is_fatal) {
             ErrorCode::runtime_initialization_failed);
 }
 
-LIGHT_OCR_TEST(builtin_openvino_policy_prefers_the_npu_and_stays_qualification_only) {
+LIGHT_OCR_TEST(builtin_openvino_policy_prefers_the_npu_and_tracks_build_release_status) {
   const auto policy = internal::builtin_runtime_policy();
   const bool openvino =
       std::find(policy.available_providers.begin(), policy.available_providers.end(),
@@ -136,8 +136,13 @@ LIGHT_OCR_TEST(builtin_openvino_policy_prefers_the_npu_and_stays_qualification_o
   EXPECT_EQ(policy.id, std::string("builtin-openvino-v1"));
   EXPECT_EQ(policy.ordered_candidates.front(), std::string("openvino"));
   EXPECT_EQ(policy.ordered_candidates.back(), std::string("cpu"));
+#if defined(LIGHT_OCR_WEBGPU_QUALIFICATION_BUILD)
   EXPECT_TRUE(policy.qualification_only);
   EXPECT_TRUE(!policy.released);
+#else
+  EXPECT_EQ(policy.qualification_only, LIGHT_OCR_OPENVINO_QUALIFICATION_BUILD != 0);
+  EXPECT_EQ(policy.released, LIGHT_OCR_OPENVINO_QUALIFICATION_BUILD == 0);
+#endif
 #else
   EXPECT_FALSE(openvino);
 #endif
