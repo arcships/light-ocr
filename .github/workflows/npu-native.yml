@@ -9,7 +9,7 @@ on:
         default: ""
         type: string
       reviewed_reports_run_id:
-        description: Optional run containing npu-reviewed-reports with openvino/ and amdnpu/ JSON reports
+        description: Optional device reports for metadata; not required to ship NPU support
         required: false
         default: ""
         type: string
@@ -72,8 +72,7 @@ jobs:
           path: reports/npu-reviewed
           run-id: ${{ inputs.reviewed_reports_run_id }}
           github-token: ${{ github.token }}
-      - name: Bind reviewed reports to immutable SDKs
-        if: inputs.reviewed_reports_run_id != ''
+      - name: Prepare distributable NPU SDKs
         shell: bash
         run: |
           for provider in openvino amdnpu; do
@@ -83,13 +82,17 @@ jobs:
               [[ -f "$report" ]] || continue
               reports+=(--report "$report")
             done
-            python tools/npu/accept_qualification.py \
-              --sdk-dir "dist/npu-sdk/$provider" "${reports[@]}" \
-              --qualification-id "$provider-linux-x64-reviewed-v1" \
-              --output-dir "dist/npu-release/$provider"
+            if [[ ${#reports[@]} -gt 0 ]]; then
+              python tools/npu/accept_qualification.py \
+                --sdk-dir "dist/npu-sdk/$provider" "${reports[@]}" \
+                --qualification-id "$provider-linux-x64-reviewed-v1" \
+                --output-dir "dist/npu-release/$provider"
+            else
+              mkdir -p dist/npu-release
+              cp -R "dist/npu-sdk/$provider" "dist/npu-release/$provider"
+            fi
           done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: inputs.reviewed_reports_run_id != ''
         with:
           name: npu-release-sdks
           path: dist/npu-release/

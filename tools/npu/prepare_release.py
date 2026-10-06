@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate accepted SDK inputs and expose paths to the release workflow."""
+"""Validate NPU SDK inputs and expose paths to the release workflow."""
 import argparse
 from pathlib import Path
 
@@ -20,16 +20,14 @@ def main() -> None:
         directory = args.sdk_root / provider
         if not directory.exists():
             continue
-        value = validate_sdk(directory, provider)
-        if value["qualificationOnly"]:
-            raise ValueError(f"{provider} is a candidate; release requires reviewed device reports")
+        validate_sdk(directory, provider)
         path = str(directory.resolve())
         if "\n" in path or "\r" in path:
             raise ValueError("invalid SDK directory")
         lines.append(f"{provider.upper()}_SDK_DIR={path}\n")
         found = True
     if not found:
-        raise ValueError("accepted SDK artifact contains neither openvino/ nor amdnpu/")
+        raise ValueError("SDK artifact contains neither openvino/ nor amdnpu/")
     with args.github_env.open("a", encoding="utf-8") as stream:
         stream.writelines(lines)
 

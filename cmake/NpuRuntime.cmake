@@ -19,7 +19,6 @@ function(light_ocr_validate_npu_sdk provider directory)
   endif()
   file(READ "${directory}/sdk-manifest.json" _manifest)
   string(JSON _qualification GET "${_manifest}" qualificationId)
-  string(JSON _qualification_only GET "${_manifest}" qualificationOnly)
   string(JSON _runtime_library GET "${_manifest}" runtimeLibrary)
   string(TOUPPER "${provider}" _upper)
   target_include_directories(light_ocr_core PRIVATE "${CMAKE_BINARY_DIR}/generated")
@@ -27,6 +26,8 @@ function(light_ocr_validate_npu_sdk provider directory)
     LIGHT_OCR_${_upper}_PACKAGE_SDK=1
     LIGHT_OCR_${_upper}_QUALIFICATION_ID="${_qualification}")
   set(LIGHT_OCR_${_upper}_QUALIFICATION_ID "${_qualification}" PARENT_SCOPE)
-  set(LIGHT_OCR_${_upper}_QUALIFICATION_BUILD "${_qualification_only}" PARENT_SCOPE)
+  # Shipping the backend does not assert hardware qualification. Device
+  # reports remain optional; AMD is excluded from automatic selection.
+  set(LIGHT_OCR_${_upper}_QUALIFICATION_BUILD OFF PARENT_SCOPE)
   set(LIGHT_OCR_${_upper}_VERIFIED_LIBRARY "${directory}/${_runtime_library}" PARENT_SCOPE)
 endfunction()

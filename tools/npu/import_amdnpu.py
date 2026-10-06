@@ -84,7 +84,7 @@ def import_sdk(runtime: Path, models: Path, licenses: list[Path], output: Path, 
     artifacts = [record(path, output) for path in sorted(output.rglob("*"))
                  if path.is_file() and path.parent != license_dir]
     manifest = {"schemaVersion": "1.0", "provider": "amdnpu", "platformId": "linux-x64",
-                "providerVersion": version, "qualificationId": f"amdnpu-{version}-linux-x64-candidate-v1",
+                "providerVersion": version, "qualificationId": f"amdnpu-{version}-linux-x64-opt-in-v1",
                 "qualificationOnly": True, "runtimeLibrary": library.relative_to(output).as_posix(),
                 "configuration": {"sourceModelSha256": compiled["sourceModelSha256"],
                                   "recognitionModels": model_records, "compilerConfiguration": record(config, output)},

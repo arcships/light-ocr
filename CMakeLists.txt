@@ -271,7 +271,9 @@ if(LIGHT_OCR_BUILD_TESTS)
       LIGHT_OCR_WEBGPU_QUALIFICATION_BUILD=1)
   endif()
   if(LIGHT_OCR_HAS_OPENVINO)
-    target_compile_definitions(light_ocr_unit_tests PRIVATE LIGHT_OCR_HAS_OPENVINO=1)
+    target_compile_definitions(light_ocr_unit_tests PRIVATE
+      LIGHT_OCR_HAS_OPENVINO=1
+      LIGHT_OCR_OPENVINO_QUALIFICATION_BUILD=$<BOOL:${LIGHT_OCR_OPENVINO_QUALIFICATION_BUILD}>)
   endif()
   light_ocr_stage_onnxruntime(light_ocr_unit_tests)
   add_test(NAME light_ocr_unit_tests COMMAND light_ocr_unit_tests)

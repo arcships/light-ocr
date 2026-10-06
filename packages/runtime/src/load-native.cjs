@@ -495,7 +495,7 @@ function validateRuntimeDescriptor(descriptorPath) {
       ? ['apple', 'cpu']
       : ['cpu'];
   const sortedAvailable = [...availableProviders].sort();
-  expectedPolicy.unshift(...npu.names);
+  expectedPolicy.unshift(...npu.names.filter((name) => name !== 'amdnpu'));
   expectedAvailable.push(...npu.names);
   expectedAvailable.sort();
   if (

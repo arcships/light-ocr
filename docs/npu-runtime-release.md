@@ -52,11 +52,25 @@ cmake -S . -B build-npu -G Ninja \
 cmake --build build-npu --parallel 2
 ```
 
-可省略未取得的 SDK 参数。Node 构建要求 SDK manifest、完整库存和哈希全部有效。产物在 `build-npu/node-runtime`，descriptor 使用 schema 2.1，把 NPU runtime 与基础 ORT 分开声明。JS loader 先验证全部产物，再把包内绝对路径传入 addon；候选排序采用已包含的 `openvino → amdnpu → webgpu → cpu`。
+可省略未取得的 SDK 参数。Node 构建要求 SDK manifest、完整库存和哈希全部有效。产物在 `build-npu/node-runtime`，descriptor 使用 schema 2.1，把 NPU runtime 与基础 ORT 分开声明。JS loader 先验证全部产物，再把包内绝对路径传入 addon；Auto 排序采用已包含的 `openvino → webgpu → cpu`；AMD 始终不进入 Auto。
 
-AMD 默认需要 CPU detector，且其模型绑定具体识别模型哈希；换用其他 tier 时需重新编译、审阅对应 SDK。Windows、arm64 和 musl 不接受当前 NPU SDK。
+AMD 默认需要 CPU detector，且其模型绑定具体识别模型哈希；换用其他 tier 时需重新编译对应 SDK。Windows、arm64 和 musl 不接受当前 NPU SDK。
 
-## 审阅报告与正式 SDK
+## 用户显式开启 AMD
+
+含 AMD SDK 与模型的构建默认不会选择或装载 AMD runtime。Node.js 用户在创建引擎时指定：
+
+```js
+const engine = await createEngine({
+  execution: { provider: "amdnpu" }
+});
+```
+
+模型无关的 `@arcships/light-ocr-runtime` 还需传入 `bundlePath`；模型 facade 自动提供 bundle。CLI 使用 `--provider amdnpu`；C++ 使用 `options.execution.provider = ExecutionProvider::amdnpu`。省略该配置或指定 `auto` 会走默认候选列表。显式 AMD 请求不静默回退；缺少包内 AMD SDK/模型、设备或驱动时报告对应错误。
+
+发布不要求 NPU 真机报告；`deviceValidated` 保持 `false`。SDK 和真实编译模型仍必须取得并随构建交付，此设置不会生成缺失的 vendor 产物。
+
+## 可选设备报告
 
 `accept_qualification.py` 只检查审阅结果及其绑定关系，不执行设备实验。每份 JSON 报告应包含：
 
@@ -79,7 +93,7 @@ AMD 默认需要 CPU detector，且其模型绑定具体识别模型哈希；换
 }
 ```
 
-报告中的门槛需经实际实验及人工审阅后才能填写为 `true`。具体 Intel 门槛见 [Intel Gate](intel-npu-acceleration.md#11-gate)，AMD 待验收项见 [AMD 方案](amd-npu-acceleration.md)。Intel `deviceFamily` 必须使用设备属性 `DEVICE_ARCHITECTURE` 的十进制字符串（如 `5010`），至少需要两个不同架构报告；不能把同代不同机器计作两代。AMD 至少需要一份真实 STX/KRK 报告，family 使用 `STX`、`KRK` 或 `STX/KRK`。
+真机报告不作为 NPU 支持发布前置。下面的报告接受工具仅供以后记录设备证据；使用它时，门槛需经实际实验及人工审阅后才能填写为 `true`。具体实验清单见 [Intel Gate](intel-npu-acceleration.md#11-gate) 和 [AMD 方案](amd-npu-acceleration.md)。Intel `deviceFamily` 必须使用设备属性 `DEVICE_ARCHITECTURE` 的十进制字符串（如 `5010`），至少需要两个不同架构报告；不能把同代不同机器计作两代。AMD 至少需要一份真实 STX/KRK 报告，family 使用 `STX`、`KRK` 或 `STX/KRK`。
 
 ```bash
 python tools/npu/accept_qualification.py \
@@ -90,14 +104,14 @@ python tools/npu/accept_qualification.py \
   --output-dir dist/npu-release/openvino
 ```
 
-工具创建新的 SDK 目录，保留所有运行时字节，将报告及其哈希纳入库存，并设置正式资格。原候选保持不变。
+工具创建新的 SDK 目录，保留所有运行时字节，将报告及其哈希纳入库存，并记录 SDK 的设备资格。原候选保持不变；发布不要求执行这一步，运行时也不会仅因已发布就声称 `deviceValidated: true`。
 
 ## CI 与 npm staging
 
-`NPU native candidates` workflow 生成 Intel SDK 与 Node 候选构建。可输入另一个 run 的 `amdnpu-candidate-sdk` artifact，内容应为 AMD SDK 目录。提供 `npu-reviewed-reports` artifact run ID 时，报告按 `openvino/*.json`、`amdnpu/*.json` 放置；全部审阅门槛通过后才上传 `npu-release-sdks`。
+`NPU native candidates` workflow 生成 Intel SDK 与 Node 候选构建。可输入另一个 run 的 `amdnpu-candidate-sdk` artifact，内容应为 AMD SDK 目录。始终上传可分发的 `npu-release-sdks`，无需设备报告。可选的 `npu-reviewed-reports` artifact 按 `openvino/*.json`、`amdnpu/*.json` 放置；仅在主动提供报告时才检查其绑定关系。
 
-`npm release` workflow 的可选 `npu_sdk_run_id` 读取同仓库的 `npu-release-sdks`（根目录下为 `openvino/`、`amdnpu/`），仅 Linux x64 构建使用。CI 在配置 CMake 前重新验证接受报告及 SDK 字节。
+`npm release` workflow 的可选 `npu_sdk_run_id` 读取同仓库的 `npu-release-sdks`（根目录下为 `openvino/`、`amdnpu/`），仅 Linux x64 构建使用。CI 在配置 CMake 前验证 SDK 库存、模型、配置和哈希；已附带的接受报告仍会校验，但不要求提供报告。
 
-本地 `tools/npm_release.py stage-native` 接受 `--openvino-sdk-dir` 和 `--amdnpu-sdk-dir`；SDK 需与构建 addon 使用的版本、资格 ID 和包含的 provider 一致。候选必须显式添加 `--qualification-build`；正式 `assemble` 始终拒绝候选。许可证、SBOM、SDK manifest 和接受报告随平台包保存。
+本地 `tools/npm_release.py stage-native` 接受 `--openvino-sdk-dir` 和 `--amdnpu-sdk-dir`；SDK 需与构建 addon 使用的版本、资格 ID 和包含的 provider 一致。NPU SDK 的 `qualificationOnly` 记录其设备证据状态，不再使整个平台包变成 qualification build；无需真机报告即可 staging。WebGPU 自身的既有资格门槛仍适用，正式 `assemble` 仍拒绝基础运行时的 qualification build。许可证、SBOM、SDK manifest 和可选报告随平台包保存。
 
 正式发布仍沿用项目补丁版本策略；当前候选尚未发布到 npm。

@@ -951,14 +951,7 @@ internal::RuntimePolicy internal::builtin_runtime_policy() {
   apply_amdnpu_sdk_defaults(policy);
   policy.available_providers.push_back("amdnpu");
   policy.provider_qualification_ids.push_back(LIGHT_OCR_AMDNPU_QUALIFICATION_ID);
-  const auto insertion = policy.ordered_candidates.front() == "openvino"
-                             ? policy.ordered_candidates.begin() + 1
-                             : policy.ordered_candidates.begin();
-  policy.ordered_candidates.insert(insertion, "amdnpu");
-  if (LIGHT_OCR_AMDNPU_QUALIFICATION_BUILD) {
-    policy.qualification_only = true;
-    policy.released = false;
-  }
+  // AMD NPU is available only through an explicit provider request.
 #endif
 #if defined(LIGHT_OCR_HAS_WEBGPU) && defined(LIGHT_OCR_WEBGPU_QUALIFICATION_BUILD)
   policy.qualification_only = true;
@@ -1237,8 +1230,7 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
             openvino_detection_config.provider = ExecutionProvider::openvino;
             openvino_detection_config.qualification_id =
                 policy_qualification_id(runtime_policy, candidate);
-            openvino_detection_config.npu_device_validated =
-                runtime_policy.released && !runtime_policy.qualification_only;
+            openvino_detection_config.npu_device_validated = false;
             openvino_detection_config.shape_policy = "nchw-static-exact-32-960-v1";
             openvino_detection_config.openvino_runtime_library =
                 runtime_policy.openvino_runtime_library;
@@ -1344,7 +1336,7 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
             auto amd_config = recognition_config;
             amd_config.provider = ExecutionProvider::amdnpu;
             amd_config.qualification_id = policy_qualification_id(runtime_policy, candidate);
-            amd_config.npu_device_validated = runtime_policy.released && !runtime_policy.qualification_only;
+            amd_config.npu_device_validated = false;
             amd_config.amdnpu_runtime = runtime_policy.amdnpu_runtime;
             amd_config.amdnpu_compiler_configuration = runtime_policy.amdnpu_compiler_configuration;
             amd_config.amdnpu_source_model_sha256 = runtime_policy.amdnpu_source_model_sha256;
@@ -1505,14 +1497,12 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
     if (policy_includes_provider(runtime_policy, "openvino")) {
       info.execution.provider_capabilities.push_back(ProviderCapabilityInfo{
           "openvino", true, selected_provider == ExecutionProvider::openvino,
-          selected_provider == ExecutionProvider::openvino &&
-              runtime_policy.released && !runtime_policy.qualification_only});
+          false});
     }
     if (policy_includes_provider(runtime_policy, "amdnpu")) {
       info.execution.provider_capabilities.push_back(ProviderCapabilityInfo{
           "amdnpu", true, selected_provider == ExecutionProvider::amdnpu,
-          selected_provider == ExecutionProvider::amdnpu && runtime_policy.released &&
-              !runtime_policy.qualification_only});
+          false});
     }
     info.execution.selection_trace = std::move(selection.trace);
     if (policy_includes_provider(runtime_policy, "apple") &&

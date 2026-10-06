@@ -521,7 +521,7 @@ def validate_runtime_descriptor(
         else {"cpu"}
     )
     npu_providers = [name for name in ["openvino", "amdnpu"] if name in provider_records]
-    expected_policy = npu_providers + expected_policy
+    expected_policy = [name for name in npu_providers if name != "amdnpu"] + expected_policy
     expected_available.update(npu_providers)
     if providers != expected_policy or set(provider_records) != expected_available:
         raise RuntimeError(
@@ -856,9 +856,6 @@ def stage_native(arguments: argparse.Namespace) -> None:
             if sdk_directory is None:
                 continue
             sdk_directory = Path(sdk_directory).resolve()
-            sdk_manifest = npu_sdk.validate_sdk(sdk_directory, provider)
-            if sdk_manifest["qualificationOnly"] and not qualification_build:
-                raise RuntimeError("NPU candidates require --qualification-build; accepted evidence is required for release")
             sdk_manifest = npu_sdk.stage_sdk(sdk_directory, stage, descriptor)
             evidence_directory = stage / "qualification" / provider
             copy_file(sdk_directory / "sdk-manifest.json", evidence_directory / "sdk-manifest.json")

@@ -177,9 +177,6 @@ std::vector<std::string> compiled_ordered_candidates() {
 #if LIGHT_OCR_NODE_HAS_OPENVINO
   result.push_back("openvino");
 #endif
-#if LIGHT_OCR_NODE_HAS_AMDNPU
-  result.push_back("amdnpu");
-#endif
 #if LIGHT_OCR_NODE_HAS_APPLE
   result.push_back("apple");
 #elif LIGHT_OCR_NODE_HAS_WEBGPU
