@@ -6,7 +6,7 @@ on:
       version:
         description: Core and stable Small facade version
         required: true
-        default: 0.5.7
+        default: 0.5.9
         type: string
       publish_to_registry:
         description: Publish the tested candidate to npm under next
@@ -14,7 +14,7 @@ on:
         default: false
         type: boolean
       npu_sdk_run_id:
-        description: Optional run containing npu-release-sdks (AMD requires explicit provider configuration)
+        description: Optional override containing both locked Intel and AMD deployment SDKs
         required: false
         default: ""
         type: string
@@ -47,6 +47,10 @@ jobs:
           python tools/npm_release.py ensure-unpublished --version "$RELEASE_VERSION"
 
   build-native:
+    # The locked AMD asset is attached to a draft until release publication.
+    permissions:
+      contents: write
+      actions: read
     needs: validate
     name: build ${{ matrix.id }}
     strategy:
@@ -97,9 +101,22 @@ jobs:
           path: dist/npu-sdk
           run-id: ${{ inputs.npu_sdk_run_id }}
           github-token: ${{ github.token }}
-      - name: Verify NPU SDK inventory and runtime identities
-        if: matrix.id == 'linux-x64' && inputs.npu_sdk_run_id != ''
-        run: python tools/npu/prepare_release.py --sdk-root dist/npu-sdk --github-env "$GITHUB_ENV"
+      - name: Prepare packaged Intel and opt-in AMD NPU payloads
+        if: matrix.id == 'linux-x64'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ ! -d dist/npu-sdk/openvino ]]; then
+            python tools/npu/build_openvino.py \
+              --package-cache .cache/npu-packages --output-dir dist/npu-sdk/openvino
+          fi
+          if [[ ! -d dist/npu-sdk/amdnpu ]]; then
+            python tools/npu/fetch_amdnpu.py \
+              --package-cache .cache/npu-packages --output-dir dist/npu-sdk/amdnpu
+          fi
+          python tools/npu/prepare_release.py --sdk-root dist/npu-sdk --github-env "$GITHUB_ENV" \
+            --require-provider openvino --require-provider amdnpu
       - name: Fetch the pinned PDF renderer for npm bundling (Unix)
         if: runner.os != 'Windows'
         shell: bash
@@ -343,7 +360,7 @@ jobs:
           npm install --offline --ignore-scripts --no-audit --no-fund --package-lock=false \
             ../dist/release/arcships-light-ocr-model-ppocrv6-small-0.3.4.tgz \
             ../dist/release/arcships-light-ocr-${{ matrix.native }}-${RELEASE_VERSION}.tgz \
-            ../dist/release/arcships-light-ocr-runtime-0.1.8.tgz \
+            ../dist/release/arcships-light-ocr-runtime-0.1.9.tgz \
             ../dist/release/arcships-light-ocr-${RELEASE_VERSION}.tgz
           cp ../tools/npm/smoke.cjs .
       - name: Run stable Small OCR
@@ -377,8 +394,8 @@ jobs:
           npm install --offline --ignore-scripts --no-audit --no-fund --package-lock=false \
             ../dist/release/arcships-light-ocr-model-ppocrv6-tiny-0.1.0.tgz \
             ../dist/release/arcships-light-ocr-model-ppocrv6-medium-0.1.0.tgz \
-            ../dist/release/arcships-light-ocr-tiny-0.1.7.tgz \
-            ../dist/release/arcships-light-ocr-medium-0.1.7.tgz
+            ../dist/release/arcships-light-ocr-tiny-0.1.8.tgz \
+            ../dist/release/arcships-light-ocr-medium-0.1.8.tgz
           node ../tools/npm/smoke-tier.cjs @arcships/light-ocr-tiny light-ocr-tiny \
             ppocrv6-tiny-onnx-20260722.1
           node ../tools/npm/smoke-tier.cjs @arcships/light-ocr-medium light-ocr-medium \
@@ -412,7 +429,7 @@ jobs:
           docker run --rm -v "$PWD:/work" -w /work
           -e LIGHT_OCR_SMOKE_FIXTURE=/work/corpus/fixtures/generated-hello-123
           alpine:3.22 sh .github/scripts/smoke-musl.sh
-          "${{ matrix.id }}" "${{ inputs.version }}" "0.1.8"
+          "${{ matrix.id }}" "${{ inputs.version }}" "0.1.9"
 
   publish:
     needs: [test-packages, smoke-musl]
@@ -463,7 +480,7 @@ jobs:
           cd registry-document
           npm init --yes
           npm install --ignore-scripts --no-audit --no-fund --package-lock=false \
-            "@arcships/light-ocr-document@0.1.4"
+            "@arcships/light-ocr-document@0.1.5"
           node ../tools/npm/document-smoke.cjs
       - name: Verify the published stable package offline
         shell: bash

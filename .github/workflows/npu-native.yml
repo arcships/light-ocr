@@ -20,6 +20,10 @@ permissions:
 
 jobs:
   build:
+    # Draft release assets are visible only to tokens with push access.
+    permissions:
+      contents: write
+      actions: read
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -39,6 +43,11 @@ jobs:
           path: dist/npu-sdk/amdnpu
           run-id: ${{ inputs.amd_sdk_run_id }}
           github-token: ${{ github.token }}
+      - name: Fetch locked AMD deployment runtime and compiled recognition models
+        if: inputs.amd_sdk_run_id == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/npu/fetch_amdnpu.py --package-cache .cache/npu --output-dir dist/npu-sdk/amdnpu
       - name: Build the native addon with packaged NPU SDKs
         shell: bash
         run: |

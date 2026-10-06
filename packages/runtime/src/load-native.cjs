@@ -209,7 +209,18 @@ function safeArtifactPath(root, value, field) {
 }
 
 function sha256(filename) {
-  return crypto.createHash('sha256').update(fs.readFileSync(filename)).digest('hex');
+  const hash = crypto.createHash('sha256');
+  const buffer = Buffer.allocUnsafe(1024 * 1024);
+  const file = fs.openSync(filename, 'r');
+  try {
+    let count;
+    while ((count = fs.readSync(file, buffer, 0, buffer.length, null)) !== 0) {
+      hash.update(buffer.subarray(0, count));
+    }
+  } finally {
+    fs.closeSync(file);
+  }
+  return hash.digest('hex');
 }
 
 function verifyArtifact(root, artifact, field) {

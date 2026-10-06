@@ -1,7 +1,9 @@
 # C++ Core 与 Node-API 实施状态
 
-更新时间：2026-09-24<br>
+更新时间：2026-10-06<br>
 结论：npm `0.5.8` 已发布并晋升 `latest`。本版新增 musl（Alpine）Linux 的 CPU-only 预编译平台包（`@arcships/light-ocr-linux-x64-musl`/`-arm64-musl`，平台包总数八），其 onnxruntime 1.22.0 musl 产物从源码构建、由 `models/deps.lock.json` 以 SHA-256 锁定于 [`musl-runtime-1.22.0`](https://github.com/arcships/light-ocr/releases/tag/musl-runtime-1.22.0)；同时所有包的 `engines.node` 放宽为下限式 `>=22.0.0`（Node-API 稳定 ABI，Tier 1 仍为 22/24 LTS）。实现经 [PR #63](https://github.com/arcships/light-ocr/pull/63) 两轮独立 review；[发布 run 36013862673](https://github.com/arcships/light-ocr/actions/runs/36013862673) 完成八平台构建、离线 smoke、registry 发布与回装，[晋升 run 36018294655](https://github.com/arcships/light-ocr/actions/runs/36018294655) 只提升稳定闭包。完整证据见 [npm 0.5.8 发布记录](releases/npm-0.5.8.md)（[English](releases/npm-0.5.8.en.md)）与 [`v0.5.8` GitHub Release](https://github.com/arcships/light-ocr/releases/tag/v0.5.8)。上一版 `0.5.7`（macOS 下游重签名兼容）的证据链见 [npm 0.5.7 发布记录](releases/npm-0.5.7.md)（[English](releases/npm-0.5.7.en.md)）与 [`v0.5.7` GitHub Release](https://github.com/arcships/light-ocr/releases/tag/v0.5.7)。
+
+发布准备：`0.5.9` 已同步 Core/native、runtime `0.1.9`、Document `0.1.5`、Tiny/Medium `0.1.8`。Linux x64 默认带 Intel NPU SDK；AMD 默认关闭且需要真实 SDK/模型输入。NPU 真机报告不作为发布前置；npm 和公开 GitHub Release 尚未发布。见 [0.5.9 发布准备](releases/npm-0.5.9.md)（[English](releases/npm-0.5.9.en.md)）。
 
 状态含义：
 
@@ -87,6 +89,10 @@
 | Node.js JPEG/PNG 内存输入 | Done / `0.2.0` published | `recognizeEncoded(Uint8Array)` 在 engine worker 上使用固定 stb revision 解码，保持 Core raw-pixel 边界；格式、尺寸、pixels、临时内存、queue/snapshot budget、AbortSignal 与 `timingUs.decode` 均有四平台 Node 22/24 package 测试。 |
 | 高分辨率峰值内存 | Done | Release 原生独立进程本机参考：2048² 空白 `318.8 MiB ≤ 384 MiB`；xfund 密集表单 116 框 `400.5 MiB ≤ 640 MiB`。四平台 release jobs 的真实模型与 RSS gates 均通过。 |
 | Tiled 高分辨率准确模式 | Done / `0.2.0` published | 1280 tile、2048→4-pass row-major、全局 candidate ceiling、IoU/IOS greedy merge、原图 recognition、C++/Node contract、8-fixture/196-line corpus、独立 oracle、四平台 36-entry accepted baseline 与 package smoke 均已完成。 |
+
+## 0.5.9 NPU 发布准备（2026-10-06）
+
+Linux x64 glibc 双 NPU Core/Node 构建与 npm native staging 已完成。默认发布输入包含 OpenVINO 2026.4.0，以及 Ryzen AI 1.8 的 20 个原生部署库和绑定 Small 0.3.4 的 20 个真实 BF16 context。Intel 进入 Auto；AMD 始终默认关闭，由配置显式开启。未执行 AMD 设备推理，`deviceValidated` 保持 false；真机验收不作为发布前置。版本、归档哈希与后续发布步骤见 [0.5.9 发布记录](releases/npm-0.5.9.md)。
 
 ## 本机最终验证快照
 

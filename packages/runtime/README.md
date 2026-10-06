@@ -11,3 +11,16 @@ const engine = await createEngine({ bundlePath: '/absolute/model/bundle' });
 ```
 
 Use `@arcships/light-ocr` for stable Small, `@arcships/light-ocr-tiny` for the size-first preview, or `@arcships/light-ocr-medium` for the quality-first preview. The runtime never downloads a model.
+
+## NPU configuration
+
+Starting with the prepared 0.5.9 native release, Linux x64 glibc packages include Intel OpenVINO in Auto ahead of WebGPU/CPU. The same Linux x64 release includes Ryzen AI 1.8 native libraries and 20 compiled BF16 contexts for Small 0.3.4. AMD is excluded from Auto; enable it explicitly:
+
+```js
+const engine = await createEngine({
+  bundlePath: '/absolute/model/bundle',
+  execution: { provider: 'amdnpu' },
+});
+```
+
+These AMD contexts require the Small 0.3.4 recognition model and an installed Ryzen AI 1.8 STX/KRK driver stack. Other tiers require separately compiled contexts. Platforms without AMD payload report `unsupported_capability`. Explicit selection does not silently fall back. NPU shipping does not assert hardware qualification; `deviceValidated` stays false.

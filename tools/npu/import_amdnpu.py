@@ -19,7 +19,8 @@ except ImportError:
     from sdk import artifact_set, digest, record, recognition_widths, validate_sdk, verify_record
 
 
-def import_sdk(runtime: Path, models: Path, licenses: list[Path], output: Path, version: str) -> dict:
+def import_sdk(runtime: Path, models: Path, licenses: list[Path], output: Path, version: str,
+               source_manifest: Path | None = None) -> dict:
     compiled = json.loads((models / "compile-manifest.json").read_text("utf-8"))
     if (compiled.get("schemaVersion") != "1.0" or compiled.get("precision") != "bf16" or
             [item["width"] for item in compiled["recognitionModels"]] != recognition_widths() or
@@ -37,14 +38,20 @@ def import_sdk(runtime: Path, models: Path, licenses: list[Path], output: Path, 
     lib.mkdir()
     provenance = []
     for source in sorted(runtime.iterdir()):
-        if not re.fullmatch(r"lib[^/]+\.so(?:\.[0-9]+)*", source.name):
+        if not re.fullmatch(r"lib[^/]+\.so(?:\.[A-Za-z0-9_-]+)*", source.name):
             continue
         if not source.resolve().is_file():
             raise ValueError(f"AMD runtime entry is not a file: {source}")
         destination = lib / source.name
         shutil.copyfile(source.resolve(), destination)
         source_hash = digest(destination)
-        subprocess.run([patchelf, "--set-rpath", "$ORIGIN", str(destination)], check=True, capture_output=True)
+        # AMD's Linux wheels contain ELF files marked with an executable
+        # stack. Recent glibc rejects those files in dlopen/dlmopen. ELF
+        # metadata is adjusted alongside the package-local search path, with
+        # both the original and packaged hashes in provenance.
+        subprocess.run([patchelf, "--clear-execstack", str(destination)], check=True, capture_output=True)
+        subprocess.run([patchelf, "--set-rpath", "$ORIGIN:/opt/xilinx/xrt/lib", str(destination)],
+                       check=True, capture_output=True)
         provenance.append({"path": destination.relative_to(output).as_posix(), "sourceSha256": source_hash,
                            "packagedSha256": digest(destination)})
     names = {item.name for item in lib.iterdir()}
@@ -92,7 +99,8 @@ def import_sdk(runtime: Path, models: Path, licenses: list[Path], output: Path, 
                 "files": [record(path, output) for path in sorted(output.rglob("*")) if path.is_file()],
                 "licenses": [record(path, output) for path in sorted(license_dir.iterdir())],
                 "provenance": provenance,
-                "source": {"url": "https://ryzenai.docs.amd.com/en/latest/linux.html"}}
+                "source": (json.loads(source_manifest.read_text("utf-8")) if source_manifest else
+                           {"url": "https://ryzenai.docs.amd.com/en/latest/linux.html"})}
     (output / "sdk-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", "utf-8")
     return validate_sdk(output, "amdnpu")
 
@@ -104,9 +112,12 @@ def main() -> None:
     parser.add_argument("--license-file", type=Path, action="append", required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--version", default="1.8.0")
+    parser.add_argument("--source-manifest", type=Path,
+                        help="Archive identities and compiler provenance for the acquired deployment payload")
     args = parser.parse_args()
-    value = import_sdk(args.runtime_dir, args.models_dir, args.license_file, args.output_dir, args.version)
-    print(f"AMD NPU SDK: {value['artifactSetSha256']} (qualification-only)")
+    value = import_sdk(args.runtime_dir, args.models_dir, args.license_file, args.output_dir, args.version,
+                       args.source_manifest)
+    print(f"AMD NPU SDK: {value['artifactSetSha256']} (hardware inference not validated)")
 
 
 if __name__ == "__main__":

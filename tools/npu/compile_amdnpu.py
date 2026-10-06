@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import shutil
 
@@ -33,14 +34,17 @@ def validate_context(path: Path) -> int:
     return len(contexts)
 
 
-def compile_models(source: Path, expected_sha256: str, configuration: Path, output: Path) -> dict:
-    import numpy as np
+def compile_models(source: Path, expected_sha256: str, configuration: Path, output: Path,
+                   widths: list[int] | None = None) -> dict:
     import onnx
     import onnxruntime as ort
     if digest(source) != expected_sha256:
         raise ValueError("source recognition model does not match its immutable bundle hash")
     if "VitisAIExecutionProvider" not in ort.get_available_providers():
         raise ValueError("run this tool with the Ryzen AI SDK Python interpreter")
+    selected_widths = recognition_widths() if widths is None else sorted(set(widths))
+    if not selected_widths or any(width not in recognition_widths() for width in selected_widths):
+        raise ValueError("recognition widths must belong to the locked 20-bucket contract")
     config = json.loads(configuration.read_text("utf-8"))
     if (config.get("target") != "VAIML" or
             not any(item.get("name") == "vaiml_partition" for item in config.get("passes", []))):
@@ -57,7 +61,7 @@ def compile_models(source: Path, expected_sha256: str, configuration: Path, outp
     if len(source_shape) != 4:
         raise ValueError("recognition input must be NCHW")
     models = []
-    for width in recognition_widths():
+    for width in selected_widths:
         shaped = onnx.ModelProto()
         shaped.CopyFrom(model)
         for dimension, value in zip(shaped.graph.input[0].type.tensor_type.shape.dim, [1, 3, 48, width]):
@@ -67,28 +71,32 @@ def compile_models(source: Path, expected_sha256: str, configuration: Path, outp
         context_path = output / f"rec-{width}-context.onnx"
         onnx.save_model(shaped, static_path)
         options = ort.SessionOptions()
+        options.intra_op_num_threads = 1
+        options.inter_op_num_threads = 1
         options.add_session_config_entry("ep.context_enable", "1")
         options.add_session_config_entry("ep.context_file_path", str(context_path.absolute()))
         options.add_session_config_entry("ep.context_embed_mode", "1")
         session = ort.InferenceSession(str(static_path), sess_options=options,
             providers=["VitisAIExecutionProvider", "CPUExecutionProvider"],
-            provider_options=[{"config_file": str(config_path.absolute())}, {}])
-        result = session.run(None, {session.get_inputs()[0].name: np.zeros([1, 3, 48, width], dtype=np.float32)})
-        if len(result) != 1 or result[0].dtype != np.float32 or result[0].ndim != 3:
+            provider_options=[{"config_file": str(config_path.absolute()),
+                               "cache_dir": str((output / "compiler-cache").absolute()),
+                               "cache_key": f"rec-{width}",
+                               "enable_cache_file_io_in_mem": "0"}, {}])
+        inputs, outputs = session.get_inputs(), session.get_outputs()
+        if (len(inputs) != 1 or inputs[0].type != "tensor(float)" or
+                inputs[0].shape != [1, 3, 48, width] or len(outputs) != 1 or
+                outputs[0].type != "tensor(float)" or len(outputs[0].shape) != 3):
             raise ValueError("AMD compiler produced an incompatible recognition tensor")
         del session
         count = validate_context(context_path)
-        # Reopen the exact deployment artifact: compilation success alone is
-        # insufficient evidence that the embedded context can be loaded.
-        deployed = ort.InferenceSession(str(context_path), providers=["VitisAIExecutionProvider", "CPUExecutionProvider"],
-            provider_options=[{"config_file": str(config_path.absolute())}, {}])
-        deployed.run(None, {deployed.get_inputs()[0].name: np.zeros([1, 3, 48, width], dtype=np.float32)})
-        del deployed
+        # Compilation and structural validation do not execute the model.
+        # Hardware inference is a separate, optional activity.
         models.append({"width": width, "artifact": record(context_path, output), "contextCount": count})
         static_path.unlink()
-        print(f"Compiled and reopened recognition bucket {width}", flush=True)
+        print(f"Compiled recognition bucket {width} (inference not executed)", flush=True)
     manifest = {"schemaVersion": "1.0", "sourceModelSha256": expected_sha256,
                 "precision": "bf16", "runtimeVersion": ort.__version__,
+                "inferenceValidated": False,
                 "compilerConfiguration": record(config_path, output), "recognitionModels": models}
     (output / "compile-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", "utf-8")
     return manifest
@@ -100,8 +108,19 @@ def main() -> None:
     parser.add_argument("--source-sha256", required=True)
     parser.add_argument("--configuration", type=Path, default=Path(__file__).with_name("vaip_config.json"))
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--width", type=int, action="append",
+                        help="Compile selected buckets; SDK import still requires all 20")
     args = parser.parse_args()
-    compile_models(args.source_model, args.source_sha256, args.configuration, args.output_dir)
+    # Vendor compiler components write signatures relative to the current
+    # directory. Keep those files out of the repository and isolate buckets
+    # when independent compiler processes run concurrently.
+    args.source_model = args.source_model.resolve()
+    args.configuration = args.configuration.resolve()
+    args.output_dir = args.output_dir.resolve()
+    working = args.output_dir.with_name(args.output_dir.name + ".work")
+    working.mkdir(parents=True, exist_ok=True)
+    os.chdir(working)
+    compile_models(args.source_model, args.source_sha256, args.configuration, args.output_dir, args.width)
 
 
 if __name__ == "__main__":

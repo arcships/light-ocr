@@ -13,7 +13,13 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sdk-root", type=Path, required=True)
     parser.add_argument("--github-env", type=Path, required=True)
+    parser.add_argument("--require-provider", choices=("openvino", "amdnpu"),
+                        action="append", default=[])
     args = parser.parse_args()
+    missing = [provider for provider in args.require_provider
+               if not (args.sdk_root / provider).is_dir()]
+    if missing:
+        raise ValueError(f"release is missing required NPU payloads: {', '.join(missing)}")
     found = False
     lines = []
     for provider in ("openvino", "amdnpu"):
