@@ -6,7 +6,7 @@ Status: preparation only. npm publication, a public tag, artifact hashes and reg
 
 ## Versions
 
-NPU implementation: [PR #67](https://github.com/arcships/light-ocr/pull/67), merged. The release source must be the main commit after merging version preparation.
+NPU implementation: [PR #67](https://github.com/arcships/light-ocr/pull/67), merged. Preparation: [PR #68](https://github.com/arcships/light-ocr/pull/68); the GitHub draft exists. The release source must be the main commit after merging version preparation.
 
 | Package | Prepared version | Planned tags |
 | --- | --- | --- |
@@ -30,12 +30,12 @@ NPU implementation: [PR #67](https://github.com/arcships/light-ocr/pull/67), mer
 
 1. Merge preparation and select main with Core `0.5.9`.
 2. Run `npm release` with `version=0.5.9` and `publish_to_registry=false`. Intel SDK assembly is automatic on Linux x64. An optional `npu_sdk_run_id` supplies additional AMD native libraries and all 20 compiled contexts; AMD stays opt-in.
-3. Review eight-platform builds, offline image/PDF smoke and the tarball manifest. Record the source SHA, run ID, 15 new package identities and artifact hashes.
+3. Review eight-platform builds, offline image/PDF smoke and the tarball manifest. Record the source SHA, run ID, 13 new package identities and artifact hashes.
 4. Publish to `next` with `publish_to_registry=true` and record registry reinstall results.
 5. Run `npm promote` with the publication run ID and `tag=latest`; promote only Small/runtime/native. Document and preview facades stay on `next`.
 6. Update the draft release target to the final source commit, attach the manifest/artifact links, and fill publication dates and both release records before publishing `v0.5.9`.
 
-Preparation does not publish npm packages, promote tags or publish the GitHub draft. PR #67 CI is implementation evidence, not the eight-platform 0.5.9 release result. New package identities have been checked for registry vacancy; artifact integrity and publication runs remain pending. No NPU hardware qualification is scheduled.
+Preparation does not publish npm packages, promote tags or publish the GitHub draft. PR #67 CI is implementation evidence, not the eight-platform 0.5.9 release result. All 13 new package identities are vacant (the complete manifest also reuses two preview model packages). Core/Node were reconfigured and built with version 0.5.9; version closure, lockfile and script syntax checks passed. No new local tests were run; artifact integrity and publication runs remain pending. No NPU hardware qualification is scheduled.
 
 ## Rollback
 

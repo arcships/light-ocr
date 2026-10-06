@@ -7,6 +7,7 @@
 ## 发布身份与版本
 
 - NPU 实现：[PR #67](https://github.com/arcships/light-ocr/pull/67)，已合并。
+- 发布准备：[PR #68](https://github.com/arcships/light-ocr/pull/68)；`v0.5.9` GitHub Release 草稿已创建，尚未公开。
 - 版本采用补丁递增：Core/Small/native `0.5.8 → 0.5.9`。
 - 本版本的正式源码应指向版本准备 PR 合并后的 main 提交，不能绑定旧的 0.5.8 提交。
 
@@ -34,7 +35,7 @@
 1. 合并版本准备 PR，确认 main 中 Core 为 `0.5.9`。
 2. 运行 `npm release` workflow，输入 `version=0.5.9`、`publish_to_registry=false`。Linux x64 默认从锁文件构建 Intel SDK，无需填写 NPU run ID。
 3. 若需随包附带 AMD，输入已包含真实 SDK/20 桶模型的 `npu_sdk_run_id`；该 run 的 `npu-release-sdks` 根目录须有 `amdnpu/`。AMD 仍然不进入 Auto，不要求真机报告。
-4. 审阅八平台构建、离线安装/图片/PDF smoke 与 tarball manifest；将运行 ID、精确来源提交、15 个新 package identity 和制品哈希补录本文件。
+4. 审阅八平台构建、离线安装/图片/PDF smoke 与 tarball manifest；将运行 ID、精确来源提交、13 个新 package identity 和制品哈希补录本文件。
 5. 用 `publish_to_registry=true` 发布到 `next`，记录发布 run，并确认 registry 回装结果。
 6. 运行 `npm promote`：`version=0.5.9`、`release_run_id=<正式发布run>`、`tag=latest`。仅晋升 stable Small/runtime/native；Document 与 Tiny/Medium 保留 `next`。
 7. 将 GitHub Release 草稿 target 更新为正式 main 来源提交，附上 release-manifest 和公开制品链接；确认发布结果后更新 Changelog 日期、两份发布记录和 Release 状态，再发布 `v0.5.9`。
@@ -44,7 +45,8 @@
 ## 当前证据
 
 - PR #67 的 Linux native 与 workspace CI 均通过；这属于实现来源，不是 0.5.9 八平台发布结果。
-- 0.5.9 的新 package identity 已执行 npm 空位检查。实际 tarball、发布/晋升 run 和 registry integrity 尚未生成。
+- 13 个新 package identity 的 npm 空位检查通过；加上复用的两个 preview 模型，release manifest 仍包含 15 包。
+- Core/Node addon 已按 `LIGHT_OCR_VERSION=0.5.9` 重新配置并构建通过；版本闭包、lockfile 和脚本语法检查通过，未运行新的本地测试。实际 tarball、发布/晋升 run 和 registry integrity 尚未生成。
 - NPU 运行时库存、工作流配置、锁定依赖和发布说明已准备；本次不安排 NPU 真机验收。
 
 ## 回滚
