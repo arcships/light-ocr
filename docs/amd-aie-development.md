@@ -1,14 +1,75 @@
 # AMD AIE 开发与子图编译
 
-状态：开发工具链与子图导出已实现，尚未接入发布后端。此流程不执行设备推理。
+状态：完整识别分区后端、全部宽度桶编译、共享权重和独立包构建已实现。此流程不执行设备推理。
 总体选型与后续阶段见 [轻量部署方案](amd-npu-lightweight-plan.md)。
-本轮工具链身份、编译状态与产物大小/哈希见 [编译结果清单](amd-aie-compilation-results.json)。
+完整部署产物和包大小见 [部署结果清单](amd-aie-deployment-results.json)。
+早期子图调查见 [初期编译结果](amd-aie-compilation-results.json)，不能用其中的阶段状态代替当前后端状态。
+
+## 完整部署入口
+
+Python 3.12、CMake ≥3.26、Clang、Ninja、Git、Perl、Make 和 uuid 开发头文件为构建依赖。
+以下命令准备锁定源码、Peano、前端环境和原始 Small 模型，构建编译器与执行库，生成全部 20 桶并组装 SDK：
+
+```sh
+python3.12 tools/npu/build_amdaie.py \
+  --work-dir .cache/amd-aie --output-dir dist/amdaie-sdk --jobs 2
+```
+
+输出目录必须不存在。完整模型缓存按锁文件、前端要求和转换脚本身份区分；运行库单独增量构建。
+安装用户不需要 Python、编译器、Ryzen AI SDK、XRT 或联网模型编译；仍需可用的系统 amdxdna 驱动、固件和 STX/KRK NPU。
+CI 在 Ubuntu 24.04 构建，系统动态依赖包括 libuuid、libstdc++、libgcc_s、libm、libc。
+
+### 分区与数据流
+
+- 完整图输入 `[1,3,48,width]`，输出 `[1,width/8,18710]`，保留 FP32 ABI 和原有 CTC。
+- 19 个输入/输出通道均 ≥128 的 1×1、stride=1 卷积转换成 BF16 矩阵乘。M/N/K 补齐到 128 的倍数，计算后裁切有效空间和通道。
+- 布局转换、补零、FP32→BF16、bias、GELU、残差、其他卷积、attention、分类头和 Softmax 使用 IREE CPU；检测继续用 ORT CPU。
+- Peano 微内核把 BF16 转为 BFP16ebs8 后计算，累加输出为 FP32。不能宣称纯 BF16 数值、推理正确或已有加速比。
+- `partition_iree_model.py` 隔离矩阵计算并阻止零初始化跨 dispatch 共享；`route_iree_dispatches.py` 在 Flow 形成后赋予明确 CPU/NPU affinity，避免早期 affinity 被优化丢失。
+- 每个 VMFB 同时含 CPU ELF、AMD PDI 和跨设备调度。CPU 可以映射 AMD host-only BO；共享分配策略选择 NPU 分配器，双方的映射、缓存同步和 fence 由 HAL 管理。
+- 权重使用内容哈希作为参数 key；构建工具合并相同参数，所有桶共用 `models/recognition.irpa`。编译器、Peano、各桶的临时 IRPA 和原始 ONNX 不随 AMD 包分发。
+
+### 原生运行接口
+
+`src/inference/amdnpu/runtime_api.h` 定义版本化 C ABI；运行库只导出 `LightOcrAieGetApi`，IREE 和驱动符号隐藏。
+会话按需加载宽度桶；运行库持有权重、CPU/NPU 设备、参数模块和 VM context。
+原生 `AmdNpuSession` 串行执行共享引擎调用，核对库、部署配置、共享权重和模型的字节数及 SHA256。
+关闭时先释放全部桶会话，再释放引擎；库保持映射，避免卸载线程局部状态。
+
+新配置 `target=IREEAMDAIE`、`runtimeAbi=1`，与既有 VAIML context 明确区分。
+旧 vendor 部署仍由其独立 ORT API/namespace 加载。两种部署共享公开 provider `amdnpu`，新包实际 provider 链为 `IREEAMDAIE → IREECPU`。
+`precision` 诊断为 `bf16-bfp16ebs8`，`deviceValidated=false`。
+
+### 独立支持包
+
+```sh
+cmake -S . -B build-amdaie -G Ninja \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DLIGHT_OCR_DEPENDENCY_CACHE_DIR="$PWD/.cache/dependencies" \
+  -DLIGHT_OCR_AMDNPU_SDK_DIR="$PWD/dist/amdaie-sdk" \
+  -DLIGHT_OCR_BUILD_NODE=ON -DLIGHT_OCR_BUILD_TESTS=OFF -DLIGHT_OCR_BUILD_TOOLS=OFF \
+  -DLIGHT_OCR_NODE_INCLUDE_DIR=/path/to/node/include/node
+cmake --build build-amdaie --parallel 2
+python tools/generate_release_metadata.py --build-dir build-amdaie \
+  --output-dir reports/amdaie --platform-id linux-x64 --model-free
+python tools/npu/package_support.py --provider amdnpu --build-dir build-amdaie \
+  --metadata-dir reports/amdaie --sdk-dir dist/amdaie-sdk --output-dir dist/amdaie-package
+npm pack ./dist/amdaie-package --ignore-scripts --pack-destination dist
+```
+
+AMD 不自动安装、不参与 Auto。显式配置 `execution.provider="amdnpu"` 后才加载；`cpuPartition=forbid` 拒绝分区模型。
+`npu-support-release.yml` 和 `npu-native.yml` 默认使用轻量源码构建入口，保留 Intel 路线。
+按维护者要求，本轮只执行生成部署产物所需的构建与编译，没有运行测试、数值比较或设备推理。
+
+## 早期编译调查（历史记录）
+
+以下记录说明从整图直接下放转为明确 CPU/NPU 分区的原因。未完成的是早期整图全部 NPU 的 lowering，不是当前完整分区后端。
 
 ## 构建输入
 
 `tools/npu/iree-source.lock.json` 锁定 AMD AIE、IREE、LLVM 与必要子模块提交，以及 Peano wheel 的大小和 SHA256。
 工具只读取已锁定的 Small 0.3.4 识别模型，拒绝源模型哈希不符。
-编译工具和输出保存在 `.cache/amd-aie/`；不进入主 package 或当前 AMD 支持包。
+编译工具保存在 `.cache/amd-aie/`，不进入运行时包。AMD 支持包只装入运行库、全部 VMFB、单份共享 IRPA、清单与许可证。
 
 ## 准备源码
 

@@ -15,7 +15,9 @@
 #include <map>
 #include <mutex>
 #include <stdexcept>
+#include <nlohmann/json.hpp>
 
+#include "inference/amdnpu/runtime_api.h"
 #include "inference/openvino/backend.hpp"
 #include "util/sha256.hpp"
 
@@ -148,6 +150,61 @@ std::vector<std::int64_t> tensor_shape(const OrtApi& api, const OrtTensorTypeAnd
   }
   return shape;
 }
+
+struct AieRuntime {
+  const LightOcrAieApiV1* api = nullptr;
+};
+
+std::shared_ptr<AieRuntime> aie_runtime_for(const RuntimeArtifact& artifact) {
+  static std::mutex mutex;
+  static auto* runtimes = new std::map<std::string, std::shared_ptr<AieRuntime>>;
+  const std::lock_guard<std::mutex> lock(mutex);
+  (void)read_artifact(artifact);
+  const auto key = artifact.path + ":" + artifact.sha256;
+  const auto found = runtimes->find(key);
+  if (found != runtimes->end()) return found->second;
+  // Only the versioned C entry point is exported. IREE and AMD driver symbols
+  // are hidden, so this library can coexist with the CPU ORT in this namespace.
+  void* handle = ::dlopen(artifact.path.c_str(), RTLD_NOW | RTLD_LOCAL);
+  if (!handle) {
+    const char* error = ::dlerror();
+    throw SetupError(CreationReason::unrecoverable_load_failed,
+                     error ? error : "Cannot load the lightweight AMD runtime");
+  }
+  const auto get_api = reinterpret_cast<const LightOcrAieApiV1* (*)(std::uint32_t)>(
+      ::dlsym(handle, "LightOcrAieGetApi"));
+  const auto* api = get_api ? get_api(1) : nullptr;
+  if (!api || api->abi_version != 1 || api->struct_size != sizeof(LightOcrAieApiV1) ||
+      !api->create || !api->load || !api->run || !api->destroy_session || !api->destroy_engine) {
+    ::dlclose(handle);
+    throw SetupError(CreationReason::provider_abi_mismatch, "AMD AIE runtime C ABI mismatch");
+  }
+  // Keep mapped libraries alive, as with the vendor backend. Engine/session
+  // resources are still released individually when the OCR engine closes.
+  auto runtime = std::make_shared<AieRuntime>();
+  runtime->api = api;
+  runtimes->emplace(key, runtime);
+  return runtime;
+}
+
+RuntimeArtifact parameter_artifact(const RuntimeArtifact& configuration,
+                                   const nlohmann::json& compiler) {
+  const auto& record = compiler.at("parameters");
+  const auto relative = fs::u8path(record.at("path").get<std::string>());
+  if (relative.empty() || relative.is_absolute())
+    throw SetupError(CreationReason::package_corrupt, "Invalid AMD parameter archive path");
+  for (const auto& component : relative) {
+    if (component == "." || component == "..")
+      throw SetupError(CreationReason::package_corrupt, "Invalid AMD parameter archive path");
+  }
+  const auto path = fs::u8path(configuration.path).parent_path() / relative;
+  for (auto parent = path.parent_path(); parent != parent.root_path(); parent = parent.parent_path()) {
+    if (fs::is_symlink(fs::symlink_status(parent)))
+      throw SetupError(CreationReason::package_corrupt, "AMD parameter archive uses a symlink parent");
+  }
+  return RuntimeArtifact{path.string(), record.at("bytes").get<std::uint64_t>(),
+                         record.at("sha256").get<std::string>()};
+}
 }  // namespace
 
 struct AmdNpuSession::State {
@@ -157,12 +214,37 @@ struct AmdNpuSession::State {
     std::string output;
   };
   std::shared_ptr<Runtime> runtime;
+  std::shared_ptr<AieRuntime> aie_runtime;
+  void* aie_engine = nullptr;
+  std::map<std::uint32_t, void*> aie_sessions;
+  std::mutex aie_mutex;
   std::vector<AmdNpuRecognitionModel> models;
   std::string compiler_configuration;
   std::map<std::uint32_t, Session> sessions;
   std::size_t classes = 0;
   ~State() {
     for (auto& entry : sessions) runtime->api->ReleaseSession(entry.second.value);
+    if (aie_runtime) {
+      for (auto& entry : aie_sessions) aie_runtime->api->destroy_session(entry.second);
+      aie_runtime->api->destroy_engine(aie_engine);
+    }
+  }
+  void* aie_session_for(std::uint32_t width) {
+    const auto existing = aie_sessions.find(width);
+    if (existing != aie_sessions.end()) return existing->second;
+    const auto model = std::find_if(models.begin(), models.end(), [width](const auto& item) {
+      return item.width == width;
+    });
+    if (model == models.end()) throw std::runtime_error("AMD NPU width has no compiled recognition module");
+    const auto bytes = read_artifact(model->artifact);
+    void* session = nullptr;
+    char message[2048] = {};
+    if (aie_runtime->api->load(aie_engine, bytes.data(), bytes.size(), width,
+                              &session, message, sizeof(message)))
+      throw std::runtime_error(message);
+    try { aie_sessions.emplace(width, session); }
+    catch (...) { aie_runtime->api->destroy_session(session); throw; }
+    return session;
   }
   Session& session_for(std::uint32_t width) {
     const auto existing = sessions.find(width);
@@ -248,17 +330,37 @@ Result<std::unique_ptr<AmdNpuSession>> AmdNpuSession::create(
       }
     }
     (void)read_artifact(config.amdnpu_runtime);
-    (void)read_artifact(config.amdnpu_compiler_configuration);
+    const auto configuration_bytes = read_artifact(config.amdnpu_compiler_configuration);
+    const auto compiler = nlohmann::json::parse(configuration_bytes.begin(), configuration_bytes.end());
+    const bool lightweight = compiler.value("target", std::string{}) == "IREEAMDAIE";
+    std::vector<std::uint8_t> parameters;
+    if (lightweight) {
+      if (classes != 18710 || compiler.value("runtimeAbi", 0) != 1 ||
+          compiler.value("sourceModelSha256", std::string{}) != config.model_sha256 ||
+          compiler.value("device", std::string{}) != "npu4" ||
+          compiler.value("parameterScope", std::string{}) != "recognition")
+        return fail(CreationReason::model_compute_unsupported, "AMD AIE deployment contract differs from this model");
+      parameters = read_artifact(parameter_artifact(config.amdnpu_compiler_configuration, compiler));
+    }
     if (!stx_npu_available()) {
       return fail(CreationReason::adapter_unavailable, "No accessible AMD STX/KRK NPU on this host");
     }
     auto state = std::make_unique<State>();
-    state->runtime = runtime_for(config.amdnpu_runtime);
     state->models = config.amdnpu_recognition_models;
     state->compiler_configuration = config.amdnpu_compiler_configuration.path;
     state->classes = classes;
     try {
-      (void)state->session_for(widths.front());
+      if (lightweight) {
+        state->aie_runtime = aie_runtime_for(config.amdnpu_runtime);
+        char message[2048] = {};
+        if (state->aie_runtime->api->create(parameters.data(), parameters.size(),
+                    &state->aie_engine, message, sizeof(message)))
+          throw SetupError(CreationReason::unrecoverable_load_failed, message);
+        (void)state->aie_session_for(widths.front());
+      } else {
+        state->runtime = runtime_for(config.amdnpu_runtime);
+        (void)state->session_for(widths.front());
+      }
     } catch (const SetupError&) {
       throw;
     } catch (const std::exception& error) {
@@ -266,16 +368,18 @@ Result<std::unique_ptr<AmdNpuSession>> AmdNpuSession::create(
     }
     SessionExecutionInfo info;
     info.requested_provider = config.requested_provider_override.empty() ? "amdnpu" : config.requested_provider_override;
-    info.actual_provider_chain = {"VitisAIExecutionProvider", "CPUExecutionProvider"};
+    info.actual_provider_chain = lightweight
+        ? std::vector<std::string>{"IREEAMDAIE", "IREECPU"}
+        : std::vector<std::string>{"VitisAIExecutionProvider", "CPUExecutionProvider"};
     info.device = "npu:AMD XDNA2";
     info.device_family = "STX/KRK";
     info.operating_system = "linux";
-    info.precision = "bf16";
-    info.shape_policy = "nchw-static-amd-bf16-buckets-v1";
+    info.precision = lightweight ? "bf16-bfp16ebs8" : "bf16";
+    info.shape_policy = lightweight ? "nchw-static-amd-aie-buckets-v1" : "nchw-static-amd-bf16-buckets-v1";
     info.model_id = config.model_id;
     info.model_sha256 = config.model_sha256;
-    info.runtime = "Ryzen AI ONNX Runtime";
-    info.runtime_version = state->runtime->version;
+    info.runtime = lightweight ? "IREE AMD AIE" : "Ryzen AI ONNX Runtime";
+    info.runtime_version = lightweight ? compiler.at("runtimeVersion").get<std::string>() : state->runtime->version;
     info.model_cache_status = "precompiled";
     info.qualification_id = config.qualification_id;
     info.device_validated = config.npu_device_validated;
@@ -294,6 +398,19 @@ Result<TensorOutput> AmdNpuSession::run(const std::vector<float>& values,
         shape[3] <= 0 || shape[3] > 3200 ||
         values.size() != static_cast<std::size_t>(144 * shape[3])) {
       throw std::runtime_error("AMD NPU input does not match a recognition bucket");
+    }
+    if (state_->aie_runtime) {
+      const std::lock_guard<std::mutex> lock(state_->aie_mutex);
+      const auto width = static_cast<std::uint32_t>(shape[3]);
+      void* session = state_->aie_session_for(width);
+      const auto count = static_cast<std::size_t>(width / 8) * state_->classes;
+      auto output = std::make_shared<std::vector<float>>(count);
+      char message[2048] = {};
+      if (state_->aie_runtime->api->run(session, values.data(), values.size(),
+          output->data(), output->size(), message, sizeof(message)))
+        throw std::runtime_error(message);
+      return Result<TensorOutput>::success(TensorOutput(output, output->data(),
+          {1, static_cast<std::int64_t>(width / 8), static_cast<std::int64_t>(state_->classes)}, count));
     }
     auto& session = state_->session_for(static_cast<std::uint32_t>(shape[3]));
     const auto& api = *state_->runtime->api;

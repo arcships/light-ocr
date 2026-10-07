@@ -1,38 +1,59 @@
 # AMD NPU 加速技术方案
 
-后续轻量部署改造的选型、实施阶段和发布约束见 [AMD NPU 轻量部署改造方案](amd-npu-lightweight-plan.md)。该方案尚未实施，当前文档描述既有 Ryzen AI vendor 后端。
+更新时间：2026-10-07。完整 CPU/NPU 分区后端、20 个识别宽度桶、共享权重和独立支持包构建已实现。AMD 默认关闭，用户通过配置显式开启；未运行测试、数值比较或 AMD 设备推理。
 
-更新时间：2026-10-06。状态：Linux x64 glibc 后端与打包改造已实现，默认关闭、配置显式开启；0.5.9 独立支持包的构建输入已包含 Ryzen AI 1.8 的原生部署库与 Small 0.3.4 的 20 个真实 BF16 context。无需真机即可完成编译，尚未执行 AMD 设备推理。正式 npm 发布仍待完成。
+## 使用方式
 
-## 范围与模型路线
+```sh
+npm install @arcships/light-ocr @arcships/light-ocr-amdnpu-linux-x64-gnu
+```
 
-首期针对 STX/KRK（Ryzen AI 300、Max 等 XDNA2），使用 BF16 识别模型，检测保持 ORT CPU。PHX/HPT 的 INT8 路线、Windows、musl 均未实现。`precision` 仅接受 `auto`；`cpuPartition=forbid` 不支持此路线。
+在原有引擎配置中设置 `execution: { provider: "amdnpu" }`，或使用 CLI `--provider amdnpu`、C++ `ExecutionProvider::amdnpu`。
+支持包需与 Core 版本匹配；0.5.9 仍处于发布准备阶段。
 
-Ryzen AI 1.8 的 Linux 文档支持 CNN BF16/INT8 编译和执行。旧版预研把 release notes 中 LLM 的 Linux 模型生成限制推广到了 CNN OCR，现予纠正。[AMD Linux 文档](https://ryzenai.docs.amd.com/en/latest/linux.html)、[Release Notes](https://ryzenai.docs.amd.com/en/latest/relnotes.html)。
+AMD 不参与 Auto，支持包不会自动安装。系统需可读写的 STX/KRK NPU 设备节点、amdxdna 驱动和固件；CI 构建环境为 Ubuntu 24.04 Linux x64 glibc。
+不需要完整 Ryzen AI SDK、XRT、Python 或用户机器上的模型编译。PHX/HPT、Windows、arm64、musl 尚未支持。
 
-BF16 路线由 VAIML 编译 FP32 ONNX，生成可嵌入权重与微码的 EPContext；无需引入 INT8 校准集。C++ 部署使用预编译 BF16 context，保留 FP32 输入输出。VitisAI 自动将未支持的算子分配给 CPU，诊断因此明确包含 CPU provider。[AMD 模型编译与部署](https://ryzenai.docs.amd.com/en/latest/modelrun.html)。
+## 模型与分区
 
-## 已完成代码
+识别模型固定绑定 Small 0.3.4 的原始 ONNX SHA256，保留 batch=1、20 个宽度桶和 FP32 输入输出：
+`[1,3,48,width] → [1,width/8,18710]`。原有字典和 CTC 解码继续使用。
 
-- `src/inference/amdnpu/backend.cpp`：通过独立 glibc link namespace 装载 AMD 自带 ORT C API 20，避免绑定到本进程的 CPU/WebGPU ORT；AMD runtime 对象始终由对应 API 释放。
-- 校验源识别模型哈希、VAIML 配置和 20 个静态宽度桶；识别形状为 `[1,3,48,width]`，批次为 1。编译结果的字典类别数必须与 bundle 一致。
-- 设备检查要求可读写的 AMD STX/KRK `/dev/accel` 节点；无设备返回 `adapter_unavailable`。库或模型哈希不符属于不可恢复错误，不能静默跳到 CPU。
-- detector 使用 CPU，recognition 使用 `VitisAIExecutionProvider` 和其允许的 CPU 分区。只有首次会话及对应桶实际创建成功后才选中该候选；后续推理失败直接报告错误。
-- `tools/npu/compile_amdnpu.py`：在 vendor SDK Python 环境编译所有桶，要求存在嵌入式 VitisAI EPContext，并检查输入输出类型与形状；编译过程不执行模型推理，不要求真机验收。
-- `tools/npu/import_amdnpu.py`：从已取得的 SDK 部署目录导入原生库，设置包内 RPATH、检查 ELF 依赖闭包、记录变更前后哈希，并锁定模型、配置及许可证。
-- CMake、Node descriptor 2.1、JS loader、npm staging、SBOM 和候选/正式发布流程均已接入。构建入口与报告格式见 [NPU SDK 构建与发布](npu-runtime-release.md)。
+| 计算 | 实际执行 |
+| --- | --- |
+| 19 个输入/输出通道均 ≥128 的 1×1、stride=1 卷积矩阵核心 | IREE AMD AIE / XDNA2 NPU |
+| 布局转换、补零、精度转换、bias、GELU、残差 | IREE CPU |
+| 其他卷积、attention、分类头和 Softmax | IREE CPU |
+| 检测 | ONNX Runtime CPU |
 
-## 默认关闭与发布策略
+矩阵 M/N/K 按 128 补齐并裁切；单次 dispatch 最多 3840 行，较宽桶分段执行，规避固定编译器的宽矩阵 shim DMA 维度 lowering 越界。
+BF16 操作数在 Peano 微内核内转换为 BFP16ebs8，FP32 累加；精度诊断为 `bf16-bfp16ebs8`。
+这是完整识别分区图，没有纯 NPU、数值正确或性能提升的实测结论。
+`precision` 请求仍只接受 `auto`；`cpuPartition=forbid` 会拒绝此路线。
 
-AMD 始终排除在 Auto 候选列表之外；用户通过 `execution.provider: "amdnpu"`、CLI `--provider amdnpu` 或 C++ 的 `ExecutionProvider::amdnpu` 显式开启。0.5.9 独立 AMD 支持包附带 vendor SDK 与匹配的 Small 识别模型，普通平台包不包含它们；运行时未配置 AMD 时不装载 vendor ORT。
+## 独立包内容
 
-按维护者决定，NPU 真机验收不再阻塞发布。SDK 导入的 `qualificationOnly: true` 仅记录尚无设备证据，平台包可随其他已满足条件的运行时一起发布；`deviceValidated` 保持 `false`。库存、模型哈希、依赖闭包和许可证校验继续执行，设备报告可选。
+- 一个小型原生 C ABI 执行库，IREE 与 AMD 驱动符号隐藏。
+- 20 个 VMFB，内含 CPU ELF、AMD PDI 和跨设备执行计划。
+- 一份共享 IRPA 权重：参数按内容哈希命名，相同权重跨宽度只存一次。
+- 匹配 addon、CPU ORT、部署配置、完整哈希库存、许可证和 SBOM。
 
-## 尚未验证的设备行为（可选后续工作）
+编译器、Peano、原始 ONNX、临时权重归档和 vendor SDK 库不进入 AMD 包。主 package 与普通平台包不携带这些 AMD 产物。
+逐文件大小及包大小见 [部署结果清单](amd-aie-deployment-results.json)。
 
-1. 在 STX/KRK 主机确认独立 namespace 装载、XRT/amdxdna 驱动及 VitisAI C API 20 协同工作。
-2. 比较已编译 20 桶模型与 FP32 CPU goldens，记录文本、框、置信度及 BF16 误差。
-3. 测量冷/热延迟、CPU 时间和 RSS，覆盖关闭/重建、权限不足、驱动兼容及 WebGPU 共存。
+## 原生行为与诊断
 
-SDK 的原始与打包后哈希、依赖闭包、许可证/第三方 notices 和源模型绑定已随部署包记录；这不等同于真机验收或独立法律审阅。
-这些设备行为尚无实测结论，不再作为源码合入或 AMD 显式开启支持发布的前置条件。
+库、配置、共享权重和桶模型均按字节数/SHA256 校验；哈希错误直接报告，不能静默回退。
+没有可访问 NPU 时返回 `adapter_unavailable`。后续桶按需加载；推理和创建错误保持原有错误/回退策略。
+
+内部配置为 `target=IREEAMDAIE`、`runtimeAbi=1`；实际识别 provider 链为 `IREEAMDAIE → IREECPU`，检测为 `CPUExecutionProvider`。
+会话关闭先释放模型 context，再释放参数模块与设备；动态库保持映射。
+`deviceValidated=false`，且没有数值验证。按维护者决定，验证不阻塞此次开发交付与显式启用支持的发布准备。
+
+## 构建与兼容
+
+入口、锁定工具链与分区实现见 [完整部署开发说明](amd-aie-development.md)；独立包发布流程见 [NPU SDK 构建与发布](npu-runtime-release.md)。
+选型、体积预算和实际实施状态见 [轻量部署方案](amd-npu-lightweight-plan.md)。
+
+旧 VAIML/EPContext 部署仍可通过既有 `fetch_amdnpu.py` / `import_amdnpu.py` 工具准备；原生层保留 vendor ORT 独立 API/namespace 路径。
+新发布工作流默认从锁定源码构建 IREE 轻量部署，不复用旧 context，也不要求取得专有 SDK。

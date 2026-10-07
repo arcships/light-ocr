@@ -19,10 +19,8 @@ permissions:
 
 jobs:
   build:
-    # The AMD deployment archive remains a draft asset until v0.5.9 ships.
-    permissions:
-      contents: write
     runs-on: ubuntu-24.04
+    timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
@@ -34,10 +32,18 @@ jobs:
           node-version: '22'
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
-          python-version: '3.11'
+          python-version: '3.12'
+      - name: Install AMD build dependencies
+        if: matrix.provider == 'amdnpu'
+        run: sudo apt-get update && sudo apt-get install -y clang lld ninja-build uuid-dev
+      - name: Cache pinned AMD build tools and model artifacts
+        if: matrix.provider == 'amdnpu'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: .cache/amd-aie
+          key: amd-aie-${{ runner.os }}-${{ hashFiles('tools/npu/iree-source.lock.json', 'tools/npu/iree-frontend.requirements.txt', 'tools/npu/*iree*.py', 'tools/npu/*amdaie*.py', 'tools/npu/runtime/*', 'src/inference/amdnpu/runtime_api.h') }}
       - name: Prepare the selected provider only
         env:
-          GH_TOKEN: ${{ github.token }}
           PROVIDER: ${{ matrix.provider }}
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
@@ -46,7 +52,7 @@ jobs:
           if [[ "$PROVIDER" == openvino ]]; then
             python tools/npu/build_openvino.py --package-cache .cache/npu --output-dir dist/sdk
           else
-            python tools/npu/fetch_amdnpu.py --package-cache .cache/npu --output-dir dist/sdk
+            python tools/npu/build_amdaie.py --work-dir .cache/amd-aie --output-dir dist/sdk --jobs 2
           fi
       - name: Build a separate CPU and NPU addon
         env:
@@ -73,6 +79,8 @@ jobs:
             --sdk-dir dist/sdk --output-dir dist/package
           mkdir -p dist/tarballs
           npm pack ./dist/package --ignore-scripts --json --pack-destination dist/tarballs > dist/tarballs/pack-manifest.json
+          python tools/npu/record_support_pack.py --package-dir dist/package \
+            --pack-manifest dist/tarballs/pack-manifest.json --output-file dist/tarballs/support-size-report.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: npu-support-${{ matrix.provider }}-${{ inputs.version }}

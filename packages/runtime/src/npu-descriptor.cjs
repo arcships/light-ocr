@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('node:path');
+const fs = require('node:fs');
 
 const WIDTHS = Object.freeze([320, 384, 480, 544, 576, 608, 704, 736, 832, 960,
   1056, 1184, 1248, 1376, 1600, 1984, 2240, 2560, 2880, 3200]);
@@ -17,8 +18,8 @@ function validateNpuProviders(descriptor, root, { exactKeys, verifyArtifact, sam
     }
     exactKeys(provider, ['runtimeProvider', 'providerVersion', 'qualificationId',
       'providerLibrary', 'configuration', 'artifacts'], `providers.${name}`);
-    const expected = name === 'openvino' ? 'OpenVINO' : 'VitisAIExecutionProvider';
-    if (provider.runtimeProvider !== expected || typeof provider.providerVersion !== 'string' ||
+    const expected = name === 'openvino' ? ['OpenVINO'] : ['VitisAIExecutionProvider', 'IREEAMDAIE'];
+    if (!expected.includes(provider.runtimeProvider) || typeof provider.providerVersion !== 'string' ||
         !provider.providerVersion || typeof provider.qualificationId !== 'string' ||
         !provider.qualificationId || !Array.isArray(provider.artifacts) || !provider.artifacts.length) {
       fail('Invalid NPU provider identity');
@@ -66,7 +67,9 @@ function validateNpuProviders(descriptor, root, { exactKeys, verifyArtifact, sam
       if (typeof configuration.sourceModelSha256 !== 'string' ||
           !/^[0-9a-f]{64}$/.test(configuration.sourceModelSha256) ||
           !Array.isArray(configuration.recognitionModels) || configuration.recognitionModels.length !== WIDTHS.length ||
-          !path.basename(library).startsWith('libonnxruntime.so')) {
+          !(provider.runtimeProvider === 'IREEAMDAIE'
+            ? path.basename(library) === 'liblight_ocr_amdaie.so.1'
+            : path.basename(library).startsWith('libonnxruntime.so'))) {
         fail('Invalid AMD NPU recognition model identity');
       }
       const modelPaths = new Set();
@@ -82,6 +85,32 @@ function validateNpuProviders(descriptor, root, { exactKeys, verifyArtifact, sam
           path: modelPath, bytes: model.artifact.bytes, sha256: model.artifact.sha256,
         }) });
       });
+      if (provider.runtimeProvider === 'IREEAMDAIE') {
+        let compiler;
+        try { compiler = JSON.parse(fs.readFileSync(configPath, 'utf8')); }
+        catch { fail('Invalid AMD AIE deployment configuration'); }
+        if (compiler.target !== 'IREEAMDAIE' || compiler.runtimeAbi !== 1 ||
+            compiler.device !== 'npu4' || compiler.sourceModelSha256 !== configuration.sourceModelSha256 ||
+            compiler.parameterScope !== 'recognition' || compiler.precision !== 'bf16-bfp16ebs8' ||
+            compiler.cpuPartitionRequired !== true || typeof compiler.runtimeVersion !== 'string' ||
+            !compiler.runtimeVersion || !Array.isArray(compiler.widths) ||
+            compiler.widths.length !== WIDTHS.length || compiler.widths.some((width, i) => width !== WIDTHS[i]) ||
+            configuration.recognitionModels.some((item) => !item.artifact.path.endsWith('.vmfb'))) {
+          fail('AMD AIE deployment contract differs from the locked recognition model');
+        }
+        const parameters = compiler.parameters;
+        if (!parameters || typeof parameters.path !== 'string' || !parameters.path ||
+            parameters.path.includes('\\') || path.posix.isAbsolute(parameters.path) ||
+            parameters.path.split('/').some((component) => !component || component === '.' || component === '..')) {
+          fail('Invalid AMD shared parameter path');
+        }
+        const artifact = { ...parameters,
+          path: path.posix.join(path.posix.dirname(configuration.compilerConfiguration.path), parameters.path) };
+        verifyArtifact(root, artifact, 'AMD shared recognition parameters');
+        if (!provider.artifacts.some((item) => sameArtifact(item, artifact))) {
+          fail('AMD shared recognition parameters are outside the runtime inventory');
+        }
+      }
       nativeConfiguration = Object.freeze({ sourceModelSha256: configuration.sourceModelSha256,
         compilerConfiguration: Object.freeze({ path: configPath,
           bytes: configuration.compilerConfiguration.bytes, sha256: configuration.compilerConfiguration.sha256 }),

@@ -1,6 +1,6 @@
 # NPU SDK 构建与发布
 
-当前实现覆盖 Linux x64 glibc。Intel 使用 OpenVINO C API；AMD 使用独立装载的 Ryzen AI ORT 与预编译 BF16 识别模型。安装后的 OCR 进程无需 Python，系统仍需厂商 NPU 驱动，AMD 路线使用 Ryzen AI 1.8 支持的 Ubuntu 24.04/glibc 环境。0.5.9 将两套 NPU 分别放入用户单独安装的支持包；普通平台包不包含这些库和 context，默认模型制品不变。
+当前实现覆盖 Linux x64 glibc。Intel 使用 OpenVINO C API；AMD 默认使用轻量 IREE C ABI 运行库、20 个 CPU/NPU 识别模块和单份共享 IRPA 权重。安装后的 OCR 进程无需 Python，系统仍需厂商 NPU 驱动，AMD CI 使用 Ubuntu 24.04/glibc 环境。0.5.9 将两套 NPU 分别放入用户单独安装的支持包；普通平台包不包含这些库和 context，默认模型制品不变。
 
 ## Intel 候选 SDK
 
@@ -13,9 +13,28 @@ python tools/npu/build_openvino.py \
 
 当前 driver/compiler floor 来自本机 OpenVINO 设备属性的数值，尚未覆盖其他代设备。调整配置会要求重新绑定审阅报告。
 
-## AMD 候选 SDK
+## AMD 轻量候选 SDK
 
-常规发布直接取得已锁定的部署包，不需要安装完整 SDK：
+常规构建不需要专有 Ryzen AI SDK，入口使用 Python 3.12：
+
+```bash
+python3.12 tools/npu/build_amdaie.py \
+  --work-dir .cache/amd-aie --output-dir dist/npu-sdk/amdnpu --jobs 2
+```
+
+工具准备锁定源码、Peano 和导入依赖，同版源码构建编译器/运行库，再编译全部 20 桶。
+19 个较大 pointwise 卷积矩阵核心使用 NPU；其余识别算子与检测使用 CPU。宽矩阵分段，单次 NPU dispatch 不超过 3840 行。
+
+部署目录仅包含小型运行库、VMFB、单份共享 IRPA、JSON 清单和许可文件。用户安装时不需要编译器、完整 SDK、XRT 或 Python。
+配置与 descriptor 使用 `IREEAMDAIE` 标识，原生 ABI 固定为 1；权重、模型和运行库均绑定字节数及 SHA256。
+CPU 与 NPU 的实际分区、BF16→BFP16ebs8 精度变化及未验证状态明确记录。
+
+`npu-support-release.yml` 默认使用此入口生成独立 AMD 包；`npu-native.yml` 在未提供 SDK artifact 时也使用轻量源码构建。
+完整命令与部署结果见 [AMD AIE 开发说明](amd-aie-development.md)。本轮没有运行测试、数值比较或设备推理。
+
+### 旧 vendor 部署兼容路径
+
+以下工具仅供已有 VAIML/EPContext 部署保留和回滚，不是新支持包的默认构建输入：
 
 ```bash
 python tools/npu/fetch_amdnpu.py \
@@ -82,7 +101,7 @@ const engine = await createEngine({
 });
 ```
 
-模型无关 runtime 还需 `bundlePath`。两套支持包都是 optional peer，不随普通安装自动下载；显式 provider 才选择对应独立 addon，Auto 保持基础包策略。缺少包时报告 `unsupported_capability`，没有静默回退。AMD 的 20 个 context 绑定 Small 0.3.4。
+模型无关 runtime 还需 `bundlePath`。两套支持包都是 optional peer，不随普通安装自动下载；显式 provider 才选择对应独立 addon，Auto 保持基础包策略。缺少包时报告 `unsupported_capability`，没有静默回退。AMD 的 20 个识别模块绑定 Small 0.3.4。
 
 支持包内包含原生依赖和产物身份；终端用户无需完整 SDK/Python，仍需系统 NPU 驱动。真机报告不作为发布前置，`deviceValidated` 保持 false。
 

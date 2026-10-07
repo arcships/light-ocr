@@ -79,6 +79,26 @@ def artifact_set(items: list[dict]) -> str:
                                     separators=(",", ":")).encode()).hexdigest()
 
 
+def validate_aie_configuration(compiler: dict, configuration: dict, artifacts: list[dict], root: Path) -> None:
+    if (compiler.get("runtimeAbi") != 1 or compiler.get("device") != "npu4" or
+            compiler.get("sourceModelSha256") != configuration["sourceModelSha256"] or
+            compiler.get("parameterScope") != "recognition" or
+            compiler.get("precision") != "bf16-bfp16ebs8" or
+            compiler.get("cpuPartitionRequired") is not True or
+            compiler.get("widths") != recognition_widths() or
+            not isinstance(compiler.get("runtimeVersion"), str) or not compiler["runtimeVersion"]):
+        raise ValueError("invalid AMD AIE deployment configuration")
+    parameters = compiler.get("parameters", {})
+    relative_path(parameters.get("path"))
+    prefix = PurePosixPath(configuration["compilerConfiguration"]["path"]).parent
+    item = {**parameters, "path": (prefix / parameters["path"]).as_posix()}
+    verify_record(item, root)
+    if item not in artifacts:
+        raise ValueError("AMD shared parameters are outside the runtime inventory")
+    if any(not item["artifact"]["path"].endswith(".vmfb") for item in configuration["recognitionModels"]):
+        raise ValueError("AMD AIE requires compiled VMFB recognition modules")
+
+
 def validate_sdk(root: Path, provider: str | None = None) -> dict:
     root = root.absolute()
     if (root / "sdk-manifest.json").is_symlink():
@@ -142,7 +162,11 @@ def validate_sdk(root: Path, provider: str | None = None) -> dict:
                 any(item["artifact"] not in artifacts for item in config["recognitionModels"])):
             raise ValueError("AMD NPU recognition models are outside the SDK inventory")
         compiler = json.loads(verify_record(config["compilerConfiguration"], root).read_text("utf-8"))
-        if (compiler.get("target") != "VAIML" or
+        if compiler.get("target") == "IREEAMDAIE":
+            validate_aie_configuration(compiler, config, artifacts, root)
+            if Path(value["runtimeLibrary"]).name != "liblight_ocr_amdaie.so.1":
+                raise ValueError("invalid AMD AIE runtime library")
+        elif (compiler.get("target") != "VAIML" or
                 not any(item.get("name") == "vaiml_partition" for item in compiler.get("passes", []))):
             raise ValueError("AMD NPU SDK must use a VAIML BF16 configuration")
     # A production SDK must carry reviewed evidence bound to the exact bytes.
@@ -174,8 +198,8 @@ def validate_descriptor_npu(descriptor: dict, root: Path) -> set[str]:
         if set(provider) != {"runtimeProvider", "providerVersion", "qualificationId",
                              "providerLibrary", "configuration", "artifacts"}:
             raise ValueError("invalid NPU provider descriptor fields")
-        expected = "OpenVINO" if name == "openvino" else "VitisAIExecutionProvider"
-        if (provider["runtimeProvider"] != expected or not provider["providerVersion"] or
+        expected = {"OpenVINO"} if name == "openvino" else {"VitisAIExecutionProvider", "IREEAMDAIE"}
+        if (provider["runtimeProvider"] not in expected or not provider["providerVersion"] or
                 not provider["qualificationId"] or not provider["artifacts"] or
                 provider["providerLibrary"] not in provider["artifacts"]):
             raise ValueError("invalid NPU provider descriptor identity")
@@ -216,7 +240,12 @@ def validate_descriptor_npu(descriptor: dict, root: Path) -> set[str]:
                     any(set(item) != {"width", "artifact"} or
                         item["artifact"] not in provider["artifacts"] for item in models)):
                 raise ValueError("incomplete AMD NPU recognition buckets")
-            if not Path(provider["providerLibrary"]["path"]).name.startswith("libonnxruntime.so"):
+            if provider["runtimeProvider"] == "IREEAMDAIE":
+                compiler = json.loads(verify_record(config["compilerConfiguration"], root).read_text("utf-8"))
+                if compiler.get("target") != "IREEAMDAIE" or Path(provider["providerLibrary"]["path"]).name != "liblight_ocr_amdaie.so.1":
+                    raise ValueError("invalid AMD AIE runtime identity")
+                validate_aie_configuration(compiler, config, provider["artifacts"], root)
+            elif not Path(provider["providerLibrary"]["path"]).name.startswith("libonnxruntime.so"):
                 raise ValueError("invalid AMD ORT runtime library")
     return paths
 
@@ -243,8 +272,9 @@ def stage_sdk(root: Path, stage: Path, descriptor: dict) -> dict:
         configuration["recognitionModels"] = [
             {"width": item["width"], "artifact": by_path[item["artifact"]["path"]]}
             for item in configuration["recognitionModels"]]
+    amd_aie = provider == "amdnpu" and Path(value["runtimeLibrary"]).name == "liblight_ocr_amdaie.so.1"
     descriptor["providers"][provider] = {
-        "runtimeProvider": "OpenVINO" if provider == "openvino" else "VitisAIExecutionProvider",
+        "runtimeProvider": "OpenVINO" if provider == "openvino" else ("IREEAMDAIE" if amd_aie else "VitisAIExecutionProvider"),
         "providerVersion": value["providerVersion"],
         "qualificationId": value["qualificationId"],
         "providerLibrary": by_path[value["runtimeLibrary"]],

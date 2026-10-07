@@ -1,0 +1,570 @@
+{
+  "schemaVersion": "1.0",
+  "date": "2026-10-07",
+  "status": "built-and-packaged-unqualified",
+  "releaseVersion": "0.5.9",
+  "pullRequest": "https://github.com/arcships/light-ocr/pull/71",
+  "sourceModelSha256": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634",
+  "sourceLockSha256": "a58136fc60e8eb5023798c3e8d3a7014abbeb2f3107f6a727c5b8f1f0cd0bf4a",
+  "sourceCommits": {
+    "amdAie": "fddfec1be6ceefbdb890079d957947dfa1fe0848",
+    "third_party/aie-rt": "a6196ebd905ceaf92cabc2e594017fa11b9e4323",
+    "third_party/bootgen": "92e09bf37ea17d7b1f0e102a2548f27fb768651c",
+    "third_party/iree": "26083307b8753a11870b8caf590afea15c9429fa",
+    "third_party/mlir-air": "ca2448548d66d7e8e05bacb9e81e7df48a9ef729",
+    "third_party/openssl": "0e04e101507df752500093ff4b04cce5a898abaa",
+    "iree/third_party/benchmark": "192ef10025eb2c4cdd392bc502f0c852196baa48",
+    "iree/third_party/llvm-project": "8be29edc20dfb19245ab8cf49669c80125ece4f5",
+    "iree/third_party/flatcc": "9362cd00f0007d8cbee7bff86e90fb4b6b227ff3",
+    "iree/third_party/musl": "3f701faace7addc75d16dea8a6cd769fa5b3f260"
+  },
+  "compilerBinaries": [
+    {
+      "path": "tools/iree-compile",
+      "bytes": 6256,
+      "sha256": "a751017528d0e96e3331e119cfa87c9705e802a3fcc27c68b4a74f8afbe7e3f3"
+    },
+    {
+      "path": "tools/iree-opt",
+      "bytes": 6248,
+      "sha256": "5b7123611e66efbbc527c0dfb0ac225a1597193cf4bbdb69022fdc4c169366b4"
+    },
+    {
+      "path": "lib/libIREECompiler.so",
+      "bytes": 271528912,
+      "sha256": "352f1d6e4c7f3945f7fbbdf09255598cad153ec3afbac52f353241559cbc4408"
+    }
+  ],
+  "compilerLocalPatches": [
+    {
+      "path": "patches/check-matmul-map-ranks.patch",
+      "sha256": "5a0a9b3efe57cc4d257b8fd9d08f59a4c158a07c71a7242d21b812314ee9fb05",
+      "reason": "Reject scalar/rank-one generic maps before matmul dimension access"
+    }
+  ],
+  "runtimeBinaries": [
+    {
+      "path": "liblight_ocr_amdaie.so.1.0.0",
+      "bytes": 1255312,
+      "sha256": "6eab7ad3cb2cacbb856a91c6fe83a45111c4a0d475a360d880cbf46867d1d24d"
+    },
+    {
+      "path": "merge-aie-parameters",
+      "bytes": 351832,
+      "sha256": "761b201c532bc59129a700a9825e2193e9ea95ea3088af79c104d8ef495c0393"
+    }
+  ],
+  "runtimeWrapperSources": [
+    {
+      "path": "tools/npu/runtime/CMakeLists.txt",
+      "sha256": "ea05adf9538d051375f28b3f6ba9241da73478d958f07b3366b7deadcd8ac3c8"
+    },
+    {
+      "path": "tools/npu/runtime/runtime.cc",
+      "sha256": "6444f88e7a2076f03d19ef55517a83dec3e552985ede13613e5625e230de5896"
+    },
+    {
+      "path": "tools/npu/runtime/merge_parameters.cc",
+      "sha256": "604a02e66419a2a60623640d3a4295dc2cbf0c4b425f2af5c3052b56bca9d2ed"
+    },
+    {
+      "path": "tools/npu/runtime/exports.map",
+      "sha256": "0d627d7d3fadc191b930af21c7636c06cb1f93ade86c01659b236519c3a389ff"
+    },
+    {
+      "path": "src/inference/amdnpu/runtime_api.h",
+      "sha256": "3830626cb7d76c2043deca5e2c6d3183f5921c433a66b37b321d62e23496b8ce"
+    }
+  ],
+  "buildScripts": {
+    "partitionScriptSha256AtBuildStart": "7772b5208e54e517c6a1a32703a28734254b9c27d0522ea8347fb8d549bb86ad",
+    "partitionScriptSha256AtPackaging": "cc6bb8059460517223ad6ac419c2012e1c0e53209d13da472c3e6f53525a9c79",
+    "routeScriptSha256": "87d00b8a45dda0863e1f40cc88d17c27fd29d54e2fdb9b70449dc397f4e39915",
+    "parameterMergerSha256": "761b201c532bc59129a700a9825e2193e9ea95ea3088af79c104d8ef495c0393",
+    "note": "Only explanatory comments in the partition script changed during the all-bucket build; transformation code was unchanged."
+  },
+  "recognition": {
+    "completeRecognitionContract": true,
+    "input": "1x3x48xwidth FP32 NCHW",
+    "output": "1x(width/8)x18710 FP32",
+    "widths": [
+      320,
+      384,
+      480,
+      544,
+      576,
+      608,
+      704,
+      736,
+      832,
+      960,
+      1056,
+      1184,
+      1248,
+      1376,
+      1600,
+      1984,
+      2240,
+      2560,
+      2880,
+      3200
+    ],
+    "npuPointwiseConvolutions": 19,
+    "maxMatmulRowsPerChunk": 3840,
+    "precision": "bf16-bfp16ebs8",
+    "cpuPartitionRequired": true,
+    "cpuOperators": [
+      "layout",
+      "padding",
+      "FP32-to-BF16",
+      "bias",
+      "GELU",
+      "residual",
+      "other convolutions",
+      "attention",
+      "classifier",
+      "softmax"
+    ],
+    "buckets": [
+      {
+        "width": 320,
+        "artifact": {
+          "path": "recognition-320.vmfb",
+          "bytes": 335923,
+          "sha256": "5adf1290b28d07a77300c470c2fab7fa8586abbc5a3aec8a9c3a1cb1951125f2"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 384,
+        "artifact": {
+          "path": "recognition-384.vmfb",
+          "bytes": 326755,
+          "sha256": "4915f3a06ccc84767f350e8f54c04c6ad411d29398795e39d9e9c0914ff4566d"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 480,
+        "artifact": {
+          "path": "recognition-480.vmfb",
+          "bytes": 330099,
+          "sha256": "6ababc13508264d07ba8c3965bb7d294bc8b01e7b5a9b576d92bafa1bb6322f5"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 544,
+        "artifact": {
+          "path": "recognition-544.vmfb",
+          "bytes": 354067,
+          "sha256": "e2ae7972fb2c5144c812a467e321aa633fb481c736f0214349b194518811af26"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 576,
+        "artifact": {
+          "path": "recognition-576.vmfb",
+          "bytes": 350291,
+          "sha256": "b00af3cb84b3e32df05117c8f7076ad315ec2d0b80c2440d24dfbb3b2dbe0a25"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 608,
+        "artifact": {
+          "path": "recognition-608.vmfb",
+          "bytes": 354819,
+          "sha256": "da831af19083aa5a1d72adad7b299ec107d179233c1f56145ffaa42c3b432108"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 704,
+        "artifact": {
+          "path": "recognition-704.vmfb",
+          "bytes": 362659,
+          "sha256": "c5ef383733b7f41b8977915c47026dc82bb581d132cd36d493daf5165c105b39"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 736,
+        "artifact": {
+          "path": "recognition-736.vmfb",
+          "bytes": 362451,
+          "sha256": "30d88d8bd02f7d31e9c431acf9bca392c409e4f52c73f0f962d9df38bc1bb0cd"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 832,
+        "artifact": {
+          "path": "recognition-832.vmfb",
+          "bytes": 362099,
+          "sha256": "3c486bf905ae5851544e430ad3d838aa18bc715af4f33489ea4a444020ca7769"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 960,
+        "artifact": {
+          "path": "recognition-960.vmfb",
+          "bytes": 368979,
+          "sha256": "e2efabb676755bae4db687c3d7fd1e4c841213988c2af9a6e7f7fa3434a52cc6"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 1056,
+        "artifact": {
+          "path": "recognition-1056.vmfb",
+          "bytes": 373779,
+          "sha256": "407dca271db1ca75667b6dac4138e3c81f4828fe482bc90ca5e750a45611fd5c"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 1184,
+        "artifact": {
+          "path": "recognition-1184.vmfb",
+          "bytes": 374483,
+          "sha256": "c9938ac92dcc5fc59ff5c05639934ee933285ad7c474681f069ed582ef18416f"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 1248,
+        "artifact": {
+          "path": "recognition-1248.vmfb",
+          "bytes": 387539,
+          "sha256": "ef8bdc7874ef20db99347e156ed8b024b7278ea0839f165f1b165dee7dd3b12a"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 1376,
+        "artifact": {
+          "path": "recognition-1376.vmfb",
+          "bytes": 386771,
+          "sha256": "dc04274717eeab9871839b2a5fb90fe26632a7f11a4ef0b7c08e674066fccba9"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 1600,
+        "artifact": {
+          "path": "recognition-1600.vmfb",
+          "bytes": 399571,
+          "sha256": "099a968bf8b96ff8b04d064a441d757c2b5d9b7da56f2f93c558a7d211596dc5"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 1984,
+        "artifact": {
+          "path": "recognition-1984.vmfb",
+          "bytes": 410915,
+          "sha256": "c8700a867763b7c6971f8b6f0501571837f1612d9c4a5599f75e3d99cb58ac2a"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 2240,
+        "artifact": {
+          "path": "recognition-2240.vmfb",
+          "bytes": 419587,
+          "sha256": "a588ef13fc079dc457565296d3dc90555ce386e0e2296472224b76803c16ac17"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 2560,
+        "artifact": {
+          "path": "recognition-2560.vmfb",
+          "bytes": 367267,
+          "sha256": "12c0a37d97b3e095cb39c9475e26a0655aa7350b575907ba582d6362fc959ff1"
+        },
+        "dispatches": {
+          "cpu": 120,
+          "npu": 19
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 2880,
+        "artifact": {
+          "path": "recognition-2880.vmfb",
+          "bytes": 475187,
+          "sha256": "7d0748a9f19c5ed91c1c2e71835f13d15aaf2e1f8e3a16655566177dd774c135"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 32
+        },
+        "npuPointwiseConvolutions": 19
+      },
+      {
+        "width": 3200,
+        "artifact": {
+          "path": "recognition-3200.vmfb",
+          "bytes": 487315,
+          "sha256": "8a82155a29a33878301d3577ab504806ac1b8980e66f0706daf639cfa0ce78c6"
+        },
+        "dispatches": {
+          "cpu": 138,
+          "npu": 32
+        },
+        "npuPointwiseConvolutions": 19
+      }
+    ],
+    "sharedParameters": {
+      "path": "recognition.irpa",
+      "bytes": 17145856,
+      "sha256": "50230a7f2bdfa89464c08e3c18a7aa45bd241ee32fd0c9b6ac728861565506ba"
+    },
+    "modelArtifactBytes": 24736412
+  },
+  "sdk": {
+    "artifactSetSha256": "20c2673971c16287a27ff5f43c2ffd3fee2ef02661efd04e5f6014b43b75bd6f",
+    "artifactBytes": 25992524,
+    "artifacts": [
+      {
+        "path": "deployment.json",
+        "bytes": 800,
+        "sha256": "4c12d98ed80a13ffa010b06de4bc741ad20ee47518639f3076d95da78bce9f08"
+      },
+      {
+        "path": "lib/liblight_ocr_amdaie.so.1",
+        "bytes": 1255312,
+        "sha256": "6eab7ad3cb2cacbb856a91c6fe83a45111c4a0d475a360d880cbf46867d1d24d"
+      },
+      {
+        "path": "models/recognition-1056.vmfb",
+        "bytes": 373779,
+        "sha256": "407dca271db1ca75667b6dac4138e3c81f4828fe482bc90ca5e750a45611fd5c"
+      },
+      {
+        "path": "models/recognition-1184.vmfb",
+        "bytes": 374483,
+        "sha256": "c9938ac92dcc5fc59ff5c05639934ee933285ad7c474681f069ed582ef18416f"
+      },
+      {
+        "path": "models/recognition-1248.vmfb",
+        "bytes": 387539,
+        "sha256": "ef8bdc7874ef20db99347e156ed8b024b7278ea0839f165f1b165dee7dd3b12a"
+      },
+      {
+        "path": "models/recognition-1376.vmfb",
+        "bytes": 386771,
+        "sha256": "dc04274717eeab9871839b2a5fb90fe26632a7f11a4ef0b7c08e674066fccba9"
+      },
+      {
+        "path": "models/recognition-1600.vmfb",
+        "bytes": 399571,
+        "sha256": "099a968bf8b96ff8b04d064a441d757c2b5d9b7da56f2f93c558a7d211596dc5"
+      },
+      {
+        "path": "models/recognition-1984.vmfb",
+        "bytes": 410915,
+        "sha256": "c8700a867763b7c6971f8b6f0501571837f1612d9c4a5599f75e3d99cb58ac2a"
+      },
+      {
+        "path": "models/recognition-2240.vmfb",
+        "bytes": 419587,
+        "sha256": "a588ef13fc079dc457565296d3dc90555ce386e0e2296472224b76803c16ac17"
+      },
+      {
+        "path": "models/recognition-2560.vmfb",
+        "bytes": 367267,
+        "sha256": "12c0a37d97b3e095cb39c9475e26a0655aa7350b575907ba582d6362fc959ff1"
+      },
+      {
+        "path": "models/recognition-2880.vmfb",
+        "bytes": 475187,
+        "sha256": "7d0748a9f19c5ed91c1c2e71835f13d15aaf2e1f8e3a16655566177dd774c135"
+      },
+      {
+        "path": "models/recognition-320.vmfb",
+        "bytes": 335923,
+        "sha256": "5adf1290b28d07a77300c470c2fab7fa8586abbc5a3aec8a9c3a1cb1951125f2"
+      },
+      {
+        "path": "models/recognition-3200.vmfb",
+        "bytes": 487315,
+        "sha256": "8a82155a29a33878301d3577ab504806ac1b8980e66f0706daf639cfa0ce78c6"
+      },
+      {
+        "path": "models/recognition-384.vmfb",
+        "bytes": 326755,
+        "sha256": "4915f3a06ccc84767f350e8f54c04c6ad411d29398795e39d9e9c0914ff4566d"
+      },
+      {
+        "path": "models/recognition-480.vmfb",
+        "bytes": 330099,
+        "sha256": "6ababc13508264d07ba8c3965bb7d294bc8b01e7b5a9b576d92bafa1bb6322f5"
+      },
+      {
+        "path": "models/recognition-544.vmfb",
+        "bytes": 354067,
+        "sha256": "e2ae7972fb2c5144c812a467e321aa633fb481c736f0214349b194518811af26"
+      },
+      {
+        "path": "models/recognition-576.vmfb",
+        "bytes": 350291,
+        "sha256": "b00af3cb84b3e32df05117c8f7076ad315ec2d0b80c2440d24dfbb3b2dbe0a25"
+      },
+      {
+        "path": "models/recognition-608.vmfb",
+        "bytes": 354819,
+        "sha256": "da831af19083aa5a1d72adad7b299ec107d179233c1f56145ffaa42c3b432108"
+      },
+      {
+        "path": "models/recognition-704.vmfb",
+        "bytes": 362659,
+        "sha256": "c5ef383733b7f41b8977915c47026dc82bb581d132cd36d493daf5165c105b39"
+      },
+      {
+        "path": "models/recognition-736.vmfb",
+        "bytes": 362451,
+        "sha256": "30d88d8bd02f7d31e9c431acf9bca392c409e4f52c73f0f962d9df38bc1bb0cd"
+      },
+      {
+        "path": "models/recognition-832.vmfb",
+        "bytes": 362099,
+        "sha256": "3c486bf905ae5851544e430ad3d838aa18bc715af4f33489ea4a444020ca7769"
+      },
+      {
+        "path": "models/recognition-960.vmfb",
+        "bytes": 368979,
+        "sha256": "e2efabb676755bae4db687c3d7fd1e4c841213988c2af9a6e7f7fa3434a52cc6"
+      },
+      {
+        "path": "models/recognition.irpa",
+        "bytes": 17145856,
+        "sha256": "50230a7f2bdfa89464c08e3c18a7aa45bd241ee32fd0c9b6ac728861565506ba"
+      }
+    ],
+    "systemLibraries": [
+      "libc.so.6",
+      "libgcc_s.so.1",
+      "libm.so.6",
+      "libstdc++.so.6",
+      "libuuid.so.1"
+    ]
+  },
+  "npm": {
+    "package": "@arcships/light-ocr-amdnpu-linux-x64-gnu",
+    "version": "0.5.9",
+    "archive": {
+      "path": "arcships-light-ocr-amdnpu-linux-x64-gnu-0.5.9.tgz",
+      "bytes": 27869026,
+      "sha256": "2bee7052a4dbfcfea8338e1fa06e42061fc77b9d4aee21d52794f9f28cc4e8b8"
+    },
+    "unpackedBytes": 59690023,
+    "fileCount": 50,
+    "lightweightAmd": true,
+    "deviceValidated": false,
+    "numericsValidated": false,
+    "budget": {
+      "compressedBytes": 67108864,
+      "unpackedBytes": 134217728
+    }
+  },
+  "historicalVendorPackage": {
+    "compressedBytes": 548609874,
+    "unpackedBytes": 1390267314
+  },
+  "scope": {
+    "detector": "ORT CPU",
+    "recognition": "IREE CPU/NPU partitions",
+    "amdDefaultEnabled": false,
+    "includedInAuto": false,
+    "includedInBasePackage": false,
+    "modelTier": "Small 0.3.4",
+    "deviceTarget": "XDNA2 npu4; STX/KRK compatibility not device-qualified"
+  },
+  "validation": {
+    "testsRun": false,
+    "numericsValidated": false,
+    "deviceValidated": false,
+    "performanceMeasured": false,
+    "reason": "Maintainer requested complete development without validation.",
+    "performed": [
+      "source export/import",
+      "20-bucket compilation",
+      "runtime and addon builds",
+      "SDK assembly",
+      "npm packaging and size/hash inventory"
+    ]
+  }
+}
