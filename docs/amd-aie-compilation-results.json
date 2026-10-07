@@ -1,0 +1,197 @@
+{
+  "schemaVersion": "1.0",
+  "stage": "development",
+  "date": "2026-10-07",
+  "sourceModelSha256": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634",
+  "sourceLockSha256": "a58136fc60e8eb5023798c3e8d3a7014abbeb2f3107f6a727c5b8f1f0cd0bf4a",
+  "compiler": {
+    "sourceCommits": {
+      "amdAie": "fddfec1be6ceefbdb890079d957947dfa1fe0848",
+      "third_party/aie-rt": "a6196ebd905ceaf92cabc2e594017fa11b9e4323",
+      "third_party/bootgen": "92e09bf37ea17d7b1f0e102a2548f27fb768651c",
+      "third_party/iree": "26083307b8753a11870b8caf590afea15c9429fa",
+      "third_party/mlir-air": "ca2448548d66d7e8e05bacb9e81e7df48a9ef729",
+      "third_party/openssl": "0e04e101507df752500093ff4b04cce5a898abaa",
+      "iree/third_party/benchmark": "192ef10025eb2c4cdd392bc502f0c852196baa48",
+      "iree/third_party/llvm-project": "8be29edc20dfb19245ab8cf49669c80125ece4f5",
+      "iree/third_party/flatcc": "9362cd00f0007d8cbee7bff86e90fb4b6b227ff3",
+      "iree/third_party/musl": "3f701faace7addc75d16dea8a6cd769fa5b3f260"
+    },
+    "localPatches": [
+      {
+        "path": "patches/check-matmul-map-ranks.patch",
+        "sha256": "5a0a9b3efe57cc4d257b8fd9d08f59a4c158a07c71a7242d21b812314ee9fb05",
+        "reason": "Reject scalar/rank-one generic maps before matmul dimension access"
+      }
+    ],
+    "localSourceDiffSha256": "b62c2c5415db8739e8799ca8f1f28658c1e27229ad0897fafce505150d6cb6f9",
+    "binaries": [
+      {
+        "path": "tools/iree-compile",
+        "bytes": 6256,
+        "sha256": "a751017528d0e96e3331e119cfa87c9705e802a3fcc27c68b4a74f8afbe7e3f3"
+      },
+      {
+        "path": "tools/iree-opt",
+        "bytes": 6248,
+        "sha256": "5b7123611e66efbbc527c0dfb0ac225a1597193cf4bbdb69022fdc4c169366b4"
+      },
+      {
+        "path": "lib/libIREECompiler.so",
+        "bytes": 271528912,
+        "sha256": "352f1d6e4c7f3945f7fbbdf09255598cad153ec3afbac52f353241559cbc4408"
+      }
+    ]
+  },
+  "runtimeBinaries": [
+    {
+      "path": "tools/iree-run-module",
+      "bytes": 1843488,
+      "sha256": "b269f29d707f00a426f09a2fb962806b61e7c3a4edabe7da4b13d9057f8ee3f5"
+    },
+    {
+      "path": "tools/iree-dump-module",
+      "bytes": 462336,
+      "sha256": "83eb65201baa9071dd14af67e265b70b0b3239b76bcf6bb7835dd5ddb4e8d34b"
+    }
+  ],
+  "target": "npu4",
+  "deviceHAL": "amdxdna",
+  "coreRows": 2,
+  "coreCols": 2,
+  "deviceValidated": false,
+  "numericsValidated": false,
+  "fullRecognitionSupported": false,
+  "reports": {
+    "matrixTargets": {
+      "compileStage": "targets",
+      "status": "failed",
+      "kernelMode": "peano-bf16",
+      "kernelPrecision": "bf16 converted to bfp16ebs8 inside Peano matmul microkernel",
+      "results": [
+        {
+          "variant": "projection-matmul",
+          "status": "compiled",
+          "returnCode": 0,
+          "artifact": {
+            "path": "projection-matmul.mlir",
+            "bytes": 1248515,
+            "sha256": "e25ab9d86cb7e14fcf56e09f8a27bf915fe31e074526a2825650c18419c15a4d"
+          },
+          "log": {
+            "path": "projection-matmul.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "variant": "projection-matmul-padded",
+          "status": "compiled",
+          "returnCode": 0,
+          "artifact": {
+            "path": "projection-matmul-padded.mlir",
+            "bytes": 1248480,
+            "sha256": "be7d04f2b328b244ac74aa475abbb5b59e0e8059395fcd99714b8ead5a62a256"
+          },
+          "log": {
+            "path": "projection-matmul-padded.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        },
+        {
+          "variant": "projection",
+          "status": "failed",
+          "returnCode": 1,
+          "log": {
+            "path": "projection.log",
+            "bytes": 5614,
+            "sha256": "96adc90f3fe65b0a682cfdb697640621073dced26f9b590f4d88289ddc6ff593"
+          }
+        },
+        {
+          "variant": "mlp-residual",
+          "status": "failed",
+          "returnCode": 1,
+          "log": {
+            "path": "mlp-residual.log",
+            "bytes": 8236,
+            "sha256": "00db9558a947f4b6c22fbc4b5e28e1998ac0b7bfd93f4365b336c09cbb11f4f2"
+          }
+        }
+      ]
+    },
+    "matrixBinary": {
+      "compileStage": "binary",
+      "status": "compiled",
+      "kernelMode": "peano-bf16",
+      "kernelPrecision": "bf16 converted to bfp16ebs8 inside Peano matmul microkernel",
+      "results": [
+        {
+          "variant": "projection-matmul-padded",
+          "status": "compiled",
+          "returnCode": 0,
+          "artifact": {
+            "path": "projection-matmul-padded.vmfb",
+            "bytes": 612008,
+            "sha256": "c1d76da61b859a4aade426fa562eb997f32c73b40242cc359a07cf7d1f3613de"
+          },
+          "log": {
+            "path": "projection-matmul-padded.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      ]
+    },
+    "graphSources": {
+      "compileStage": "sources",
+      "status": "compiled",
+      "kernelMode": "vector",
+      "kernelPrecision": "source IR types",
+      "results": [
+        {
+          "variant": "recognition",
+          "status": "compiled",
+          "returnCode": 0,
+          "artifact": {
+            "path": "recognition.mlir",
+            "bytes": 42484239,
+            "sha256": "2bb0403b4a48ad345e4837e37515b633a9b38d044d8aaa19f75d2d58c008b5dc"
+          },
+          "log": {
+            "path": "recognition.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      ]
+    },
+    "graphTargets": {
+      "compileStage": "targets",
+      "status": "failed",
+      "kernelMode": "vector",
+      "kernelPrecision": "source IR types",
+      "results": [
+        {
+          "variant": "recognition",
+          "status": "crashed",
+          "returnCode": -11,
+          "log": {
+            "path": "recognition.log",
+            "bytes": 97,
+            "sha256": "beeae0292954fe1578e7f14762b2437daa2c88904dfa257b5362f332a124faf2"
+          },
+          "signal": 11
+        }
+      ]
+    }
+  },
+  "remainingWork": [
+    "layout and precision conversion dispatch lowering or coarse CPU/NPU partition",
+    "reduce full graph PackOp/packTranspose crash",
+    "evaluate BFP16 precision changes",
+    "share weights across widths",
+    "native backend and optional package integration"
+  ]
+}

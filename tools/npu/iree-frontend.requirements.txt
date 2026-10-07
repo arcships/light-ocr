@@ -1,0 +1,9 @@
+# Build-only frontend environment; Python 3.12 on Linux x64.
+iree-base-compiler==3.12.0
+onnx==1.21.0
+numpy==2.5.3
+ml_dtypes==0.6.0
+protobuf==7.36.2
+sympy==1.14.0
+mpmath==1.3.0
+typing_extensions==4.16.0
