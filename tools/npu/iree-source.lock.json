@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0",
+  "stage": "development",
+  "sourceModelSha256": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634",
+  "amdAie": {
+    "repository": "https://github.com/nod-ai/iree-amd-aie.git",
+    "commit": "fddfec1be6ceefbdb890079d957947dfa1fe0848",
+    "submodules": {
+      "third_party/aie-rt": "a6196ebd905ceaf92cabc2e594017fa11b9e4323",
+      "third_party/bootgen": "92e09bf37ea17d7b1f0e102a2548f27fb768651c",
+      "third_party/iree": "26083307b8753a11870b8caf590afea15c9429fa",
+      "third_party/mlir-air": "ca2448548d66d7e8e05bacb9e81e7df48a9ef729",
+      "third_party/openssl": "0e04e101507df752500093ff4b04cce5a898abaa"
+    }
+  },
+  "ireeSubmodules": {
+    "third_party/benchmark": "192ef10025eb2c4cdd392bc502f0c852196baa48",
+    "third_party/llvm-project": "8be29edc20dfb19245ab8cf49669c80125ece4f5",
+    "third_party/flatcc": "9362cd00f0007d8cbee7bff86e90fb4b6b227ff3",
+    "third_party/musl": "3f701faace7addc75d16dea8a6cd769fa5b3f260"
+  },
+  "openssl": {
+    "version": "1.1.1k",
+    "url": "https://mirror.viaduck.org/openssl/openssl-1.1.1k.tar.gz",
+    "bytes": 9823400,
+    "sha256": "892a0875b9872acd04a9fde79b1f943075d5ea162415de3047c327df33fbaee5"
+  },
+  "peano": {
+    "version": "19.0.0.2025052701+31d2aa6e",
+    "filename": "llvm_aie-19.0.0.2025052701+31d2aa6e-py3-none-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+    "url": "https://github.com/Xilinx/llvm-aie/releases/download/nightly-20240501-20260527/llvm_aie-19.0.0.2025052701%2B31d2aa6e-py3-none-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+    "bytes": 136087766,
+    "sha256": "0baa997e0c5742d7dcbafa2c86642031f446850d1c82d8f2f32ca69427b674da"
+  },
+  "upstreamConfigureDiffSha256": {
+    "third_party/aie-rt": "5ddbb02c3fcc8c832a6c50920e88498e552bf1b559e14fcc5fcb8a9784ee5e97",
+    "third_party/bootgen": "95dcde671c20411290ad1af9bd55da75c3d52d54eac2e0d996feb86298c40ea7",
+    "third_party/mlir-air": "7f79b8f80a7b890e92401b58a01d8efafc95ca43cd74bf0f77a0bdc8b4e38ff0"
+  },
+  "localPatches": [
+    {
+      "path": "patches/check-matmul-map-ranks.patch",
+      "sha256": "5a0a9b3efe57cc4d257b8fd9d08f59a4c158a07c71a7242d21b812314ee9fb05",
+      "reason": "Reject scalar/rank-one generic maps before matmul dimension access"
+    }
+  ],
+  "localSourceDiffSha256": "b62c2c5415db8739e8799ca8f1f28658c1e27229ad0897fafce505150d6cb6f9"
+}

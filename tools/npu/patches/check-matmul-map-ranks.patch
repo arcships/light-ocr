@@ -1,0 +1,44 @@
+--- a/compiler/plugins/target/AMD-AIE/iree-amd-aie/Transforms/Utils/AMDAIEUtils.cpp
++++ b/compiler/plugins/target/AMD-AIE/iree-amd-aie/Transforms/Utils/AMDAIEUtils.cpp
+@@ -238,6 +238,13 @@
+   // Step 2. Check the innermost 3 dimensions 'parallel, parallel, reduction'
+   //         map exactly to a matmul.
+   ArrayAttr maps = linalgOp.getIndexingMaps();
++  // Generic reductions can have scalar or rank-one indexing maps.
++  // Check before getAffineMapDim subtracts two from an unsigned rank.
++  if (maps.size() < 3) return false;
++  for (unsigned i = 0; i < 3; ++i) {
++    if (cast<AffineMapAttr>(maps[i]).getValue().getNumResults() < 2)
++      return false;
++  }
+   uint32_t A = 0, B = 1, C = 2;
+   bool isMatmul =
+       getAffineMapDim(maps, A, 0) == getAffineMapDim(maps, C, 0) &&  // M
+@@ -267,6 +274,13 @@
+   // Step 2. Check the innermost 3 dimensions 'parallel, parallel, reduction'
+   //         map exactly to a matmul_transpose_a.
+   ArrayAttr maps = linalgOp.getIndexingMaps();
++  // Generic reductions can have scalar or rank-one indexing maps.
++  // Check before getAffineMapDim subtracts two from an unsigned rank.
++  if (maps.size() < 3) return false;
++  for (unsigned i = 0; i < 3; ++i) {
++    if (cast<AffineMapAttr>(maps[i]).getValue().getNumResults() < 2)
++      return false;
++  }
+   uint32_t A = 0, B = 1, C = 2;
+   bool isATransposed =
+       getAffineMapDim(maps, A, 1) == getAffineMapDim(maps, C, 0) &&  // M
+@@ -296,6 +310,13 @@
+   // Step 2. Check the innermost 3 dimensions 'parallel, parallel, reduction'
+   //         map exactly to a matmul_transpose_a.
+   ArrayAttr maps = linalgOp.getIndexingMaps();
++  // Generic reductions can have scalar or rank-one indexing maps.
++  // Check before getAffineMapDim subtracts two from an unsigned rank.
++  if (maps.size() < 3) return false;
++  for (unsigned i = 0; i < 3; ++i) {
++    if (cast<AffineMapAttr>(maps[i]).getValue().getNumResults() < 2)
++      return false;
++  }
+   uint32_t A = 0, B = 1, C = 2;
+   bool isBTransposed =
+       getAffineMapDim(maps, A, 0) == getAffineMapDim(maps, C, 0) &&  // M

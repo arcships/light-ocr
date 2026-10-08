@@ -1474,7 +1474,7 @@ Result<std::unique_ptr<Engine>> internal::EngineFactory::create(
             : selected_provider == ExecutionProvider::openvino
                   ? "OpenVINO"
             : selected_provider == ExecutionProvider::amdnpu
-                  ? "VitisAIExecutionProvider"
+                  ? recognition->execution_info().actual_provider_chain.front()
             : selected_provider == ExecutionProvider::webgpu
                   ? "WebGpuExecutionProvider"
                   : "CPUExecutionProvider";

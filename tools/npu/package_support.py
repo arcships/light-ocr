@@ -41,7 +41,9 @@ Install this package explicitly alongside `@arcships/light-ocr`.
 It is excluded from the default dependency closure and contains a separate NPU addon.
 Use `execution: {{ provider: "{provider}" }}` to select it.
 Vendor drivers are required. Hardware inference has not been qualified.
-''' + ('AMD contexts are bound to Small 0.3.4; Tiny/Medium require their own compiled contexts.\n'
+''' + ('AMD recognition modules are bound to Small 0.3.4; Tiny/Medium require their own compiled modules.\n'
+       'Lightweight IREE deployments contain 20 CPU/NPU modules and one shared weight archive.\n'
+       'BF16 pointwise convolutions use BFP16ebs8 microkernels; other recognition operators and detection run on CPU.\n'
        if provider == 'amdnpu' else 'OpenVINO compiles the selected ONNX models through the installed NPU driver.\n'))
     release.artifact_hashes(output, name, release.CORE_VERSION)
     print(name)

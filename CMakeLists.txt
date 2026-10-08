@@ -39,7 +39,7 @@ set(LIGHT_OCR_OPENVINO_SDK_DIR "" CACHE PATH
 set(LIGHT_OCR_OPENVINO_C_LIBRARY "" CACHE FILEPATH
   "OpenVINO C runtime loaded by direct C++ callers; defaults to <SDK>/lib/libopenvino_c.so")
 set(LIGHT_OCR_AMDNPU_SDK_DIR "" CACHE PATH
-  "Verified Ryzen AI runtime SDK with precompiled BF16 recognition buckets (Linux x64 glibc)")
+  "Verified AMD runtime deployment with precompiled recognition buckets (Linux x64 glibc)")
 
 if(LIGHT_OCR_ENABLE_SANITIZERS AND LIGHT_OCR_ENABLE_THREAD_SANITIZER)
   message(FATAL_ERROR "Address/Undefined sanitizers and ThreadSanitizer require separate builds")

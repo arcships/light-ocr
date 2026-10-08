@@ -21,14 +21,21 @@ Release preparation; npm publication and GitHub Release are pending.
   pinned OpenVINO 2026.4.0 libraries; default platform packages do not. See
   [Intel NPU 加速技术方案](docs/intel-npu-acceleration.md).
 - Added a separately installed AMD NPU backend (`provider: "amdnpu"`) for Linux x64
-  glibc and Ryzen AI STX/KRK devices. It isolates the vendor ORT runtime,
-  loads 20 immutable BF16 recognition contexts, and runs detection on CPU.
+  glibc and Ryzen AI STX/KRK devices. The default deployment now uses a small
+  IREE C ABI runtime, 20 CPU/NPU recognition modules and one shared weight archive.
+  It offloads 19 dense pointwise convolutions, splits wide matrices to fit DMA
+  limits, keeps other recognition operators on IREE CPU, and runs detection on ORT CPU.
   Added model compilation and SDK import tools, descriptor validation,
   license/SBOM staging, and candidate/release workflows. AMD is excluded
   from Auto and enabled only through `execution.provider: "amdnpu"` (or
   `--provider amdnpu`). NPU device reports are optional for release;
-  `deviceValidated` remains false. The optional AMD support package includes Ryzen AI 1.8
-  deployment libraries and real compiled contexts bound to Small 0.3.4.
+  `deviceValidated` remains false. BF16 operands use BFP16ebs8 microkernels;
+  numerical parity and hardware execution remain unverified. Deployment artifacts
+  are bound to Small 0.3.4, with no vendor SDK, compiler, Python or XRT in the AMD payload.
+  Legacy vendor deployments retain their separate ORT API/namespace path.
+  Added hardware-free package/C ABI regression checks and sampled CPU transform
+  comparisons; fixed null deployment JSON leaking an unclassified TypeError.
+  These checks do not qualify the AMD BFP16ebs8 kernel or device execution.
   Neither support package is automatically installed or selected by Auto.
   The existing Small model bundle remains unchanged. See [AMD NPU 加速技术方案](docs/amd-npu-acceleration.md)
   and [NPU SDK 构建与发布](docs/npu-runtime-release.md).

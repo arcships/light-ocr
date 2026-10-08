@@ -4,8 +4,8 @@
 
 namespace light_ocr::internal {
 
-// Ryzen AI owns a separate ORT C API table. No Ort:: wrapper or global ORT
-// API pointer may be used for objects allocated by this runtime.
+// Lightweight deployments use the versioned IREE C ABI. Legacy Ryzen AI
+// deployments retain their separate ORT C API table and namespace.
 class AmdNpuSession final : public InferenceSession {
  public:
   ~AmdNpuSession() noexcept override;

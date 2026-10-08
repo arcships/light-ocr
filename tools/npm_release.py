@@ -429,7 +429,9 @@ def validate_runtime_descriptor(
             provider_id not in provider_names
             or not isinstance(provider, dict)
             or set(provider) != expected_fields
-            or provider.get("runtimeProvider") != provider_names[provider_id]
+            or provider.get("runtimeProvider") not in (
+                {"VitisAIExecutionProvider", "IREEAMDAIE"} if provider_id == "amdnpu"
+                else {provider_names[provider_id]})
             or not isinstance(provider.get("qualificationId"), str)
             or not provider["qualificationId"]
             or not isinstance(provider.get("artifacts"), list)
