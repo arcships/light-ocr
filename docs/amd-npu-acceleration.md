@@ -1,6 +1,6 @@
 # AMD NPU 加速技术方案
 
-更新时间：2026-10-07。完整 CPU/NPU 分区后端、20 个识别宽度桶、共享权重和独立支持包构建已实现。AMD 默认关闭，用户通过配置显式开启；未运行测试、数值比较或 AMD 设备推理。
+更新时间：2026-10-08。完整 CPU/NPU 分区后端、20 个识别宽度桶、共享权重和独立支持包构建已实现。AMD 默认关闭，用户通过配置显式开启；无设备软件测试和 CPU 抽样比较已完成，AMD 设备推理仍未验证。
 
 ## 使用方式
 
@@ -28,7 +28,7 @@ AMD 不参与 Auto，支持包不会自动安装。系统需可读写的 STX/KRK
 
 矩阵 M/N/K 按 128 补齐并裁切；单次 dispatch 最多 3840 行，较宽桶分段执行，规避固定编译器的宽矩阵 shim DMA 维度 lowering 越界。
 BF16 操作数在 Peano 微内核内转换为 BFP16ebs8，FP32 累加；精度诊断为 `bf16-bfp16ebs8`。
-这是完整识别分区图，没有纯 NPU、数值正确或性能提升的实测结论。
+这是完整识别分区图。CPU 转换抽样结果见 [软件验证记录](amd-aie-software-validation-results.json)；尚无 AMD 内核数值与性能结论。
 `precision` 请求仍只接受 `auto`；`cpuPartition=forbid` 会拒绝此路线。
 
 ## 独立包内容
@@ -44,11 +44,11 @@ BF16 操作数在 Peano 微内核内转换为 BFP16ebs8，FP32 累加；精度�
 ## 原生行为与诊断
 
 库、配置、共享权重和桶模型均按字节数/SHA256 校验；哈希错误直接报告，不能静默回退。
-没有可访问 NPU 时返回 `adapter_unavailable`。后续桶按需加载；推理和创建错误保持原有错误/回退策略。
+没有可访问 NPU 时，选择原因是 `adapter_unavailable`，公开 API 返回 `unsupported_capability`，不会静默回退。后续桶按需加载。当前 `sessionFallback="cpu"` 不受支持；使用 Auto 或显式 CPU 可走 CPU 路线。
 
 内部配置为 `target=IREEAMDAIE`、`runtimeAbi=1`；实际识别 provider 链为 `IREEAMDAIE → IREECPU`，检测为 `CPUExecutionProvider`。
 会话关闭先释放模型 context，再释放参数模块与设备；动态库保持映射。
-`deviceValidated=false`，且没有数值验证。按维护者决定，验证不阻塞此次开发交付与显式启用支持的发布准备。
+`deviceValidated=false`，AMD 数值与性能未验证。40 项无设备软件测试通过；三个代表宽桶及文字样本的 CPU 转换比较通过，BF16 CPU 模拟不能代替 BFP16ebs8 内核验证。详见 [结果](amd-aie-software-validation-results.json) 与 [运行命令](amd-aie-development.md#无设备软件检查)。
 
 ## 构建与兼容
 

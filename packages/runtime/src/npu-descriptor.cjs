@@ -89,7 +89,8 @@ function validateNpuProviders(descriptor, root, { exactKeys, verifyArtifact, sam
         let compiler;
         try { compiler = JSON.parse(fs.readFileSync(configPath, 'utf8')); }
         catch { fail('Invalid AMD AIE deployment configuration'); }
-        if (compiler.target !== 'IREEAMDAIE' || compiler.runtimeAbi !== 1 ||
+        if (!compiler || typeof compiler !== 'object' || Array.isArray(compiler) ||
+            compiler.target !== 'IREEAMDAIE' || compiler.runtimeAbi !== 1 ||
             compiler.device !== 'npu4' || compiler.sourceModelSha256 !== configuration.sourceModelSha256 ||
             compiler.parameterScope !== 'recognition' || compiler.precision !== 'bf16-bfp16ebs8' ||
             compiler.cpuPartitionRequired !== true || typeof compiler.runtimeVersion !== 'string' ||

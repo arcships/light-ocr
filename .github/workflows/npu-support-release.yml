@@ -81,6 +81,15 @@ jobs:
           npm pack ./dist/package --ignore-scripts --json --pack-destination dist/tarballs > dist/tarballs/pack-manifest.json
           python tools/npu/record_support_pack.py --package-dir dist/package \
             --pack-manifest dist/tarballs/pack-manifest.json --output-file dist/tarballs/support-size-report.json
+      - name: Test AMD package without NPU hardware
+        if: matrix.provider == 'amdnpu'
+        env:
+          LIGHT_OCR_AMD_TEST_PACKAGE: ${{ github.workspace }}/dist/package
+          LIGHT_OCR_AMD_TEST_BUNDLE: ${{ github.workspace }}/models/generated/ppocrv6-small-onnx-20260714.2
+          LIGHT_OCR_AMD_TEST_ARCHIVE: ${{ github.workspace }}/dist/tarballs/arcships-light-ocr-amdnpu-linux-x64-gnu-${{ inputs.version }}.tgz
+        run: |
+          node --test packages/runtime/test/*.test.cjs
+          python -m unittest tests.python.test_amdaie_runtime
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: npu-support-${{ matrix.provider }}-${{ inputs.version }}

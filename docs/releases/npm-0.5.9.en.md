@@ -36,11 +36,11 @@ NPU implementation: [PR #67](https://github.com/arcships/light-ocr/pull/67), mer
 
 ## Lightweight AMD preparation
 
-[PR #71](https://github.com/arcships/light-ocr/pull/71) implements the complete IREE CPU/NPU recognition backend, all 20 buckets and shared weights. Nineteen dense pointwise convolution matrix cores run on the NPU; other recognition operators and detection remain on CPU. BF16 operands use BFP16ebs8 microkernels, without numerical or performance evidence.
+[PR #71](https://github.com/arcships/light-ocr/pull/71) implements the complete IREE CPU/NPU recognition backend, all 20 buckets and shared weights. Nineteen dense pointwise convolution matrix cores run on the NPU; other recognition operators and detection remain on CPU. BF16 operands use BFP16ebs8 microkernels, without AMD kernel numerical or performance evidence.
 
 `npu-support-release.yml` builds pinned sources through `build_amdaie.py`. The optional package contains a small C ABI library, 20 VMFBs and one shared IRPA, with licenses, SBOM and hashes. Compiler tools, Peano, original ONNX, the vendor SDK, Python and XRT are excluded. AMD remains explicitly installed and selected, outside Auto.
 
-The actual npm archive has a 64 MiB download / 128 MiB unpacked budget. CI records `support-size-report.json`; local bytes and SHA256 are in [the deployment report](../amd-aie-deployment-results.json). Version 0.5.9 remains unreleased. Only builds and packaging were performed; tests, numerical comparisons and hardware acceptance were omitted at the maintainer's request.
+The actual npm archive has a 64 MiB download / 128 MiB unpacked budget. CI records `support-size-report.json`; local bytes and SHA256 are in [the deployment report](../amd-aie-deployment-results.json). Version 0.5.9 remains unreleased. The October 8 follow-up passed 40 software checks without NPU hardware and compared CPU transforms for three representative widths plus a text fixture. See [the software report](../amd-aie-software-validation-results.json). AMD kernel correctness, device compatibility and performance remain unqualified.
 
 
 Local lightweight candidate, including the addon, base dependencies, 20 buckets and shared weights:

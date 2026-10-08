@@ -1,0 +1,287 @@
+{
+  "schemaVersion": "1.0",
+  "date": "2026-10-08",
+  "status": "software-checks-passed-npu-unqualified",
+  "sourceModelSha256": "5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634",
+  "sourceLockSha256": "a58136fc60e8eb5023798c3e8d3a7014abbeb2f3107f6a727c5b8f1f0cd0bf4a",
+  "npm": {
+    "package": "@arcships/light-ocr-amdnpu-linux-x64-gnu",
+    "version": "0.5.9",
+    "archive": {
+      "path": "arcships-light-ocr-amdnpu-linux-x64-gnu-0.5.9.tgz",
+      "bytes": 27869026,
+      "sha256": "2bee7052a4dbfcfea8338e1fa06e42061fc77b9d4aee21d52794f9f28cc4e8b8"
+    },
+    "unpackedBytes": 59690023,
+    "fileCount": 50,
+    "lightweightAmd": true,
+    "deviceValidated": false,
+    "numericsValidated": false,
+    "budget": {
+      "compressedBytes": 67108864,
+      "unpackedBytes": 134217728
+    }
+  },
+  "softwareTests": {
+    "runtimeUnitAndIntegration": {
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0
+    },
+    "runtimeCAbi": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0
+    },
+    "releaseAndWorkflowTests": {
+      "passed": 17,
+      "failed": 0
+    },
+    "totalPassed": 40,
+    "coverage": [
+      "20-bucket configuration",
+      "shared weight inventory and hashes",
+      "corrupt/missing artifacts",
+      "malformed deployment JSON",
+      "offline npm installation",
+      "production addon resolution",
+      "missing AMD NPU error",
+      "Auto selects CPU",
+      "CPU blank-image OCR",
+      "CPU partition forbid",
+      "unsupported CPU session fallback rejected",
+      "C ABI version/null arguments/error truncation/repeated no-device cleanup"
+    ]
+  },
+  "cpuComparison": {
+    "widths": [
+      320,
+      384,
+      3200
+    ],
+    "uniqueCases": 10,
+    "fp32Passed": true,
+    "fp32Tolerance": {
+      "rtol": 0.001,
+      "atol": 0.0001
+    },
+    "cases": [
+      {
+        "width": 320,
+        "case": "zero",
+        "fp32": {
+          "maxAbsoluteError": 5.960464477539062e-07,
+          "meanAbsoluteError": 3.823016556103731e-12,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "bf16CpuEmulation": {
+          "maxAbsoluteError": 5.960464477539062e-07,
+          "meanAbsoluteError": 4.307446760387634e-12,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "fp32WithinTolerance": true,
+        "referenceCtcClassIds": []
+      },
+      {
+        "width": 320,
+        "case": "random",
+        "fp32": {
+          "maxAbsoluteError": 0.00029271841049194336,
+          "meanAbsoluteError": 3.6059339958427472e-09,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "bf16CpuEmulation": {
+          "maxAbsoluteError": 0.026643872261047363,
+          "meanAbsoluteError": 1.4035597359907115e-06,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "fp32WithinTolerance": true,
+        "referenceCtcClassIds": []
+      },
+      {
+        "width": 320,
+        "case": "gradient",
+        "fp32": {
+          "maxAbsoluteError": 0.0002880692481994629,
+          "meanAbsoluteError": 4.8882133896199775e-09,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "bf16CpuEmulation": {
+          "maxAbsoluteError": 0.0052182674407958984,
+          "meanAbsoluteError": 3.335440510454646e-07,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "fp32WithinTolerance": true,
+        "referenceCtcClassIds": []
+      },
+      {
+        "width": 384,
+        "case": "zero",
+        "fp32": {
+          "maxAbsoluteError": 5.960464477539062e-07,
+          "meanAbsoluteError": 3.05321263063818e-12,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "bf16CpuEmulation": {
+          "maxAbsoluteError": 5.960464477539062e-07,
+          "meanAbsoluteError": 3.5757265204328093e-12,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "fp32WithinTolerance": true,
+        "referenceCtcClassIds": []
+      },
+      {
+        "width": 384,
+        "case": "random",
+        "fp32": {
+          "maxAbsoluteError": 9.077787399291992e-05,
+          "meanAbsoluteError": 3.4979239504906445e-09,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "bf16CpuEmulation": {
+          "maxAbsoluteError": 0.018251627683639526,
+          "meanAbsoluteError": 1.7710544852889143e-06,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "fp32WithinTolerance": true,
+        "referenceCtcClassIds": []
+      },
+      {
+        "width": 384,
+        "case": "gradient",
+        "fp32": {
+          "maxAbsoluteError": 0.0003910660743713379,
+          "meanAbsoluteError": 6.79352352150886e-09,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "bf16CpuEmulation": {
+          "maxAbsoluteError": 0.005341827869415283,
+          "meanAbsoluteError": 2.1960502749607258e-07,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "fp32WithinTolerance": true,
+        "referenceCtcClassIds": []
+      },
+      {
+        "width": 3200,
+        "case": "zero",
+        "fp32": {
+          "maxAbsoluteError": 7.987022399902344e-06,
+          "meanAbsoluteError": 1.1363214189041848e-11,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "bf16CpuEmulation": {
+          "maxAbsoluteError": 5.3048133850097656e-05,
+          "meanAbsoluteError": 3.410989199426062e-11,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "fp32WithinTolerance": true,
+        "referenceCtcClassIds": []
+      },
+      {
+        "width": 3200,
+        "case": "random",
+        "fp32": {
+          "maxAbsoluteError": 0.0005788207054138184,
+          "meanAbsoluteError": 2.732191184406929e-08,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "bf16CpuEmulation": {
+          "maxAbsoluteError": 0.03741657733917236,
+          "meanAbsoluteError": 1.5979701402102364e-06,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "fp32WithinTolerance": true,
+        "referenceCtcClassIds": []
+      },
+      {
+        "width": 3200,
+        "case": "gradient",
+        "fp32": {
+          "maxAbsoluteError": 0.00017505884170532227,
+          "meanAbsoluteError": 3.630233669227323e-09,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "bf16CpuEmulation": {
+          "maxAbsoluteError": 0.0013424158096313477,
+          "meanAbsoluteError": 1.5656084428883332e-08,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "fp32WithinTolerance": true,
+        "referenceCtcClassIds": []
+      },
+      {
+        "width": 320,
+        "case": "text",
+        "referenceCtcClassIds": [
+          50,
+          47,
+          54,
+          54,
+          57,
+          18709,
+          34,
+          35,
+          36
+        ],
+        "fp32": {
+          "maxAbsoluteError": 5.424022674560547e-06,
+          "meanAbsoluteError": 2.7728121881898105e-11,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "bf16CpuEmulation": {
+          "maxAbsoluteError": 0.005755722522735596,
+          "meanAbsoluteError": 2.604011939411066e-08,
+          "argmaxAgreement": 1.0,
+          "ctcClassSequenceMatches": true
+        },
+        "fp32WithinTolerance": true
+      }
+    ],
+    "allFp32AndBf16CpuCtcMatch": true,
+    "maximumFp32AbsoluteError": 0.0005788207054138184,
+    "maximumBf16CpuAbsoluteError": 0.03741657733917236,
+    "referenceRuntime": "ONNX Runtime CPU 1.27.0; packaged CPU addon uses 1.22.0",
+    "textFixture": {
+      "path": "docs/assets/benchmark-generated-hello-123.png",
+      "sha256": "3fc41659014523aea79a480143b6f76ae1951d27eee4192c7511ad84d3c5b8fc",
+      "preprocessing": "foreground crop, BGR OpenCV linear resize to height 48, aspect preserved, FP32 NCHW /127.5-1, zero padding",
+      "referenceText": "HELLO 123"
+    },
+    "limitations": [
+      "Only three representative widths, not all 20 widths numerically tested.",
+      "Synthetic inputs decode to empty text; the single text fixture does not establish OCR dataset accuracy.",
+      "CPU BF16 matmul does not emulate the AMD BFP16ebs8 kernel, DMA or device scheduling."
+    ]
+  },
+  "regressionFix": "Null or array deployment JSON is rejected with package_load_failed instead of a raw TypeError.",
+  "ci": "npu-support-release.yml now runs software/package and C ABI checks for AMD builds; CPU numerical comparison remains an explicit host-tool command.",
+  "validation": {
+    "softwareValidated": true,
+    "cpuTransformationSampled": true,
+    "amdMicrokernelExecuted": false,
+    "deviceValidated": false,
+    "numericsValidated": false,
+    "performanceMeasured": false
+  },
+  "scriptSha256": "5a704f263d727d114af4ba6addeac1c11e4eb037105c2459528965d9f7de5d7d"
+}

@@ -566,5 +566,6 @@
       "SDK assembly",
       "npm packaging and size/hash inventory"
     ]
-  }
+  },
+  "subsequentSoftwareValidation": "amd-aie-software-validation-results.json"
 }

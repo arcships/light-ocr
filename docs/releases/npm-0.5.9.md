@@ -40,7 +40,7 @@
 
 ## 轻量 AMD 构建与发布准备
 
-[PR #71](https://github.com/arcships/light-ocr/pull/71) 接入完整 IREE CPU/NPU 分区后端：19 个较大 pointwise 卷积矩阵核心由 NPU 执行，其余识别算子和检测保留 CPU。BF16 操作数使用 BFP16ebs8 微内核，没有数值和性能实测结论。
+[PR #71](https://github.com/arcships/light-ocr/pull/71) 接入完整 IREE CPU/NPU 分区后端：19 个较大 pointwise 卷积矩阵核心由 NPU 执行，其余识别算子和检测保留 CPU。BF16 操作数使用 BFP16ebs8 微内核，尚无 AMD 内核数值和性能实测结论。
 
 `npu-support-release.yml` 使用 `build_amdaie.py` 从固定源码生成小型 C ABI 库、20 个 VMFB 和一份共享 IRPA；编译器、Peano、原始 ONNX、完整 vendor SDK、Python 与 XRT 均不进入支持包。运行时库、配置、权重及全部桶模型继续校验字节数和 SHA256。
 
@@ -55,7 +55,7 @@
 
 npm SHA256：`2bee7052a4dbfcfea8338e1fa06e42061fc77b9d4aee21d52794f9f28cc4e8b8`。相比历史 vendor 包，下载体积减少约 94.9%。运行库 1,255,312 bytes，单份共享权重 17,145,856 bytes，全部 20 个 VMFB 合计 7,590,556 bytes。该包为本地候选，正式工作流会重新记录其制品身份。
 
-当前版本仍为补丁发布 `0.5.9`。本轮仅完成代码、构建和封装，没有 npm 发布或公开 Release；按维护者要求未运行测试、数值比较或真机验收。AMD 继续单独安装、显式启用、排除在 Auto 之外。
+当前版本仍为补丁发布 `0.5.9`。已经完成代码、构建、封装及 40 项无设备软件测试，另有三个代表宽桶和文字样本的 CPU 转换比较；详见 [软件验证记录](../amd-aie-software-validation-results.json)。没有 npm 发布、公开 Release 或 AMD 真机验收。AMD 继续单独安装、显式启用、排除在 Auto 之外。
 
 ## 当前证据与废弃候选
 

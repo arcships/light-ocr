@@ -59,7 +59,43 @@ npm pack ./dist/amdaie-package --ignore-scripts --pack-destination dist
 
 AMD 不自动安装、不参与 Auto。显式配置 `execution.provider="amdnpu"` 后才加载；`cpuPartition=forbid` 拒绝分区模型。
 `npu-support-release.yml` 和 `npu-native.yml` 默认使用轻量源码构建入口，保留 Intel 路线。
-按维护者要求，本轮只执行生成部署产物所需的构建与编译，没有运行测试、数值比较或设备推理。
+初次开发仅执行构建与封装。2026-10-08 补充了下述无设备软件检查；未执行 AMD 设备推理。
+
+## 无设备软件检查
+
+2026-10-08 本地通过 40 项检查：运行时/配置/真实包集成 19 项、C ABI 4 项、发布工具与 workflow 合约 17 项。修复了部署 JSON 为 `null` 时泄漏普通 TypeError 的问题。
+
+真实 tarball 离线安装、正式包解析与 addon 加载通过。没有设备时显式 AMD 返回 `unsupported_capability`；Auto 选择 CPU 并完成空白图 OCR。当前 `sessionFallback="cpu"` 被明确拒绝，不宣称自动回退。
+
+```sh
+export LIGHT_OCR_AMD_TEST_PACKAGE="$PWD/.cache/amd-aie/support-package"
+export LIGHT_OCR_AMD_TEST_BUNDLE="$PWD/models/generated/ppocrv6-small-onnx-20260714.2"
+export LIGHT_OCR_AMD_TEST_ARCHIVE="$PWD/.cache/amd-aie/tarballs/arcships-light-ocr-amdnpu-linux-x64-gnu-0.5.9.tgz"
+node --test packages/runtime/test/*.test.cjs
+python -m unittest tests.python.test_amdaie_runtime
+python -m unittest tests.python.test_npm_release tests.python.test_ci_workflow_contracts
+```
+
+支持包 workflow 已加入运行时/真实包及 C ABI 检查；未设置这些环境变量时，依赖本地产物的集成检查跳过。
+
+CPU 比较脚本使用独立前端与参考 Python 环境。默认比较 320/384/3200 三个宽桶的零值、固定种子随机值和渐变输入；可选文字 fixture 需要参考环境安装 OpenCV：
+
+```sh
+python tools/npu/check_cpu_recognition.py \
+  --source-model models/generated/ppocrv6-small-onnx-20260714.2/rec/inference.onnx \
+  --frontend-environment .cache/amd-aie/host-compiler-venv \
+  --reference-python .cache/ryzen-ai/venv/bin/python \
+  --toolchain-dir .cache/amd-aie/toolchain-build \
+  --runtime-tool .cache/amd-aie/runtime-build/tools/iree-run-module \
+  --output-dir .cache/amd-aie/cpu-comparison-new \
+  --text-image docs/assets/benchmark-generated-hello-123.png
+```
+
+上述 IREE CLI 是开发工具，可通过 `build_iree.py --runtime-only` 构建到单独目录，不进入 npm 包。
+
+本地 9 组合成输入加一个 320 桶文字裁剪样本通过 FP32 `rtol=1e-3, atol=1e-4` 比较，最大绝对误差约 `5.79e-4`；混合相对/绝对容差并非最大绝对误差上限。BF16 CPU 模拟最大绝对误差约 `0.0374`，这些样本的 CTC 序列均与参考一致，文字样本为 `HELLO 123`。合成输入均解码为空文本，不能据此给出数据集准确率结论。
+
+该流程在 CPU 上运行 BF16 操作数矩阵乘，未模拟 AMD 的 BFP16ebs8 内核、DMA 或设备同步；也未数值检查全部 20 桶。AMD `numericsValidated=false`、`deviceValidated=false` 保持不变。[完整结果记录](amd-aie-software-validation-results.json)。
 
 ## 早期编译调查（历史记录）
 

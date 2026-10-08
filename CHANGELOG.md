@@ -33,6 +33,9 @@ Release preparation; npm publication and GitHub Release are pending.
   numerical parity and hardware execution remain unverified. Deployment artifacts
   are bound to Small 0.3.4, with no vendor SDK, compiler, Python or XRT in the AMD payload.
   Legacy vendor deployments retain their separate ORT API/namespace path.
+  Added hardware-free package/C ABI regression checks and sampled CPU transform
+  comparisons; fixed null deployment JSON leaking an unclassified TypeError.
+  These checks do not qualify the AMD BFP16ebs8 kernel or device execution.
   Neither support package is automatically installed or selected by Auto.
   The existing Small model bundle remains unchanged. See [AMD NPU 加速技术方案](docs/amd-npu-acceleration.md)
   and [NPU SDK 构建与发布](docs/npu-runtime-release.md).
